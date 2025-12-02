@@ -37,5 +37,3 @@ export function getAuthInstance(): Auth {
     return _auth;
 }
 
-// Alias exports for backwards compatibility naming
-export { getDbInstance as db, getAuthInstance as auth };
