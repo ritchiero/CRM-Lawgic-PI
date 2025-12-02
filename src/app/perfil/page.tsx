@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateUserProfile } from '@/services/authService';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { ArrowLeftIcon, UserCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { Avatar, AvatarColorPicker, getAvatarColor } from '@/components/Avatar';
 
 export default function ProfilePage() {
     return (
@@ -19,12 +20,14 @@ function ProfileContent() {
     const { userData, user } = useAuth();
     const router = useRouter();
     const [displayName, setDisplayName] = useState('');
+    const [avatarColor, setAvatarColor] = useState<string>('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     useEffect(() => {
         if (userData) {
             setDisplayName(userData.displayName || '');
+            setAvatarColor(userData.avatarColor || '');
         }
     }, [userData]);
 
@@ -37,7 +40,8 @@ function ProfileContent() {
             if (!user) throw new Error('No user found');
 
             await updateUserProfile(user.uid, {
-                displayName
+                displayName,
+                avatarColor: avatarColor || undefined
             });
 
             setMessage({ type: 'success', text: 'Perfil actualizado correctamente' });
@@ -99,20 +103,12 @@ function ProfileContent() {
                     padding: '2rem'
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
-                        <div style={{
-                            width: '6rem',
-                            height: '6rem',
-                            borderRadius: '50%',
-                            backgroundColor: 'var(--primary)',
-                            color: 'white',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '2.5rem',
-                            fontWeight: '600'
-                        }}>
-                            {displayName ? displayName.charAt(0).toUpperCase() : '?'}
-                        </div>
+                        <Avatar
+                            name={displayName}
+                            avatarColor={avatarColor}
+                            userId={user?.uid}
+                            size="xl"
+                        />
                     </div>
 
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -139,6 +135,18 @@ function ProfileContent() {
                             <p style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginTop: '0.25rem' }}>
                                 Este nombre aparecerá en los prospectos que crees y muevas.
                             </p>
+                        </div>
+
+                        <div style={{ 
+                            padding: '1rem', 
+                            backgroundColor: 'var(--background)', 
+                            borderRadius: '0.75rem',
+                            border: '1px solid var(--border)'
+                        }}>
+                            <AvatarColorPicker
+                                selectedColor={avatarColor}
+                                onColorSelect={setAvatarColor}
+                            />
                         </div>
 
                         <div>

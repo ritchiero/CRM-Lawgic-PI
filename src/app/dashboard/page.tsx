@@ -5,6 +5,7 @@ import { signOut } from "@/lib/firebase/auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
+import { Avatar } from "@/components/Avatar";
 
 export default function DashboardPage() {
     const { user, userProfile, loading } = useAuth();
@@ -73,20 +74,12 @@ export default function DashboardPage() {
                         alignItems: 'center',
                         gap: '0.75rem'
                     }}>
-                        <div style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '50%',
-                            backgroundColor: 'var(--primary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontSize: '0.875rem',
-                            fontWeight: '600'
-                        }}>
-                            {userProfile?.displayName?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
-                        </div>
+                        <Avatar
+                            name={userProfile?.displayName || user.email || ''}
+                            avatarColor={userProfile?.avatarColor}
+                            userId={user.uid}
+                            size="lg"
+                        />
                         <div style={{ textAlign: 'left' }}>
                             <div style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--foreground)' }}>
                                 {userProfile?.displayName || user.email}

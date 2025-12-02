@@ -19,6 +19,7 @@ export interface UserProfile {
     role: UserRole;
     createdAt: any; // Firestore Timestamp
     lastLogin: any; // Firestore Timestamp
+    avatarColor?: string;
 }
 
 // Sign Up Function

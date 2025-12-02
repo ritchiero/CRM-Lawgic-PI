@@ -26,7 +26,8 @@ import {
 } from '@/services/prospectService';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAllUsers } from '@/services/authService';
+import { getAllUsers, UserData } from '@/services/authService';
+import { Avatar, getAvatarColor } from '@/components/Avatar';
 
 export default function SeguimientoPage() {
     return (
@@ -41,7 +42,7 @@ function SeguimientoContent() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
     const [loading, setLoading] = useState(true);
-    const [userMap, setUserMap] = useState<Record<string, string>>({});
+    const [userMap, setUserMap] = useState<Record<string, { displayName: string; avatarColor?: string }>>({});
     const { userData, logout } = useAuth();
     
     // Zoom state with localStorage persistence
@@ -63,13 +64,16 @@ function SeguimientoContent() {
         return () => unsubscribe();
     }, []);
 
-    // Fetch all users to map UIDs to names
+    // Fetch all users to map UIDs to names and avatar colors
     useEffect(() => {
         const fetchUsers = async () => {
             const users = await getAllUsers();
-            const map: Record<string, string> = {};
+            const map: Record<string, { displayName: string; avatarColor?: string }> = {};
             users.forEach(user => {
-                map[user.uid] = user.displayName;
+                map[user.uid] = {
+                    displayName: user.displayName,
+                    avatarColor: user.avatarColor
+                };
             });
             setUserMap(map);
         };
@@ -355,20 +359,12 @@ function SeguimientoContent() {
                             }}
                             title="Configurar Perfil"
                         >
-                            <div style={{
-                                width: '1.5rem',
-                                height: '1.5rem',
-                                borderRadius: '50%',
-                                backgroundColor: 'var(--primary)',
-                                color: 'white',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '0.75rem',
-                                fontWeight: '600'
-                            }}>
-                                {userData.displayName ? userData.displayName.charAt(0).toUpperCase() : '?'}
-                            </div>
+                            <Avatar
+                                name={userData.displayName}
+                                avatarColor={userData.avatarColor}
+                                userId={userData.uid}
+                                size="sm"
+                            />
                             <div>
                                 <div style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--foreground)' }}>
                                     {userData.displayName || 'Usuario'}

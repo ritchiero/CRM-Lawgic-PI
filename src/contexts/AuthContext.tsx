@@ -10,6 +10,7 @@ export interface UserData {
     displayName: string;
     role: 'admin' | 'user';
     active: boolean;
+    avatarColor?: string;
 }
 
 interface AuthContextType {

@@ -282,7 +282,9 @@ export default function TestAgingPage() {
 
 function TestAgingContent() {
     const [testProspects] = useState<Prospect[]>(createTestProspects());
-    const [userMap] = useState<Record<string, string>>({ 'test-user': 'Usuario Prueba' });
+    const [userMap] = useState<Record<string, { displayName: string; avatarColor?: string }>>({ 
+        'test-user': { displayName: 'Usuario Prueba', avatarColor: 'blue' }
+    });
     
     return (
         <div style={{

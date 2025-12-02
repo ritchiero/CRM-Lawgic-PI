@@ -19,6 +19,7 @@ export interface UserData {
     active: boolean;
     createdAt: Date;
     lastLogin?: Date;
+    avatarColor?: string;
 }
 
 // Sign in with Google
@@ -184,7 +185,8 @@ export const getUserData = async (uid: string): Promise<UserData | null> => {
             role: data.role,
             active: data.active,
             createdAt: data.createdAt?.toDate() || new Date(),
-            lastLogin: data.lastLogin?.toDate()
+            lastLogin: data.lastLogin?.toDate(),
+            avatarColor: data.avatarColor
         };
     } catch (error) {
         console.error('Error fetching user data:', error);

@@ -20,6 +20,7 @@ import {
     ChevronUpIcon,
     ArrowPathIcon
 } from '@heroicons/react/24/outline';
+import { Avatar, getAvatarColor } from '@/components/Avatar';
 
 export interface Prospect {
     id: string;
@@ -80,7 +81,7 @@ export function Column({
     onDragOver?: (e: React.DragEvent) => void;
     onDragStart?: (e: React.DragEvent, prospectId: string) => void;
     onProspectClick?: (prospect: Prospect) => void;
-    userMap?: Record<string, string>;
+    userMap?: Record<string, { displayName: string; avatarColor?: string }>;
     zoomLevel?: number;
 }) {
     // Function to get icon color based on column title
@@ -198,16 +199,17 @@ export function ProspectCard({
     prospect: Prospect;
     onDragStart?: (e: React.DragEvent) => void;
     onClick?: () => void;
-    userMap?: Record<string, string>;
+    userMap?: Record<string, { displayName: string; avatarColor?: string }>;
     zoomLevel?: number;
 }) {
     const COMPACT_VIEW_THRESHOLD = 0.9;
     const isCompactView = zoomLevel < COMPACT_VIEW_THRESHOLD;
     
-    // Get creator display name
-    const creatorName = userMap[prospect.createdBy] || prospect.createdBy;
+    // Get creator info
+    const creatorInfo = userMap[prospect.createdBy];
+    const creatorName = creatorInfo?.displayName || prospect.createdBy;
+    const creatorAvatarColor = creatorInfo?.avatarColor;
     const isAnonymous = prospect.createdBy === 'anonymous';
-    const displayName = isAnonymous ? '?' : (userMap[prospect.createdBy] ? userMap[prospect.createdBy].charAt(0).toUpperCase() : prospect.createdBy.charAt(0).toUpperCase());
     
     // Calculate padding based on view mode
     const paddingVertical = isCompactView ? 0.5 : 0.75;
@@ -289,7 +291,9 @@ export function ProspectCard({
                         width: `${1.75 * zoomLevel}rem`,
                         height: `${1.75 * zoomLevel}rem`,
                         borderRadius: '50%',
-                        backgroundColor: 'var(--primary)',
+                        backgroundColor: isAnonymous 
+                            ? 'var(--secondary)' 
+                            : getAvatarColor(creatorAvatarColor, prospect.createdBy),
                         color: 'white',
                         display: 'flex',
                         alignItems: 'center',
@@ -300,7 +304,7 @@ export function ProspectCard({
                         marginLeft: `${0.5 * zoomLevel}rem`
                     }}
                 >
-                    {displayName}
+                    {isAnonymous ? '?' : creatorName.charAt(0).toUpperCase()}
                 </div>
             </div>
 
@@ -644,7 +648,7 @@ export function ProspectDetailModal({
     onDelete: (id: string) => void;
     onMoveStage: (id: string, stage: string) => void;
     onUpdate?: (id: string, updates: Partial<Prospect>) => void;
-    userMap?: Record<string, string>;
+    userMap?: Record<string, { displayName: string; avatarColor?: string }>;
 }) {
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [editedNotes, setEditedNotes] = useState(prospect.notes || '');
@@ -673,9 +677,11 @@ export function ProspectDetailModal({
         return stageColors[stage] || { backgroundColor: 'var(--primary)', color: 'white' };
     };
 
-    const creatorName = userMap[prospect.createdBy] || prospect.createdBy;
+    const creatorInfo = userMap[prospect.createdBy];
+    const creatorName = creatorInfo?.displayName || prospect.createdBy;
+    const creatorAvatarColor = creatorInfo?.avatarColor;
     const isAnonymous = prospect.createdBy === 'anonymous';
-    const creatorInitials = isAnonymous ? '?' : (userMap[prospect.createdBy] ? userMap[prospect.createdBy].charAt(0).toUpperCase() : prospect.createdBy.charAt(0).toUpperCase());
+    const creatorInitials = isAnonymous ? '?' : creatorName.charAt(0).toUpperCase();
 
     const handleSaveNotes = () => {
         if (onUpdate) {
@@ -833,7 +839,9 @@ export function ProspectDetailModal({
                                     width: '1.75rem',
                                     height: '1.75rem',
                                     borderRadius: '50%',
-                                    backgroundColor: 'var(--primary)',
+                                    backgroundColor: isAnonymous 
+                                        ? 'var(--secondary)' 
+                                        : getAvatarColor(creatorAvatarColor, prospect.createdBy),
                                     color: 'white',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -1151,14 +1159,21 @@ export function ProspectDetailModal({
                                             <div style={{ fontSize: '0.8125rem', fontWeight: '600', color: 'var(--foreground)' }}>
                                                 {entry.stage}
                                             </div>
-                                            {entry.movedBy && (
+                                            {entry.movedBy && (() => {
+                                            const moverInfo = userMap[entry.movedBy];
+                                            const moverName = moverInfo?.displayName || entry.movedBy;
+                                            const moverAvatarColor = moverInfo?.avatarColor;
+                                            const isAnonMover = entry.movedBy === 'anonymous';
+                                            return (
                                                 <div
-                                                    title={`Por: ${userMap[entry.movedBy] || entry.movedBy}`}
+                                                    title={`Por: ${moverName}`}
                                                     style={{
                                                         width: '1.25rem',
                                                         height: '1.25rem',
                                                         borderRadius: '50%',
-                                                        backgroundColor: 'var(--primary)',
+                                                        backgroundColor: isAnonMover 
+                                                            ? 'var(--secondary)' 
+                                                            : getAvatarColor(moverAvatarColor, entry.movedBy),
                                                         color: 'white',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -1168,9 +1183,10 @@ export function ProspectDetailModal({
                                                         flexShrink: 0
                                                     }}
                                                 >
-                                                    {userMap[entry.movedBy] ? userMap[entry.movedBy].charAt(0).toUpperCase() : (entry.movedBy === 'anonymous' ? '?' : entry.movedBy.charAt(0).toUpperCase())}
+                                                    {isAnonMover ? '?' : moverName.charAt(0).toUpperCase()}
                                                 </div>
-                                            )}
+                                            );
+                                        })()}
                                         </div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
                                             {new Date(entry.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
