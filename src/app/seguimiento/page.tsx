@@ -604,6 +604,7 @@ function SeguimientoContent() {
                 <ProspectModal
                     onClose={() => setIsModalOpen(false)}
                     onSubmit={handleCreateProspect}
+                    existingProspects={prospects}
                 />
             )}
 

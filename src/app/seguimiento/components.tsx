@@ -1316,7 +1316,119 @@ export function ProspectCard({
     );
 }
 
-export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (prospect: Omit<Prospect, 'id' | 'createdAt' | 'stage' | 'history' | 'createdBy'>) => void }) {
+// Jaro-Winkler similarity algorithm for fuzzy string matching
+function jaroWinkler(s1: string, s2: string): number {
+    if (s1 === s2) return 1;
+    
+    const str1 = s1.toLowerCase().trim();
+    const str2 = s2.toLowerCase().trim();
+    
+    if (str1.length === 0 || str2.length === 0) return 0;
+    
+    const matchWindow = Math.floor(Math.max(str1.length, str2.length) / 2) - 1;
+    const matches1 = new Array(str1.length).fill(false);
+    const matches2 = new Array(str2.length).fill(false);
+    
+    let matches = 0;
+    let transpositions = 0;
+    
+    // Find matches
+    for (let i = 0; i < str1.length; i++) {
+        const start = Math.max(0, i - matchWindow);
+        const end = Math.min(i + matchWindow + 1, str2.length);
+        
+        for (let j = start; j < end; j++) {
+            if (matches2[j] || str1[i] !== str2[j]) continue;
+            matches1[i] = true;
+            matches2[j] = true;
+            matches++;
+            break;
+        }
+    }
+    
+    if (matches === 0) return 0;
+    
+    // Count transpositions
+    let k = 0;
+    for (let i = 0; i < str1.length; i++) {
+        if (!matches1[i]) continue;
+        while (!matches2[k]) k++;
+        if (str1[i] !== str2[k]) transpositions++;
+        k++;
+    }
+    
+    const jaro = (matches / str1.length + matches / str2.length + (matches - transpositions / 2) / matches) / 3;
+    
+    // Winkler modification: boost for common prefix
+    let prefix = 0;
+    for (let i = 0; i < Math.min(4, str1.length, str2.length); i++) {
+        if (str1[i] === str2[i]) prefix++;
+        else break;
+    }
+    
+    return jaro + prefix * 0.1 * (1 - jaro);
+}
+
+// Normalize phone number (remove spaces, dashes, country codes)
+function normalizePhone(phone: string): string {
+    return phone.replace(/[^0-9]/g, '').slice(-10); // Keep last 10 digits
+}
+
+// Find duplicate prospects
+interface DuplicateResult {
+    exact: Prospect | null;
+    exactField: 'email' | 'phone' | null;
+    similar: Prospect | null;
+    similarity: number;
+}
+
+function findDuplicates(
+    formData: { name: string; email: string; phone: string },
+    existingProspects: Prospect[]
+): DuplicateResult {
+    const result: DuplicateResult = { exact: null, exactField: null, similar: null, similarity: 0 };
+    
+    const normalizedEmail = formData.email.toLowerCase().trim();
+    const normalizedPhone = normalizePhone(formData.phone);
+    const normalizedName = formData.name.toLowerCase().trim();
+    
+    for (const prospect of existingProspects) {
+        // Check exact email match
+        if (normalizedEmail && prospect.email?.toLowerCase().trim() === normalizedEmail) {
+            result.exact = prospect;
+            result.exactField = 'email';
+            return result; // Exact match takes priority
+        }
+        
+        // Check exact phone match
+        if (normalizedPhone.length >= 7 && normalizePhone(prospect.phone || '') === normalizedPhone) {
+            result.exact = prospect;
+            result.exactField = 'phone';
+            return result;
+        }
+        
+        // Check name similarity
+        if (normalizedName.length >= 2 && prospect.name) {
+            const similarity = jaroWinkler(normalizedName, prospect.name);
+            if (similarity > 0.85 && similarity > result.similarity) {
+                result.similar = prospect;
+                result.similarity = similarity;
+            }
+        }
+    }
+    
+    return result;
+}
+
+export function ProspectModal({ 
+    onClose, 
+    onSubmit,
+    existingProspects = []
+}: { 
+    onClose: () => void; 
+    onSubmit: (prospect: Omit<Prospect, 'id' | 'createdAt' | 'stage' | 'history' | 'createdBy'>) => void;
+    existingProspects?: Prospect[];
+}) {
     const [formData, setFormData] = useState({
         name: '',
         company: '',
@@ -1326,6 +1438,27 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
         leadSource: '',
         countryCode: '+52'
     });
+
+    // Duplicate detection state
+    const [duplicateWarning, setDuplicateWarning] = useState<DuplicateResult | null>(null);
+
+    // Debounced duplicate detection
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (formData.name || formData.email || formData.phone) {
+                const fullPhone = formData.phone ? `${formData.countryCode}${formData.phone}` : '';
+                const result = findDuplicates(
+                    { name: formData.name, email: formData.email, phone: fullPhone },
+                    existingProspects
+                );
+                setDuplicateWarning(result.exact || result.similar ? result : null);
+            } else {
+                setDuplicateWarning(null);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [formData.name, formData.email, formData.phone, formData.countryCode, existingProspects]);
 
     // Check if form has any data entered
     const hasUnsavedData = () => {
@@ -1411,6 +1544,42 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                 </h2>
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                    {/* Duplicate Warning Alert */}
+                    {duplicateWarning && (
+                        <div style={{
+                            padding: '0.75rem 1rem',
+                            borderRadius: '0.5rem',
+                            marginBottom: '0.75rem',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.5rem',
+                            backgroundColor: duplicateWarning.exact ? 'rgba(239, 68, 68, 0.1)' : 'rgba(234, 179, 8, 0.1)',
+                            border: `1px solid ${duplicateWarning.exact ? '#ef4444' : '#eab308'}`,
+                            color: duplicateWarning.exact ? '#dc2626' : '#a16207'
+                        }}>
+                            <span style={{ fontSize: '1rem', flexShrink: 0 }}>
+                                {duplicateWarning.exact ? '🚫' : '⚠️'}
+                            </span>
+                            <div style={{ fontSize: '0.8125rem' }}>
+                                {duplicateWarning.exact ? (
+                                    <>
+                                        <strong>Este contacto ya existe</strong>
+                                        <br />
+                                        {duplicateWarning.exactField === 'email' ? 'Email' : 'Teléfono'} duplicado: <strong>{duplicateWarning.exact.name}</strong>
+                                        {duplicateWarning.exact.company && ` (${duplicateWarning.exact.company})`}
+                                    </>
+                                ) : duplicateWarning.similar && (
+                                    <>
+                                        <strong>Este contacto quizás ya exista</strong>
+                                        <br />
+                                        Nombre similar: <strong>{duplicateWarning.similar.name}</strong>
+                                        {duplicateWarning.similar.company && ` (${duplicateWarning.similar.company})`}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', flex: 1, paddingRight: '0.25rem' }}>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.375rem' }}>
@@ -1688,6 +1857,31 @@ export function ProspectDetailModal({
         formatDateForInput(prospect.subscriptionStartDate)
     );
     const [isEditingClientData, setIsEditingClientData] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    // Copy prospect info to clipboard
+    const handleCopyInfo = async () => {
+        const parts = [
+            prospect.name,
+            prospect.company,
+            prospect.email,
+            prospect.phone
+        ].filter(Boolean);
+        
+        if (prospect.notes) {
+            parts.push(`Notas: ${prospect.notes}`);
+        }
+        
+        const textToCopy = parts.join(' | ');
+        
+        try {
+            await navigator.clipboard.writeText(textToCopy);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Error copying to clipboard:', err);
+        }
+    };
 
     // Sync editedNotes when prospect changes
     useEffect(() => {
@@ -1790,9 +1984,55 @@ export function ProspectDetailModal({
                     justifyContent: 'space-between',
                     alignItems: 'center'
                 }}>
-                    <h2 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>
-                        Detalles del Prospecto
-                    </h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <h2 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>
+                            Detalles del Prospecto
+                        </h2>
+                        <button
+                            onClick={handleCopyInfo}
+                            title="Copiar información"
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: copied ? '#10b981' : 'var(--secondary)',
+                                padding: '0.35rem',
+                                borderRadius: '0.375rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                fontSize: '0.75rem',
+                                gap: '0.25rem'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!copied) {
+                                    e.currentTarget.style.backgroundColor = 'var(--background)';
+                                    e.currentTarget.style.color = 'var(--foreground)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!copied) {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = 'var(--secondary)';
+                                }
+                            }}
+                        >
+                            {copied ? (
+                                <>
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                    <span>¡Copiado!</span>
+                                </>
+                            ) : (
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                                </svg>
+                            )}
+                        </button>
+                    </div>
                     <button
                         onClick={onClose}
                         style={{
