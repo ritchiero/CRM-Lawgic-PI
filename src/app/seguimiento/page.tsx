@@ -12,14 +12,17 @@ import {
     PauseCircleIcon,
     TrashIcon,
     PlusIcon,
-    ArrowLeftOnRectangleIcon
+    ArrowLeftOnRectangleIcon,
+    MagnifyingGlassMinusIcon,
+    MagnifyingGlassPlusIcon
 } from '@heroicons/react/24/outline';
 import { Column, ProspectModal, ProspectDetailModal, type Prospect } from './components';
 import {
     subscribeToProspects,
     createProspect,
     deleteProspect,
-    moveProspectToStage
+    moveProspectToStage,
+    updateProspect
 } from '@/services/prospectService';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +43,15 @@ function SeguimientoContent() {
     const [loading, setLoading] = useState(true);
     const [userMap, setUserMap] = useState<Record<string, string>>({});
     const { userData, logout } = useAuth();
+    
+    // Zoom state with localStorage persistence
+    const [zoomLevel, setZoomLevel] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('crm-kanban-zoom');
+            return saved ? parseFloat(saved) : 1.0;
+        }
+        return 1.0;
+    });
 
     // Subscribe to prospects from Firestore
     useEffect(() => {
@@ -120,11 +132,49 @@ function SeguimientoContent() {
         }
     };
 
+    const handleUpdateProspect = async (prospectId: string, updates: Partial<Prospect>) => {
+        try {
+            await updateProspect(prospectId, updates);
+            // Update local state to reflect changes immediately
+            const updatedProspect = prospects.find(p => p.id === prospectId);
+            if (updatedProspect) {
+                setSelectedProspect({ ...updatedProspect, ...updates });
+            }
+        } catch (error) {
+            console.error('Error updating prospect:', error);
+            alert('Error al actualizar el prospecto. Por favor intenta de nuevo.');
+        }
+    };
+
     const handleLogout = async () => {
         try {
             await logout();
         } catch (error) {
             console.error('Error logging out:', error);
+        }
+    };
+
+    // Zoom functions
+    const handleZoomIn = () => {
+        const newZoom = Math.min(zoomLevel + 0.1, 1.3);
+        setZoomLevel(newZoom);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('crm-kanban-zoom', newZoom.toString());
+        }
+    };
+
+    const handleZoomOut = () => {
+        const newZoom = Math.max(zoomLevel - 0.1, 0.7);
+        setZoomLevel(newZoom);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('crm-kanban-zoom', newZoom.toString());
+        }
+    };
+
+    const handleZoomReset = () => {
+        setZoomLevel(1.0);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('crm-kanban-zoom', '1.0');
         }
     };
 
@@ -174,7 +224,111 @@ function SeguimientoContent() {
                     Dashboard de seguimiento Lawgic PI
                 </h1>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    {/* Zoom Controls */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem',
+                        backgroundColor: 'var(--background)',
+                        borderRadius: '0.5rem',
+                        border: '1px solid var(--border)'
+                    }}>
+                        <button
+                            onClick={handleZoomOut}
+                            disabled={zoomLevel <= 0.7}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: zoomLevel <= 0.7 ? 'not-allowed' : 'pointer',
+                                color: zoomLevel <= 0.7 ? 'var(--secondary)' : 'var(--foreground)',
+                                padding: '0.25rem',
+                                borderRadius: '0.25rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: zoomLevel <= 0.7 ? 0.5 : 1,
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (zoomLevel > 0.7) {
+                                    e.currentTarget.style.backgroundColor = 'var(--surface)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                            title="Zoom Out"
+                        >
+                            <MagnifyingGlassMinusIcon style={{ width: '1.125rem', height: '1.125rem' }} />
+                        </button>
+                        <span style={{
+                            fontSize: '0.875rem',
+                            fontWeight: '600',
+                            color: 'var(--foreground)',
+                            minWidth: '3rem',
+                            textAlign: 'center'
+                        }}>
+                            {Math.round(zoomLevel * 100)}%
+                        </span>
+                        <button
+                            onClick={handleZoomIn}
+                            disabled={zoomLevel >= 1.3}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: zoomLevel >= 1.3 ? 'not-allowed' : 'pointer',
+                                color: zoomLevel >= 1.3 ? 'var(--secondary)' : 'var(--foreground)',
+                                padding: '0.25rem',
+                                borderRadius: '0.25rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: zoomLevel >= 1.3 ? 0.5 : 1,
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (zoomLevel < 1.3) {
+                                    e.currentTarget.style.backgroundColor = 'var(--surface)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                            title="Zoom In"
+                        >
+                            <MagnifyingGlassPlusIcon style={{ width: '1.125rem', height: '1.125rem' }} />
+                        </button>
+                        {zoomLevel !== 1.0 && (
+                            <button
+                                onClick={handleZoomReset}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--secondary)',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '0.25rem',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '600',
+                                    marginLeft: '0.25rem',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'var(--surface)';
+                                    e.currentTarget.style.color = 'var(--foreground)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = 'var(--secondary)';
+                                }}
+                                title="Reset Zoom"
+                            >
+                                Reset
+                            </button>
+                        )}
+                    </div>
                     {/* User Info */}
                     {userData && (
                         <div
@@ -290,9 +444,10 @@ function SeguimientoContent() {
                     padding: '1.5rem',
                     flex: 1,
                     display: 'flex',
-                    gap: '1.5rem',
+                    gap: `${1 * zoomLevel}rem`,
                     overflowX: 'auto',
-                    minWidth: 0
+                    minWidth: 0,
+                    transition: 'gap 0.2s ease-out'
                 }}>
                     <Column
                         title="Detección"
@@ -305,6 +460,7 @@ function SeguimientoContent() {
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}
                         userMap={userMap}
+                        zoomLevel={zoomLevel}
                     />
                     <Column
                         title="1er Contacto"
@@ -315,6 +471,7 @@ function SeguimientoContent() {
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}
                         userMap={userMap}
+                        zoomLevel={zoomLevel}
                     />
                     <Column
                         title="Contacto efectivo"
@@ -325,6 +482,7 @@ function SeguimientoContent() {
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}
                         userMap={userMap}
+                        zoomLevel={zoomLevel}
                     />
                     <Column
                         title="Muestra de interés"
@@ -335,6 +493,7 @@ function SeguimientoContent() {
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}
                         userMap={userMap}
+                        zoomLevel={zoomLevel}
                     />
                     <Column
                         title="Cita para demo"
@@ -345,6 +504,7 @@ function SeguimientoContent() {
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}
                         userMap={userMap}
+                        zoomLevel={zoomLevel}
                     />
                     <Column
                         title="Demo realizada"
@@ -355,6 +515,7 @@ function SeguimientoContent() {
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}
                         userMap={userMap}
+                        zoomLevel={zoomLevel}
                     />
                     <Column
                         title="Venta"
@@ -365,6 +526,7 @@ function SeguimientoContent() {
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}
                         userMap={userMap}
+                        zoomLevel={zoomLevel}
                     />
                     <Column
                         title="En Pausa"
@@ -375,6 +537,7 @@ function SeguimientoContent() {
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}
                         userMap={userMap}
+                        zoomLevel={zoomLevel}
                     />
                     <Column
                         title="Basura"
@@ -385,6 +548,7 @@ function SeguimientoContent() {
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}
                         userMap={userMap}
+                        zoomLevel={zoomLevel}
                     />
                 </div>
             </main>
@@ -404,6 +568,7 @@ function SeguimientoContent() {
                     onClose={() => setSelectedProspect(null)}
                     onDelete={handleDeleteProspect}
                     onMoveStage={handleMoveStage}
+                    onUpdate={handleUpdateProspect}
                     userMap={userMap}
                 />
             )}
