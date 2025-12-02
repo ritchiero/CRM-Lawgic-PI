@@ -11,7 +11,7 @@ import {
     Timestamp,
     serverTimestamp
 } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { getDbInstance, getAuthInstance } from '@/lib/firebase';
 
 export interface Prospect {
     id: string;
@@ -35,6 +35,8 @@ export interface Prospect {
 // Create a new prospect
 export const createProspect = async (prospectData: Omit<Prospect, 'id' | 'createdAt' | 'stage' | 'history' | 'createdBy' | 'updatedAt'>) => {
     try {
+        const auth = getAuthInstance();
+        const db = getDbInstance();
         const user = auth.currentUser;
         const userId = user?.uid || 'anonymous';
 
@@ -63,6 +65,7 @@ export const createProspect = async (prospectData: Omit<Prospect, 'id' | 'create
 // Update a prospect
 export const updateProspect = async (id: string, updates: Partial<Prospect>) => {
     try {
+        const db = getDbInstance();
         const prospectRef = doc(db, 'prospects', id);
         await updateDoc(prospectRef, {
             ...updates,
@@ -77,6 +80,7 @@ export const updateProspect = async (id: string, updates: Partial<Prospect>) => 
 // Delete a prospect
 export const deleteProspect = async (id: string) => {
     try {
+        const db = getDbInstance();
         const prospectRef = doc(db, 'prospects', id);
         await deleteDoc(prospectRef);
     } catch (error) {
@@ -88,6 +92,8 @@ export const deleteProspect = async (id: string) => {
 // Move prospect to a new stage
 export const moveProspectToStage = async (id: string, newStage: string, currentHistory: Array<{ stage: string; date: Date; movedBy?: string }>) => {
     try {
+        const auth = getAuthInstance();
+        const db = getDbInstance();
         const user = auth.currentUser;
         const userId = user?.uid || 'anonymous';
 
@@ -116,6 +122,7 @@ export const moveProspectToStage = async (id: string, newStage: string, currentH
 // Subscribe to all prospects (real-time)
 export const subscribeToProspects = (callback: (prospects: Prospect[]) => void) => {
     try {
+        const db = getDbInstance();
         const q = query(
             collection(db, 'prospects'),
             orderBy('createdAt', 'desc')
@@ -150,6 +157,7 @@ export const subscribeToProspects = (callback: (prospects: Prospect[]) => void) 
 // Subscribe to prospects by stage
 export const subscribeToProspectsByStage = (stage: string, callback: (prospects: Prospect[]) => void) => {
     try {
+        const db = getDbInstance();
         const q = query(
             collection(db, 'prospects'),
             where('stage', '==', stage),

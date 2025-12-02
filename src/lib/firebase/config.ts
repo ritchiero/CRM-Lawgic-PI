@@ -1,6 +1,6 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { getAuth, Auth } from "firebase/auth";
+import { getFirestore, Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,9 +11,31 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Initialize Firebase (singleton pattern to avoid re-initialization errors in dev)
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Lazy initialization to avoid errors during SSR/build
+let _app: FirebaseApp | undefined;
+let _auth: Auth | undefined;
+let _db: Firestore | undefined;
 
-export { app, auth, db };
+function getFirebaseApp(): FirebaseApp {
+    if (!_app) {
+        _app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    }
+    return _app;
+}
+
+function getAuthInstance(): Auth {
+    if (!_auth) {
+        _auth = getAuth(getFirebaseApp());
+    }
+    return _auth;
+}
+
+function getDbInstance(): Firestore {
+    if (!_db) {
+        _db = getFirestore(getFirebaseApp());
+    }
+    return _db;
+}
+
+// Export getters - these will only initialize Firebase when actually called
+export { getFirebaseApp, getAuthInstance, getDbInstance };

@@ -9,7 +9,7 @@ import {
     updateProfile
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, getDocs, collection } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDbInstance } from '@/lib/firebase';
 
 export interface UserData {
     uid: string;
@@ -24,6 +24,8 @@ export interface UserData {
 // Sign in with Google
 export const signInWithGoogle = async (): Promise<UserData> => {
     try {
+        const auth = getAuthInstance();
+        const db = getDbInstance();
         const provider = new GoogleAuthProvider();
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
@@ -68,6 +70,8 @@ export const signInWithGoogle = async (): Promise<UserData> => {
 // Sign in with email and password
 export const login = async (email: string, password: string): Promise<UserData> => {
     try {
+        const auth = getAuthInstance();
+        const db = getDbInstance();
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
@@ -120,7 +124,7 @@ export const login = async (email: string, password: string): Promise<UserData> 
 // Sign out
 export const logout = async (): Promise<void> => {
     try {
-        await signOut(auth);
+        await signOut(getAuthInstance());
     } catch (error) {
         console.error('Logout error:', error);
         throw error;
@@ -130,6 +134,8 @@ export const logout = async (): Promise<void> => {
 // Update user profile
 export const updateUserProfile = async (uid: string, data: Partial<UserData>): Promise<void> => {
     try {
+        const auth = getAuthInstance();
+        const db = getDbInstance();
         const userRef = doc(db, 'users', uid);
         await setDoc(userRef, data, { merge: true });
 
@@ -148,6 +154,7 @@ export const updateUserProfile = async (uid: string, data: Partial<UserData>): P
 // Get all users (for mapping UIDs to names)
 export const getAllUsers = async (): Promise<UserData[]> => {
     try {
+        const db = getDbInstance();
         const usersSnapshot = await getDocs(collection(db, 'users'));
         return usersSnapshot.docs.map(doc => ({
             uid: doc.id,
@@ -162,6 +169,7 @@ export const getAllUsers = async (): Promise<UserData[]> => {
 // Get user data from Firestore
 export const getUserData = async (uid: string): Promise<UserData | null> => {
     try {
+        const db = getDbInstance();
         const userDoc = await getDoc(doc(db, 'users', uid));
 
         if (!userDoc.exists()) {
@@ -186,13 +194,13 @@ export const getUserData = async (uid: string): Promise<UserData | null> => {
 
 // Listen to auth state changes
 export const onAuthChange = (callback: (user: User | null) => void) => {
-    return onAuthStateChanged(auth, callback);
+    return onAuthStateChanged(getAuthInstance(), callback);
 };
 
 // Send password reset email
 export const resetPassword = async (email: string): Promise<void> => {
     try {
-        await sendPasswordResetEmail(auth, email);
+        await sendPasswordResetEmail(getAuthInstance(), email);
     } catch (error: any) {
         console.error('Password reset error:', error);
 
@@ -209,5 +217,5 @@ export const resetPassword = async (email: string): Promise<void> => {
 
 // Get current user
 export const getCurrentUser = (): User | null => {
-    return auth.currentUser;
+    return getAuthInstance().currentUser;
 };

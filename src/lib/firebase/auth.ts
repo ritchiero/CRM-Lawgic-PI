@@ -1,4 +1,4 @@
-import { auth, db } from "./config";
+import { getAuthInstance, getDbInstance } from "./config";
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
@@ -24,6 +24,9 @@ export interface UserProfile {
 // Sign Up Function
 export const signUp = async (email: string, password: string, displayName: string) => {
     try {
+        const auth = getAuthInstance();
+        const db = getDbInstance();
+        
         // 1. Create user in Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
@@ -53,6 +56,9 @@ export const signUp = async (email: string, password: string, displayName: strin
 // Sign In Function
 export const signIn = async (email: string, password: string) => {
     try {
+        const auth = getAuthInstance();
+        const db = getDbInstance();
+        
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
         // Update last login
@@ -69,7 +75,7 @@ export const signIn = async (email: string, password: string) => {
 // Sign Out Function
 export const signOut = async () => {
     try {
-        await firebaseSignOut(auth);
+        await firebaseSignOut(getAuthInstance());
     } catch (error) {
         console.error("Error signing out:", error);
         throw error;
@@ -79,6 +85,7 @@ export const signOut = async () => {
 // Get User Profile
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
     try {
+        const db = getDbInstance();
         const userDoc = await getDoc(doc(db, "users", uid));
         if (userDoc.exists()) {
             return userDoc.data() as UserProfile;
