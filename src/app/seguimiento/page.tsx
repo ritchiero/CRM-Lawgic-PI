@@ -164,7 +164,7 @@ function SeguimientoContent() {
     };
 
     const handleZoomOut = () => {
-        const newZoom = Math.max(zoomLevel - 0.1, 0.7);
+        const newZoom = Math.max(zoomLevel - 0.1, 0.6);
         setZoomLevel(newZoom);
         if (typeof window !== 'undefined') {
             localStorage.setItem('crm-kanban-zoom', newZoom.toString());
@@ -207,7 +207,7 @@ function SeguimientoContent() {
         }}>
             {/* Header */}
             <header style={{
-                padding: '1rem 2rem',
+                padding: '0.5rem 1.5rem',
                 borderBottom: '1px solid var(--border)',
                 backgroundColor: 'var(--surface)',
                 flexShrink: 0,
@@ -216,43 +216,44 @@ function SeguimientoContent() {
                 alignItems: 'center'
             }}>
                 <h1 style={{
-                    fontSize: '2rem',
+                    fontSize: '1.25rem',
                     fontWeight: '700',
                     color: 'var(--foreground)',
-                    margin: 0
+                    margin: 0,
+                    whiteSpace: 'nowrap'
                 }}>
-                    Dashboard de seguimiento Lawgic PI
+                    Seguimiento Lawgic PI
                 </h1>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     {/* Zoom Controls */}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.5rem',
+                        gap: '0.375rem',
+                        padding: '0.375rem',
                         backgroundColor: 'var(--background)',
-                        borderRadius: '0.5rem',
+                        borderRadius: '0.375rem',
                         border: '1px solid var(--border)'
                     }}>
                         <button
                             onClick={handleZoomOut}
-                            disabled={zoomLevel <= 0.7}
+                            disabled={zoomLevel <= 0.6}
                             style={{
                                 background: 'none',
                                 border: 'none',
-                                cursor: zoomLevel <= 0.7 ? 'not-allowed' : 'pointer',
-                                color: zoomLevel <= 0.7 ? 'var(--secondary)' : 'var(--foreground)',
-                                padding: '0.25rem',
+                                cursor: zoomLevel <= 0.6 ? 'not-allowed' : 'pointer',
+                                color: zoomLevel <= 0.6 ? 'var(--secondary)' : 'var(--foreground)',
+                                padding: '0.125rem',
                                 borderRadius: '0.25rem',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                opacity: zoomLevel <= 0.7 ? 0.5 : 1,
+                                opacity: zoomLevel <= 0.6 ? 0.5 : 1,
                                 transition: 'all 0.2s'
                             }}
                             onMouseEnter={(e) => {
-                                if (zoomLevel > 0.7) {
+                                if (zoomLevel > 0.6) {
                                     e.currentTarget.style.backgroundColor = 'var(--surface)';
                                 }
                             }}
@@ -261,13 +262,13 @@ function SeguimientoContent() {
                             }}
                             title="Zoom Out"
                         >
-                            <MagnifyingGlassMinusIcon style={{ width: '1.125rem', height: '1.125rem' }} />
+                            <MagnifyingGlassMinusIcon style={{ width: '1rem', height: '1rem' }} />
                         </button>
                         <span style={{
-                            fontSize: '0.875rem',
+                            fontSize: '0.75rem',
                             fontWeight: '600',
                             color: 'var(--foreground)',
-                            minWidth: '3rem',
+                            minWidth: '2.5rem',
                             textAlign: 'center'
                         }}>
                             {Math.round(zoomLevel * 100)}%
@@ -280,7 +281,7 @@ function SeguimientoContent() {
                                 border: 'none',
                                 cursor: zoomLevel >= 1.3 ? 'not-allowed' : 'pointer',
                                 color: zoomLevel >= 1.3 ? 'var(--secondary)' : 'var(--foreground)',
-                                padding: '0.25rem',
+                                padding: '0.125rem',
                                 borderRadius: '0.25rem',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -298,7 +299,7 @@ function SeguimientoContent() {
                             }}
                             title="Zoom In"
                         >
-                            <MagnifyingGlassPlusIcon style={{ width: '1.125rem', height: '1.125rem' }} />
+                            <MagnifyingGlassPlusIcon style={{ width: '1rem', height: '1rem' }} />
                         </button>
                         {zoomLevel !== 1.0 && (
                             <button
@@ -308,11 +309,11 @@ function SeguimientoContent() {
                                     border: 'none',
                                     cursor: 'pointer',
                                     color: 'var(--secondary)',
-                                    padding: '0.25rem 0.5rem',
+                                    padding: '0.125rem 0.375rem',
                                     borderRadius: '0.25rem',
-                                    fontSize: '0.75rem',
+                                    fontSize: '0.625rem',
                                     fontWeight: '600',
-                                    marginLeft: '0.25rem',
+                                    marginLeft: '0.125rem',
                                     transition: 'all 0.2s'
                                 }}
                                 onMouseEnter={(e) => {
@@ -336,10 +337,10 @@ function SeguimientoContent() {
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.75rem',
-                                padding: '0.5rem 1rem',
+                                gap: '0.5rem',
+                                padding: '0.375rem 0.75rem',
                                 backgroundColor: 'var(--background)',
-                                borderRadius: '0.5rem',
+                                borderRadius: '0.375rem',
                                 border: '1px solid var(--border)',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s'
@@ -355,25 +356,25 @@ function SeguimientoContent() {
                             title="Configurar Perfil"
                         >
                             <div style={{
-                                width: '2rem',
-                                height: '2rem',
+                                width: '1.5rem',
+                                height: '1.5rem',
                                 borderRadius: '50%',
                                 backgroundColor: 'var(--primary)',
                                 color: 'white',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '0.875rem',
+                                fontSize: '0.75rem',
                                 fontWeight: '600'
                             }}>
                                 {userData.displayName ? userData.displayName.charAt(0).toUpperCase() : '?'}
                             </div>
                             <div>
-                                <div style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--foreground)' }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--foreground)' }}>
                                     {userData.displayName || 'Usuario'}
                                 </div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
-                                    {userData.role === 'admin' ? 'Administrador' : 'Usuario'}
+                                <div style={{ fontSize: '0.625rem', color: 'var(--secondary)' }}>
+                                    {userData.role === 'admin' ? 'Admin' : 'Usuario'}
                                 </div>
                             </div>
                         </div>
@@ -383,21 +384,22 @@ function SeguimientoContent() {
                     <button
                         onClick={() => setIsModalOpen(true)}
                         style={{
-                            padding: '0.75rem 1.5rem',
+                            padding: '0.5rem 1rem',
                             backgroundColor: 'var(--primary)',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '0.5rem',
-                            fontSize: '0.875rem',
+                            borderRadius: '0.375rem',
+                            fontSize: '0.75rem',
                             fontWeight: '600',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem',
-                            transition: 'all 0.2s'
+                            gap: '0.375rem',
+                            transition: 'all 0.2s',
+                            whiteSpace: 'nowrap'
                         }}
                     >
-                        <PlusIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                        <PlusIcon style={{ width: '1rem', height: '1rem' }} />
                         Nuevo Prospecto
                     </button>
 
@@ -405,17 +407,17 @@ function SeguimientoContent() {
                     <button
                         onClick={handleLogout}
                         style={{
-                            padding: '0.75rem',
+                            padding: '0.375rem 0.75rem',
                             backgroundColor: 'transparent',
                             color: 'var(--secondary)',
                             border: '1px solid var(--border)',
-                            borderRadius: '0.5rem',
-                            fontSize: '0.875rem',
+                            borderRadius: '0.375rem',
+                            fontSize: '0.75rem',
                             fontWeight: '600',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem',
+                            gap: '0.375rem',
                             transition: 'all 0.2s'
                         }}
                         onMouseOver={(e) => {
@@ -429,7 +431,7 @@ function SeguimientoContent() {
                             e.currentTarget.style.color = 'var(--secondary)';
                         }}
                     >
-                        <ArrowLeftOnRectangleIcon style={{ width: '1.125rem', height: '1.125rem' }} />
+                        <ArrowLeftOnRectangleIcon style={{ width: '1rem', height: '1rem' }} />
                         Salir
                     </button>
                 </div>
@@ -463,7 +465,7 @@ function SeguimientoContent() {
                         zoomLevel={zoomLevel}
                     />
                     <Column
-                        title="1er Contacto"
+                        title="1er Cont."
                         icon={PhoneIcon}
                         prospects={prospects.filter(p => p.stage === '1er Contacto')}
                         onDrop={(e) => handleDrop(e, '1er Contacto')}
@@ -474,7 +476,7 @@ function SeguimientoContent() {
                         zoomLevel={zoomLevel}
                     />
                     <Column
-                        title="Contacto efectivo"
+                        title="Efectivo"
                         icon={ChatBubbleLeftRightIcon}
                         prospects={prospects.filter(p => p.stage === 'Contacto efectivo')}
                         onDrop={(e) => handleDrop(e, 'Contacto efectivo')}
@@ -485,7 +487,7 @@ function SeguimientoContent() {
                         zoomLevel={zoomLevel}
                     />
                     <Column
-                        title="Muestra de interés"
+                        title="Interés"
                         icon={SparklesIcon}
                         prospects={prospects.filter(p => p.stage === 'Muestra de interés')}
                         onDrop={(e) => handleDrop(e, 'Muestra de interés')}
@@ -496,7 +498,7 @@ function SeguimientoContent() {
                         zoomLevel={zoomLevel}
                     />
                     <Column
-                        title="Cita para demo"
+                        title="Cita Demo"
                         icon={CalendarDaysIcon}
                         prospects={prospects.filter(p => p.stage === 'Cita para demo')}
                         onDrop={(e) => handleDrop(e, 'Cita para demo')}
@@ -507,7 +509,7 @@ function SeguimientoContent() {
                         zoomLevel={zoomLevel}
                     />
                     <Column
-                        title="Demo realizada"
+                        title="Realizada"
                         icon={PresentationChartLineIcon}
                         prospects={prospects.filter(p => p.stage === 'Demo realizada')}
                         onDrop={(e) => handleDrop(e, 'Demo realizada')}
@@ -529,7 +531,7 @@ function SeguimientoContent() {
                         zoomLevel={zoomLevel}
                     />
                     <Column
-                        title="En Pausa"
+                        title="Pausa"
                         icon={PauseCircleIcon}
                         prospects={prospects.filter(p => p.stage === 'En Pausa')}
                         onDrop={(e) => handleDrop(e, 'En Pausa')}

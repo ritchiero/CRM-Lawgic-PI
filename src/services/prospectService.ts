@@ -24,6 +24,7 @@ export interface Prospect {
     createdAt: Date;
     updatedAt?: Date;
     createdBy: string;
+    leadSource?: string;
     history: Array<{
         stage: string;
         date: Date;

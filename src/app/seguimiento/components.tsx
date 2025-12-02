@@ -17,7 +17,8 @@ import {
     DocumentTextIcon,
     ClockIcon,
     ChevronDownIcon,
-    ChevronUpIcon
+    ChevronUpIcon,
+    ArrowPathIcon
 } from '@heroicons/react/24/outline';
 
 export interface Prospect {
@@ -30,12 +31,32 @@ export interface Prospect {
     stage: string;
     createdAt: Date;
     createdBy: string;
+    leadSource?: string;
     history: Array<{
         stage: string;
         date: Date;
         movedBy?: string;
     }>;
 }
+
+// Lead source options
+export const LEAD_SOURCE_OPTIONS = [
+    'Redes Sociales',
+    'Contacto Directo',
+    'Recomendación',
+    'Sitio Web',
+    'Email Marketing',
+    'Cliente de otro servicio',
+    'Referido por otro abogado/despacho',
+    'Búsqueda en Google',
+    'LinkedIn',
+    'Publicidad Paga (Google Ads, Facebook Ads)',
+    'Contenido/Blog',
+    'Webinar/Presentación',
+    'Partnership/Alianza',
+    'Cold Call/Outbound',
+    'Otro'
+];
 
 export function Column({
     title,
@@ -64,7 +85,7 @@ export function Column({
 }) {
     // Function to get icon color based on column title
     const getColumnIconColor = (columnTitle: string): string => {
-        if (columnTitle === 'En Pausa') {
+        if (columnTitle === 'Pausa') {
             return '#f59e0b'; // Ámbar/naranja
         }
         if (columnTitle === 'Basura') {
@@ -75,7 +96,7 @@ export function Column({
 
     // Function to get special styles for special columns
     const getColumnSpecialStyles = (columnTitle: string): React.CSSProperties => {
-        if (columnTitle === 'En Pausa') {
+        if (columnTitle === 'Pausa') {
             return {
                 backdropFilter: 'blur(8px)',
                 boxShadow: '0 2px 12px rgba(245, 158, 11, 0.2)'
@@ -192,21 +213,42 @@ export function ProspectCard({
     const paddingVertical = isCompactView ? 0.5 : 0.75;
     const paddingHorizontal = 0.75;
 
+    // Calculate aging effects
+    const daysSinceMovement = getDaysSinceLastMovement(prospect);
+    const agingLevel = getAgingLevel(daysSinceMovement);
+    const agingData = getAgingStyles(agingLevel);
+    
+    // Determine base background color (considering "En Pausa" state)
+    const baseBackgroundColor = prospect.stage === 'En Pausa' ? '#FEF3C7' : 'var(--background)';
+    
+    // Merge aging styles with existing styles, but preserve "En Pausa" background if applicable
+    const finalBackgroundColor = prospect.stage === 'En Pausa' && agingLevel === 'fresh' 
+        ? baseBackgroundColor 
+        : (agingData.container.backgroundColor || baseBackgroundColor);
+    
+    // Combine aging container styles with card styles
+    const cardContainerStyles: React.CSSProperties = {
+        padding: `${paddingVertical * zoomLevel}rem ${paddingHorizontal * zoomLevel}rem`,
+        backgroundColor: finalBackgroundColor,
+        borderRadius: '0.5rem',
+        border: agingData.borderIrregular ? 'none' : (agingData.container.borderWidth || '1px'),
+        borderStyle: agingData.borderIrregular ? 'none' : 'solid',
+        borderColor: agingData.container.borderColor || 'var(--border)',
+        cursor: 'grab',
+        transition: 'all 0.2s',
+        marginBottom: `${0.5 * zoomLevel}rem`,
+        position: 'relative' as const,
+        ...(agingData.container.backgroundImage && { backgroundImage: agingData.container.backgroundImage }),
+        ...(agingData.container.filter && { filter: agingData.container.filter })
+    };
+
     return (
         <div
             draggable
-            onDragStart={onDragStart} // Now directly uses the prop
+            onDragStart={onDragStart}
             onClick={onClick}
             className={prospect.stage === 'En Pausa' ? 'paused-glow' : ''}
-            style={{
-                padding: `${paddingVertical * zoomLevel}rem ${paddingHorizontal * zoomLevel}rem`,
-                backgroundColor: prospect.stage === 'En Pausa' ? '#FEF3C7' : 'var(--background)',
-                borderRadius: '0.5rem',
-                border: '1px solid var(--border)',
-                cursor: 'grab',
-                transition: 'all 0.2s',
-                marginBottom: `${0.5 * zoomLevel}rem`
-            }}
+            style={cardContainerStyles}
             onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-2px)';
                 e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
@@ -216,6 +258,20 @@ export function ProspectCard({
                 e.currentTarget.style.boxShadow = 'none';
             }}
         >
+            {/* Aging border overlay (irregular and cracked) */}
+            {agingData.borderIrregular && (
+                <AgingBorder 
+                    irregular={agingData.borderIrregular}
+                    gaps={agingData.borderGaps}
+                    borderColor={agingData.container.borderColor || '#9B8A75'}
+                />
+            )}
+            
+            {/* Aging cracks overlay */}
+            <AgingCracks count={agingData.cracks} opacity={agingData.cracksOpacity} />
+            
+            {/* Card content */}
+            <div style={{ position: 'relative', zIndex: 1 }}>
             {/* Header with name and creator */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isCompactView ? 0 : `${0.375 * zoomLevel}rem` }}>
                 <div style={{
@@ -265,6 +321,7 @@ export function ProspectCard({
                     </div>
                 </>
             )}
+            </div>
         </div>
     );
 }
@@ -276,6 +333,7 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
         email: '',
         phone: '',
         notes: '',
+        leadSource: '',
         countryCode: '+52'
     });
 
@@ -287,7 +345,8 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
             company: formData.company,
             email: formData.email,
             phone: phoneWithCode,
-            notes: formData.notes
+            notes: formData.notes,
+            leadSource: formData.leadSource || undefined
         });
     };
 
@@ -308,25 +367,30 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
             <div style={{
                 backgroundColor: 'var(--surface)',
                 borderRadius: '1rem',
-                padding: '2rem',
+                padding: '1.5rem',
                 width: '90%',
-                maxWidth: '500px',
-                border: '1px solid var(--border)'
+                maxWidth: '550px',
+                maxHeight: '90vh',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
             }} onClick={(e) => e.stopPropagation()}>
                 <h2 style={{
-                    fontSize: '1.5rem',
+                    fontSize: '1.25rem',
                     fontWeight: '700',
                     color: 'var(--foreground)',
-                    marginBottom: '1.5rem',
-                    margin: 0
+                    marginBottom: '1rem',
+                    margin: 0,
+                    flexShrink: 0
                 }}>
                     Nuevo Prospecto
                 </h2>
 
-                <form onSubmit={handleSubmit}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', flex: 1, paddingRight: '0.25rem' }}>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.5rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.375rem' }}>
                                 Nombre *
                             </label>
                             <input
@@ -335,18 +399,18 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 style={{
                                     width: '100%',
-                                    padding: '0.75rem',
+                                    padding: '0.625rem',
                                     backgroundColor: 'var(--background)',
                                     border: '1px solid var(--border)',
                                     borderRadius: '0.5rem',
                                     color: 'var(--foreground)',
-                                    fontSize: '0.875rem'
+                                    fontSize: '0.8125rem'
                                 }}
                             />
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.5rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.375rem' }}>
                                 Firma / Despacho / Empresa *
                             </label>
                             <input
@@ -355,18 +419,18 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                                 onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                                 style={{
                                     width: '100%',
-                                    padding: '0.75rem',
+                                    padding: '0.625rem',
                                     backgroundColor: 'var(--background)',
                                     border: '1px solid var(--border)',
                                     borderRadius: '0.5rem',
                                     color: 'var(--foreground)',
-                                    fontSize: '0.875rem'
+                                    fontSize: '0.8125rem'
                                 }}
                             />
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.5rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.375rem' }}>
                                 Email
                             </label>
                             <input
@@ -375,18 +439,18 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 style={{
                                     width: '100%',
-                                    padding: '0.75rem',
+                                    padding: '0.625rem',
                                     backgroundColor: 'var(--background)',
                                     border: '1px solid var(--border)',
                                     borderRadius: '0.5rem',
                                     color: 'var(--foreground)',
-                                    fontSize: '0.875rem'
+                                    fontSize: '0.8125rem'
                                 }}
                             />
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.5rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.375rem' }}>
                                 Teléfono Móvil / WhatsApp
                             </label>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -394,12 +458,12 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                                     value={formData.countryCode}
                                     onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
                                     style={{
-                                        padding: '0.75rem',
+                                        padding: '0.625rem',
                                         backgroundColor: 'var(--background)',
                                         border: '1px solid var(--border)',
                                         borderRadius: '0.5rem',
                                         color: 'var(--foreground)',
-                                        fontSize: '0.875rem',
+                                        fontSize: '0.8125rem',
                                         width: '110px'
                                     }}
                                 >
@@ -419,44 +483,71 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                                     placeholder="5512345678"
                                     style={{
                                         flex: 1,
-                                        padding: '0.75rem',
+                                        padding: '0.625rem',
                                         backgroundColor: 'var(--background)',
                                         border: '1px solid var(--border)',
                                         borderRadius: '0.5rem',
                                         color: 'var(--foreground)',
-                                        fontSize: '0.875rem'
+                                        fontSize: '0.8125rem'
                                     }}
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.5rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.375rem' }}>
+                                Origen / Medio
+                            </label>
+                            <select
+                                value={formData.leadSource}
+                                onChange={(e) => setFormData({ ...formData, leadSource: e.target.value })}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.625rem',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '0.5rem',
+                                    color: 'var(--foreground)',
+                                    fontSize: '0.8125rem',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value="">Seleccionar origen...</option>
+                                {LEAD_SOURCE_OPTIONS.map(option => (
+                                    <option key={option} value={option}>
+                                        {option}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '500', color: 'var(--foreground)', marginBottom: '0.375rem' }}>
                                 Notas
                             </label>
                             <textarea
                                 value={formData.notes}
                                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                rows={3}
+                                rows={2}
                                 style={{
                                     width: '100%',
-                                    padding: '0.75rem',
+                                    padding: '0.625rem',
                                     backgroundColor: 'var(--background)',
                                     border: '1px solid var(--border)',
                                     borderRadius: '0.5rem',
                                     color: 'var(--foreground)',
-                                    fontSize: '0.875rem',
+                                    fontSize: '0.8125rem',
                                     resize: 'vertical',
                                     fontFamily: 'inherit'
                                 }}
                             />
 
                             {/* Quick Tags */}
-                            <div style={{ marginTop: '0.75rem' }}>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
+                            <div style={{ marginTop: '0.5rem' }}>
+                                <div style={{ fontSize: '0.6875rem', color: 'var(--secondary)', marginBottom: '0.375rem' }}>
                                     Etiquetas rápidas:
                                 </div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
                                     {['Cliente Lawgic', '+100 marcas', '+500 marcas', '+1,000 Marcas', '+2,000 marcas', 'Ya conoce el producto', 'Formulario web', 'Amigo de Ricardo', 'Amigo de Roberto', 'Referencia', 'Recontacto'].map(tag => (
                                         <button
                                             key={tag}
@@ -466,12 +557,12 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                                                 setFormData({ ...formData, notes: newNotes });
                                             }}
                                             style={{
-                                                padding: '0.375rem 0.75rem',
+                                                padding: '0.25rem 0.5rem',
                                                 backgroundColor: 'transparent',
                                                 border: '1px solid var(--border)',
                                                 borderRadius: '1rem',
                                                 color: 'var(--secondary)',
-                                                fontSize: '0.75rem',
+                                                fontSize: '0.6875rem',
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
                                                 whiteSpace: 'nowrap',
@@ -490,7 +581,7 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                                                 e.currentTarget.style.borderColor = 'var(--border)';
                                             }}
                                         >
-                                            <PlusCircleIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                                            <PlusCircleIcon style={{ width: '0.75rem', height: '0.75rem' }} />
                                             {tag}
                                         </button>
                                     ))}
@@ -499,18 +590,18 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexShrink: 0 }}>
                         <button
                             type="button"
                             onClick={onClose}
                             style={{
                                 flex: 1,
-                                padding: '0.75rem',
+                                padding: '0.625rem',
                                 backgroundColor: 'transparent',
                                 border: '1px solid var(--border)',
                                 borderRadius: '0.5rem',
                                 color: 'var(--foreground)',
-                                fontSize: '0.875rem',
+                                fontSize: '0.8125rem',
                                 fontWeight: '600',
                                 cursor: 'pointer'
                             }}
@@ -521,12 +612,12 @@ export function ProspectModal({ onClose, onSubmit }: { onClose: () => void; onSu
                             type="submit"
                             style={{
                                 flex: 1,
-                                padding: '0.75rem',
+                                padding: '0.625rem',
                                 backgroundColor: 'var(--primary)',
                                 border: 'none',
                                 borderRadius: '0.5rem',
                                 color: 'white',
-                                fontSize: '0.875rem',
+                                fontSize: '0.8125rem',
                                 fontWeight: '600',
                                 cursor: 'pointer'
                             }}
@@ -804,6 +895,26 @@ export function ProspectDetailModal({
                                 )}
                             </div>
                         )}
+
+                        {/* Lead Source */}
+                        <div>
+                            <div style={{ 
+                                fontSize: '0.75rem', 
+                                fontWeight: '600', 
+                                color: 'var(--secondary)', 
+                                marginBottom: '0.375rem', 
+                                textTransform: 'uppercase',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem'
+                            }}>
+                                <ArrowPathIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+                                Origen / Medio
+                            </div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--foreground)' }}>
+                                {prospect.leadSource || 'No especificado'}
+                            </div>
+                        </div>
 
                         {/* Stage */}
                         <div>
@@ -1186,5 +1297,351 @@ export function ProspectDetailModal({
                 </div>
             </div>
         </>
+    );
+}
+
+// ========== AGING SYSTEM FUNCTIONS AND COMPONENTS ==========
+
+// Function to calculate days since last movement
+export function getDaysSinceLastMovement(prospect: Prospect): number {
+    if (!prospect.history || prospect.history.length === 0) {
+        // If no history, use updatedAt or createdAt
+        const referenceDate = (prospect as any).updatedAt || prospect.createdAt;
+        const daysDiff = Math.floor((Date.now() - referenceDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff;
+    }
+    
+    // Get the most recent history entry (last stage change)
+    const lastHistoryEntry = prospect.history[prospect.history.length - 1];
+    const lastMovementDate = lastHistoryEntry.date;
+    
+    // Calculate days difference
+    const daysDiff = Math.floor((Date.now() - lastMovementDate.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, daysDiff); // Ensure non-negative
+}
+
+// Function to get aging level based on days
+export function getAgingLevel(days: number): 'fresh' | 'slight' | 'moderate' | 'noticeable' | 'significant' | 'severe' | 'critical' {
+    if (days <= 1) return 'fresh';
+    if (days <= 3) return 'slight';
+    if (days <= 5) return 'moderate';
+    if (days <= 10) return 'noticeable';
+    if (days <= 15) return 'significant';
+    if (days <= 20) return 'severe';
+    return 'critical';
+}
+
+// Function to get aging styles based on level
+export function getAgingStyles(level: string): {
+    container: React.CSSProperties;
+    cracks: number;
+    cracksOpacity: number;
+    borderIrregular: boolean;
+    borderGaps: number;
+} {
+    const styles: Record<string, {
+        container: React.CSSProperties;
+        cracks: number;
+        cracksOpacity: number;
+        borderIrregular: boolean;
+        borderGaps: number;
+    }> = {
+        fresh: {
+            container: {
+                backgroundColor: 'transparent',
+                filter: 'sepia(0%) saturate(100%)',
+                borderColor: 'var(--border)'
+            },
+            cracks: 0,
+            cracksOpacity: 0,
+            borderIrregular: false,
+            borderGaps: 0
+        },
+        slight: {
+            container: {
+                backgroundColor: '#FFFEF5',
+                filter: 'sepia(5%) saturate(95%)',
+                borderColor: '#F5E6D3'
+            },
+            cracks: 0,
+            cracksOpacity: 0,
+            borderIrregular: false,
+            borderGaps: 0
+        },
+        moderate: {
+            container: {
+                backgroundColor: '#FFF8E1',
+                filter: 'sepia(15%) saturate(85%)',
+                borderColor: '#E8D5C4',
+                backgroundImage: `
+                    radial-gradient(circle at 20% 30%, rgba(245, 230, 211, 0.3) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, rgba(232, 213, 196, 0.2) 0%, transparent 50%)
+                `
+            },
+            cracks: 1,
+            cracksOpacity: 0.15,
+            borderIrregular: true,
+            borderGaps: 1
+        },
+        noticeable: {
+            container: {
+                backgroundColor: '#FFECB3',
+                filter: 'sepia(30%) saturate(70%)',
+                borderColor: '#D4C4B0',
+                borderWidth: '1.5px',
+                backgroundImage: `
+                    radial-gradient(circle at 15% 25%, rgba(245, 230, 211, 0.4) 0%, transparent 50%),
+                    radial-gradient(circle at 75% 65%, rgba(232, 213, 196, 0.3) 0%, transparent 50%),
+                    radial-gradient(circle at 50% 80%, rgba(212, 196, 176, 0.25) 0%, transparent 50%)
+                `
+            },
+            cracks: 2,
+            cracksOpacity: 0.25,
+            borderIrregular: true,
+            borderGaps: 2
+        },
+        significant: {
+            container: {
+                backgroundColor: '#F5E6D3',
+                filter: 'sepia(50%) saturate(60%)',
+                borderColor: '#C4B5A0',
+                borderWidth: '2px',
+                backgroundImage: `
+                    radial-gradient(circle at 10% 20%, rgba(245, 230, 211, 0.5) 0%, transparent 50%),
+                    radial-gradient(circle at 70% 60%, rgba(232, 213, 196, 0.4) 0%, transparent 50%),
+                    radial-gradient(circle at 40% 75%, rgba(212, 196, 176, 0.35) 0%, transparent 50%),
+                    radial-gradient(circle at 85% 30%, rgba(196, 181, 160, 0.3) 0%, transparent 50%)
+                `
+            },
+            cracks: 3,
+            cracksOpacity: 0.4,
+            borderIrregular: true,
+            borderGaps: 3
+        },
+        severe: {
+            container: {
+                backgroundColor: '#E8D5C4',
+                filter: 'sepia(70%) saturate(50%)',
+                borderColor: '#B5A690',
+                borderWidth: '2.5px',
+                backgroundImage: `
+                    radial-gradient(circle at 5% 15%, rgba(245, 230, 211, 0.6) 0%, transparent 50%),
+                    radial-gradient(circle at 65% 55%, rgba(232, 213, 196, 0.5) 0%, transparent 50%),
+                    radial-gradient(circle at 35% 70%, rgba(212, 196, 176, 0.45) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 25%, rgba(196, 181, 160, 0.4) 0%, transparent 50%),
+                    radial-gradient(circle at 25% 90%, rgba(181, 166, 144, 0.35) 0%, transparent 50%)
+                `
+            },
+            cracks: 4,
+            cracksOpacity: 0.55,
+            borderIrregular: true,
+            borderGaps: 4
+        },
+        critical: {
+            container: {
+                backgroundColor: '#D4C4B0',
+                filter: 'sepia(90%) saturate(40%)',
+                borderColor: '#9B8A75',
+                borderWidth: '3px',
+                backgroundImage: `
+                    radial-gradient(circle at 0% 10%, rgba(245, 230, 211, 0.7) 0%, transparent 50%),
+                    radial-gradient(circle at 60% 50%, rgba(232, 213, 196, 0.6) 0%, transparent 50%),
+                    radial-gradient(circle at 30% 65%, rgba(212, 196, 176, 0.55) 0%, transparent 50%),
+                    radial-gradient(circle at 75% 20%, rgba(196, 181, 160, 0.5) 0%, transparent 50%),
+                    radial-gradient(circle at 20% 85%, rgba(181, 166, 144, 0.45) 0%, transparent 50%),
+                    radial-gradient(circle at 90% 70%, rgba(155, 138, 117, 0.4) 0%, transparent 50%)
+                `
+            },
+            cracks: 6,
+            cracksOpacity: 0.7,
+            borderIrregular: true,
+            borderGaps: 6
+        }
+    };
+    
+    return styles[level] || styles.fresh;
+}
+
+// Component for rendering aging border with cracks
+export function AgingBorder({ irregular, gaps, borderColor }: { irregular: boolean; gaps: number; borderColor: string }) {
+    if (!irregular) return null;
+    
+    const width = 280;
+    const height = 200;
+    const radius = 8;
+    const borderWidth = 2 + (gaps * 0.3);
+    
+    const getBorderPath = (): string => {
+        const variation = Math.min(gaps * 1.5, 8);
+        
+        const topVariations = [
+            { x: width * 0.15, y: -variation * 0.3 },
+            { x: width * 0.35, y: variation * 0.2 },
+            { x: width * 0.55, y: -variation * 0.4 },
+            { x: width * 0.75, y: variation * 0.3 },
+            { x: width * 0.9, y: -variation * 0.2 }
+        ];
+        
+        const rightVariations = [
+            { y: height * 0.2, x: variation * 0.3 },
+            { y: height * 0.5, x: -variation * 0.2 },
+            { y: height * 0.8, x: variation * 0.4 }
+        ];
+        
+        const bottomVariations = [
+            { x: width * 0.85, y: variation * 0.3 },
+            { x: width * 0.65, y: -variation * 0.2 },
+            { x: width * 0.45, y: variation * 0.4 },
+            { x: width * 0.25, y: -variation * 0.3 },
+            { x: width * 0.1, y: variation * 0.2 }
+        ];
+        
+        const leftVariations = [
+            { y: height * 0.75, x: -variation * 0.3 },
+            { y: height * 0.45, x: variation * 0.2 },
+            { y: height * 0.2, x: -variation * 0.4 }
+        ];
+        
+        let path = `M ${radius} 0`;
+        topVariations.forEach(v => {
+            path += ` L ${v.x} ${Math.max(0, v.y)}`;
+        });
+        path += ` L ${width - radius} 0`;
+        path += ` L ${width} ${radius}`;
+        rightVariations.forEach(v => {
+            path += ` L ${Math.min(width, width + v.x)} ${v.y}`;
+        });
+        path += ` L ${width} ${height - radius}`;
+        path += ` L ${width - radius} ${height}`;
+        bottomVariations.forEach(v => {
+            path += ` L ${v.x} ${Math.min(height, height + v.y)}`;
+        });
+        path += ` L ${radius} ${height}`;
+        path += ` L 0 ${height - radius}`;
+        leftVariations.forEach(v => {
+            path += ` L ${Math.max(0, v.x)} ${v.y}`;
+        });
+        path += ` L 0 ${radius} Z`;
+        return path;
+    };
+    
+    const dashLength = Math.max(15 - gaps * 1.5, 5);
+    const gapLength = 1 + gaps * 0.5;
+    const dashArray = gaps > 0 ? `${dashLength} ${gapLength}` : 'none';
+    
+    return (
+        <svg
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                zIndex: 11
+            }}
+            viewBox={`0 0 ${width} ${height}`}
+            preserveAspectRatio="none"
+        >
+            <path
+                d={getBorderPath()}
+                stroke={borderColor}
+                strokeWidth={borderWidth}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray={dashArray}
+                opacity={0.85}
+            />
+            {gaps >= 2 && Array.from({ length: Math.min(gaps, 6) }).map((_, i) => {
+                const positions = [
+                    { x: width * 0.15, y: 0, angle: 90, length: 8 + gaps },
+                    { x: width, y: height * 0.25, angle: 180, length: 8 + gaps },
+                    { x: width * 0.8, y: height, angle: 270, length: 8 + gaps },
+                    { x: 0, y: height * 0.7, angle: 0, length: 8 + gaps },
+                    { x: width * 0.5, y: 0, angle: 90, length: 6 + gaps },
+                    { x: width, y: height * 0.75, angle: 180, length: 6 + gaps }
+                ];
+                const pos = positions[i % positions.length];
+                const endX = pos.x + Math.cos((pos.angle * Math.PI) / 180) * pos.length;
+                const endY = pos.y + Math.sin((pos.angle * Math.PI) / 180) * pos.length;
+                return (
+                    <path
+                        key={`border-crack-${i}`}
+                        d={`M ${pos.x} ${pos.y} Q ${pos.x + (endX - pos.x) * 0.5} ${pos.y + (endY - pos.y) * 0.5 + (Math.random() - 0.5) * 2} ${endX} ${endY}`}
+                        stroke={borderColor}
+                        strokeWidth={1}
+                        fill="none"
+                        strokeLinecap="round"
+                        opacity={0.5 + (i * 0.1)}
+                    />
+                );
+            })}
+        </svg>
+    );
+}
+
+// Component for rendering aging cracks
+export function AgingCracks({ count, opacity }: { count: number; opacity: number }) {
+    if (count === 0) return null;
+    
+    const crackPatterns = [
+        "M 50 30 Q 60 40 70 35 T 85 45",
+        "M 200 50 Q 210 60 220 55 T 235 65",
+        "M 30 100 Q 40 110 50 105 Q 60 115 70 110 T 85 120",
+        "M 150 80 Q 160 90 170 85 Q 180 95 190 90 T 205 100",
+        "M 220 150 Q 230 160 240 155 Q 250 165 260 160",
+        "M 20 40 Q 30 50 40 45 Q 50 55 60 50 Q 70 60 80 55 T 100 65",
+        "M 180 120 Q 190 130 200 125 Q 210 135 220 130 Q 230 140 240 135",
+        "M 100 160 Q 110 170 120 165 Q 130 175 140 170 Q 150 180 160 175",
+        "M 10 60 Q 20 70 30 65 Q 40 75 50 70 Q 60 80 70 75 Q 80 85 90 80 T 110 90",
+        "M 160 40 Q 170 50 180 45 Q 190 55 200 50 Q 210 60 220 55 Q 230 65 240 60",
+    ];
+    
+    const selectedPatterns = crackPatterns.slice(0, Math.min(count, crackPatterns.length));
+    
+    return (
+        <svg
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                opacity: opacity,
+                zIndex: 10
+            }}
+            viewBox="0 0 280 200"
+            preserveAspectRatio="none"
+        >
+            {selectedPatterns.map((path, i) => (
+                <path
+                    key={i}
+                    d={path}
+                    stroke="#5D4037"
+                    strokeWidth={count <= 2 ? 0.8 : count <= 4 ? 1 : 1.2}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={0.5 + (i * 0.1)}
+                />
+            ))}
+            {count >= 3 && Array.from({ length: Math.floor(count / 2) }).map((_, i) => {
+                const startX = 20 + (i * 40) % 240;
+                const startY = 30 + (i * 30) % 150;
+                return (
+                    <path
+                        key={`random-${i}`}
+                        d={`M ${startX} ${startY} Q ${startX + 10} ${startY + 10} ${startX + 20} ${startY + 5}`}
+                        stroke="#6D4C41"
+                        strokeWidth={0.6}
+                        fill="none"
+                        strokeLinecap="round"
+                        opacity={0.3}
+                    />
+                );
+            })}
+        </svg>
     );
 }
