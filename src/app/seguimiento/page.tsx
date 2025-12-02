@@ -16,7 +16,7 @@ import {
     MagnifyingGlassMinusIcon,
     MagnifyingGlassPlusIcon
 } from '@heroicons/react/24/outline';
-import { Column, ProspectModal, ProspectDetailModal, type Prospect } from './components';
+import { Column, ProspectModal, ProspectDetailModal, FilterBar, useFiltrosProspectos, type Prospect } from './components';
 import {
     subscribeToProspects,
     createProspect,
@@ -75,6 +75,20 @@ function SeguimientoContent() {
         };
         fetchUsers();
     }, []);
+
+    // Filter system
+    const {
+        filters,
+        filteredProspects,
+        activeFilterCount,
+        isFilterPanelOpen,
+        setIsFilterPanelOpen,
+        updateFilter,
+        clearFilters,
+        removeFilter,
+        applyDatePreset,
+        uniqueResponsibles
+    } = useFiltrosProspectos(prospects, userMap);
 
     const handleDragStart = (e: React.DragEvent, prospectId: string) => {
         e.dataTransfer.setData('prospectId', prospectId);
@@ -438,7 +452,23 @@ function SeguimientoContent() {
             </header>
 
             {/* Main Content Container */}
-            <main style={{ padding: '2rem', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <main style={{ padding: '1.5rem 2rem', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                {/* Filter Bar */}
+                <FilterBar
+                    filters={filters}
+                    activeFilterCount={activeFilterCount}
+                    isFilterPanelOpen={isFilterPanelOpen}
+                    setIsFilterPanelOpen={setIsFilterPanelOpen}
+                    updateFilter={updateFilter}
+                    clearFilters={clearFilters}
+                    removeFilter={removeFilter}
+                    applyDatePreset={applyDatePreset}
+                    uniqueResponsibles={uniqueResponsibles}
+                    resultCount={filteredProspects.length}
+                    userMap={userMap}
+                />
+
+                {/* Kanban Board */}
                 <div style={{
                     backgroundColor: 'var(--surface)',
                     borderRadius: '1rem',
@@ -454,7 +484,7 @@ function SeguimientoContent() {
                     <Column
                         title="Detección"
                         icon={MagnifyingGlassIcon}
-                        prospects={prospects.filter(p => p.stage === 'Detección de prospecto')}
+                        prospects={filteredProspects.filter(p => p.stage === 'Detección de prospecto')}
                         onAddClick={() => setIsModalOpen(true)}
                         showAddButton={true}
                         onDrop={(e) => handleDrop(e, 'Detección de prospecto')}
@@ -467,7 +497,7 @@ function SeguimientoContent() {
                     <Column
                         title="1er Cont."
                         icon={PhoneIcon}
-                        prospects={prospects.filter(p => p.stage === '1er Contacto')}
+                        prospects={filteredProspects.filter(p => p.stage === '1er Contacto')}
                         onDrop={(e) => handleDrop(e, '1er Contacto')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}
@@ -478,7 +508,7 @@ function SeguimientoContent() {
                     <Column
                         title="Efectivo"
                         icon={ChatBubbleLeftRightIcon}
-                        prospects={prospects.filter(p => p.stage === 'Contacto efectivo')}
+                        prospects={filteredProspects.filter(p => p.stage === 'Contacto efectivo')}
                         onDrop={(e) => handleDrop(e, 'Contacto efectivo')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}
@@ -489,7 +519,7 @@ function SeguimientoContent() {
                     <Column
                         title="Interés"
                         icon={SparklesIcon}
-                        prospects={prospects.filter(p => p.stage === 'Muestra de interés')}
+                        prospects={filteredProspects.filter(p => p.stage === 'Muestra de interés')}
                         onDrop={(e) => handleDrop(e, 'Muestra de interés')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}
@@ -500,7 +530,7 @@ function SeguimientoContent() {
                     <Column
                         title="Cita Demo"
                         icon={CalendarDaysIcon}
-                        prospects={prospects.filter(p => p.stage === 'Cita para demo')}
+                        prospects={filteredProspects.filter(p => p.stage === 'Cita para demo')}
                         onDrop={(e) => handleDrop(e, 'Cita para demo')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}
@@ -511,7 +541,7 @@ function SeguimientoContent() {
                     <Column
                         title="Realizada"
                         icon={PresentationChartLineIcon}
-                        prospects={prospects.filter(p => p.stage === 'Demo realizada')}
+                        prospects={filteredProspects.filter(p => p.stage === 'Demo realizada')}
                         onDrop={(e) => handleDrop(e, 'Demo realizada')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}
@@ -522,7 +552,7 @@ function SeguimientoContent() {
                     <Column
                         title="Venta"
                         icon={CheckCircleIcon}
-                        prospects={prospects.filter(p => p.stage === 'Venta')}
+                        prospects={filteredProspects.filter(p => p.stage === 'Venta')}
                         onDrop={(e) => handleDrop(e, 'Venta')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}
@@ -533,7 +563,7 @@ function SeguimientoContent() {
                     <Column
                         title="Pausa"
                         icon={PauseCircleIcon}
-                        prospects={prospects.filter(p => p.stage === 'En Pausa')}
+                        prospects={filteredProspects.filter(p => p.stage === 'En Pausa')}
                         onDrop={(e) => handleDrop(e, 'En Pausa')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}
@@ -544,7 +574,7 @@ function SeguimientoContent() {
                     <Column
                         title="Basura"
                         icon={TrashIcon}
-                        prospects={prospects.filter(p => p.stage === 'Basura')}
+                        prospects={filteredProspects.filter(p => p.stage === 'Basura')}
                         onDrop={(e) => handleDrop(e, 'Basura')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
     PlusIcon, 
     PlusCircleIcon, 
@@ -18,7 +18,12 @@ import {
     ClockIcon,
     ChevronDownIcon,
     ChevronUpIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    MagnifyingGlassIcon,
+    FunnelIcon,
+    CalendarIcon,
+    XCircleIcon,
+    AdjustmentsHorizontalIcon
 } from '@heroicons/react/24/outline';
 
 export interface Prospect {
@@ -37,6 +42,953 @@ export interface Prospect {
         date: Date;
         movedBy?: string;
     }>;
+}
+
+// ========== FILTER SYSTEM TYPES AND CONSTANTS ==========
+
+export type DateFilterType = 'createdAt' | 'updatedAt' | 'lastAction';
+export type ActivityStatus = 'all' | 'active' | 'inactive' | 'very_inactive';
+
+export interface FilterState {
+    searchQuery: string;
+    dateType: DateFilterType;
+    dateFrom: string;
+    dateTo: string;
+    responsibleId: string;
+    stages: string[];
+    activityStatus: ActivityStatus;
+}
+
+export const STAGE_OPTIONS = [
+    'Detección de prospecto',
+    '1er Contacto',
+    'Contacto efectivo',
+    'Muestra de interés',
+    'Cita para demo',
+    'Demo realizada',
+    'Venta',
+    'En Pausa',
+    'Basura'
+];
+
+const FILTER_STORAGE_KEY = 'crm-filters-seguimiento';
+
+// ========== FILTER HOOK ==========
+
+export function useFiltrosProspectos(prospects: Prospect[], userMap: Record<string, string>) {
+    const [filters, setFilters] = useState<FilterState>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(FILTER_STORAGE_KEY);
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch {
+                    return getDefaultFilters();
+                }
+            }
+        }
+        return getDefaultFilters();
+    });
+
+    const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+
+    // Persist filters to localStorage
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+        }
+    }, [filters]);
+
+    // Get unique responsibles from prospects
+    const uniqueResponsibles = useMemo(() => {
+        const responsibleSet = new Set<string>();
+        prospects.forEach(p => {
+            if (p.createdBy && p.createdBy !== 'anonymous') {
+                responsibleSet.add(p.createdBy);
+            }
+        });
+        return Array.from(responsibleSet).map(id => ({
+            id,
+            name: userMap[id] || id
+        }));
+    }, [prospects, userMap]);
+
+    // Filter prospects based on current filters
+    const filteredProspects = useMemo(() => {
+        return prospects.filter(prospect => {
+            // Search filter (name, email, company, phone)
+            if (filters.searchQuery) {
+                const query = filters.searchQuery.toLowerCase();
+                const matchesSearch = 
+                    prospect.name?.toLowerCase().includes(query) ||
+                    prospect.email?.toLowerCase().includes(query) ||
+                    prospect.company?.toLowerCase().includes(query) ||
+                    prospect.phone?.toLowerCase().includes(query);
+                if (!matchesSearch) return false;
+            }
+
+            // Date filter
+            if (filters.dateFrom || filters.dateTo) {
+                let dateToCheck: Date | undefined;
+                
+                switch (filters.dateType) {
+                    case 'createdAt':
+                        dateToCheck = prospect.createdAt;
+                        break;
+                    case 'updatedAt':
+                        dateToCheck = (prospect as any).updatedAt || prospect.createdAt;
+                        break;
+                    case 'lastAction':
+                        if (prospect.history && prospect.history.length > 0) {
+                            dateToCheck = prospect.history[prospect.history.length - 1].date;
+                        } else {
+                            dateToCheck = prospect.createdAt;
+                        }
+                        break;
+                }
+
+                if (dateToCheck) {
+                    const checkDate = new Date(dateToCheck);
+                    if (filters.dateFrom) {
+                        const fromDate = new Date(filters.dateFrom);
+                        fromDate.setHours(0, 0, 0, 0);
+                        if (checkDate < fromDate) return false;
+                    }
+                    if (filters.dateTo) {
+                        const toDate = new Date(filters.dateTo);
+                        toDate.setHours(23, 59, 59, 999);
+                        if (checkDate > toDate) return false;
+                    }
+                }
+            }
+
+            // Responsible filter
+            if (filters.responsibleId && filters.responsibleId !== 'all') {
+                if (prospect.createdBy !== filters.responsibleId) return false;
+            }
+
+            // Stage filter
+            if (filters.stages.length > 0) {
+                if (!filters.stages.includes(prospect.stage)) return false;
+            }
+
+            // Activity status filter
+            if (filters.activityStatus !== 'all') {
+                const daysSinceLastAction = getDaysSinceLastMovement(prospect);
+                switch (filters.activityStatus) {
+                    case 'active':
+                        if (daysSinceLastAction > 7) return false;
+                        break;
+                    case 'inactive':
+                        if (daysSinceLastAction <= 7 || daysSinceLastAction > 30) return false;
+                        break;
+                    case 'very_inactive':
+                        if (daysSinceLastAction <= 30) return false;
+                        break;
+                }
+            }
+
+            return true;
+        });
+    }, [prospects, filters]);
+
+    // Count active filters
+    const activeFilterCount = useMemo(() => {
+        let count = 0;
+        if (filters.searchQuery) count++;
+        if (filters.dateFrom || filters.dateTo) count++;
+        if (filters.responsibleId && filters.responsibleId !== 'all') count++;
+        if (filters.stages.length > 0) count++;
+        if (filters.activityStatus !== 'all') count++;
+        return count;
+    }, [filters]);
+
+    // Update individual filter
+    const updateFilter = useCallback(<K extends keyof FilterState>(key: K, value: FilterState[K]) => {
+        setFilters(prev => ({ ...prev, [key]: value }));
+    }, []);
+
+    // Clear all filters
+    const clearFilters = useCallback(() => {
+        setFilters(getDefaultFilters());
+    }, []);
+
+    // Remove specific filter
+    const removeFilter = useCallback((filterType: keyof FilterState) => {
+        setFilters(prev => ({
+            ...prev,
+            [filterType]: getDefaultFilters()[filterType]
+        }));
+    }, []);
+
+    // Quick date presets
+    const applyDatePreset = useCallback((preset: 'today' | '7days' | '30days' | 'thisMonth' | 'lastMonth') => {
+        const today = new Date();
+        let fromDate: Date;
+        let toDate: Date = today;
+
+        switch (preset) {
+            case 'today':
+                fromDate = today;
+                break;
+            case '7days':
+                fromDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                break;
+            case '30days':
+                fromDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                break;
+            case 'thisMonth':
+                fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                toDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                break;
+            case 'lastMonth':
+                fromDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                toDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                break;
+        }
+
+        setFilters(prev => ({
+            ...prev,
+            dateFrom: formatDateForInput(fromDate),
+            dateTo: formatDateForInput(toDate)
+        }));
+    }, []);
+
+    return {
+        filters,
+        filteredProspects,
+        activeFilterCount,
+        isFilterPanelOpen,
+        setIsFilterPanelOpen,
+        updateFilter,
+        clearFilters,
+        removeFilter,
+        applyDatePreset,
+        uniqueResponsibles
+    };
+}
+
+function getDefaultFilters(): FilterState {
+    return {
+        searchQuery: '',
+        dateType: 'createdAt',
+        dateFrom: '',
+        dateTo: '',
+        responsibleId: 'all',
+        stages: [],
+        activityStatus: 'all'
+    };
+}
+
+function formatDateForInput(date: Date): string {
+    return date.toISOString().split('T')[0];
+}
+
+// ========== FILTER BAR COMPONENT ==========
+
+export function FilterBar({
+    filters,
+    activeFilterCount,
+    isFilterPanelOpen,
+    setIsFilterPanelOpen,
+    updateFilter,
+    clearFilters,
+    removeFilter,
+    applyDatePreset,
+    uniqueResponsibles,
+    resultCount,
+    userMap
+}: {
+    filters: FilterState;
+    activeFilterCount: number;
+    isFilterPanelOpen: boolean;
+    setIsFilterPanelOpen: (open: boolean) => void;
+    updateFilter: <K extends keyof FilterState>(key: K, value: FilterState[K]) => void;
+    clearFilters: () => void;
+    removeFilter: (filterType: keyof FilterState) => void;
+    applyDatePreset: (preset: 'today' | '7days' | '30days' | 'thisMonth' | 'lastMonth') => void;
+    uniqueResponsibles: Array<{ id: string; name: string }>;
+    resultCount: number;
+    userMap: Record<string, string>;
+}) {
+    const [searchValue, setSearchValue] = useState(filters.searchQuery);
+
+    // Debounced search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            updateFilter('searchQuery', searchValue);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchValue, updateFilter]);
+
+    // Sync search value with filters
+    useEffect(() => {
+        setSearchValue(filters.searchQuery);
+    }, [filters.searchQuery]);
+
+    const hasActiveFilters = activeFilterCount > 0;
+
+    // Get active filter chips
+    const getActiveFilterChips = () => {
+        const chips: Array<{ type: keyof FilterState; label: string; icon: React.ReactNode }> = [];
+
+        if (filters.dateFrom || filters.dateTo) {
+            let label = '';
+            if (filters.dateFrom && filters.dateTo) {
+                label = `${formatDisplayDate(filters.dateFrom)} - ${formatDisplayDate(filters.dateTo)}`;
+            } else if (filters.dateFrom) {
+                label = `Desde ${formatDisplayDate(filters.dateFrom)}`;
+            } else {
+                label = `Hasta ${formatDisplayDate(filters.dateTo)}`;
+            }
+            chips.push({
+                type: 'dateFrom',
+                label,
+                icon: <CalendarIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+            });
+        }
+
+        if (filters.responsibleId && filters.responsibleId !== 'all') {
+            chips.push({
+                type: 'responsibleId',
+                label: userMap[filters.responsibleId] || filters.responsibleId,
+                icon: <UserIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+            });
+        }
+
+        if (filters.stages.length > 0) {
+            chips.push({
+                type: 'stages',
+                label: filters.stages.length === 1 ? filters.stages[0] : `${filters.stages.length} etapas`,
+                icon: <FlagIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+            });
+        }
+
+        if (filters.activityStatus !== 'all') {
+            const statusLabels: Record<ActivityStatus, string> = {
+                all: 'Todos',
+                active: 'Activos (<7d)',
+                inactive: 'Inactivos (7-30d)',
+                very_inactive: 'Muy inactivos (>30d)'
+            };
+            chips.push({
+                type: 'activityStatus',
+                label: statusLabels[filters.activityStatus],
+                icon: <ClockIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+            });
+        }
+
+        return chips;
+    };
+
+    const handleRemoveChip = (type: keyof FilterState) => {
+        if (type === 'dateFrom') {
+            updateFilter('dateFrom', '');
+            updateFilter('dateTo', '');
+        } else {
+            removeFilter(type);
+        }
+    };
+
+    return (
+        <div style={{ marginBottom: '1rem' }}>
+            {/* Main Filter Bar */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '0.75rem 1rem',
+                backgroundColor: 'var(--surface)',
+                borderRadius: '0.75rem',
+                border: '1px solid var(--border)'
+            }}>
+                {/* Search Input */}
+                <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: 'var(--background)',
+                    borderRadius: '0.5rem',
+                    border: '1px solid var(--border)'
+                }}>
+                    <MagnifyingGlassIcon style={{ 
+                        width: '1rem', 
+                        height: '1rem', 
+                        color: 'var(--secondary)',
+                        flexShrink: 0
+                    }} />
+                    <input
+                        type="text"
+                        placeholder="Buscar por nombre, email, empresa o teléfono..."
+                        value={searchValue}
+                        onChange={(e) => setSearchValue(e.target.value)}
+                        style={{
+                            flex: 1,
+                            border: 'none',
+                            outline: 'none',
+                            backgroundColor: 'transparent',
+                            color: 'var(--foreground)',
+                            fontSize: '0.8125rem',
+                            fontFamily: 'inherit'
+                        }}
+                    />
+                    {searchValue && (
+                        <button
+                            onClick={() => setSearchValue('')}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: 'var(--secondary)',
+                                padding: '0.125rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <XMarkIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                        </button>
+                    )}
+                </div>
+
+                {/* Filter Toggle Button */}
+                <button
+                    onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem 0.875rem',
+                        backgroundColor: hasActiveFilters ? 'var(--primary)' : 'var(--background)',
+                        color: hasActiveFilters ? 'white' : 'var(--foreground)',
+                        border: `1px solid ${hasActiveFilters ? 'var(--primary)' : 'var(--border)'}`,
+                        borderRadius: '0.5rem',
+                        fontSize: '0.8125rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        position: 'relative'
+                    }}
+                >
+                    <AdjustmentsHorizontalIcon style={{ width: '1rem', height: '1rem' }} />
+                    Filtros
+                    {hasActiveFilters && (
+                        <span style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '1.25rem',
+                            height: '1.25rem',
+                            backgroundColor: 'white',
+                            color: 'var(--primary)',
+                            borderRadius: '50%',
+                            fontSize: '0.6875rem',
+                            fontWeight: '700'
+                        }}>
+                            {activeFilterCount}
+                        </span>
+                    )}
+                    <ChevronDownIcon style={{
+                        width: '0.875rem',
+                        height: '0.875rem',
+                        transform: isFilterPanelOpen ? 'rotate(180deg)' : 'rotate(0)',
+                        transition: 'transform 0.2s'
+                    }} />
+                </button>
+
+                {/* Results Counter */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.375rem',
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: 'var(--background)',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--secondary)',
+                    fontWeight: '500',
+                    whiteSpace: 'nowrap'
+                }}>
+                    <span style={{ 
+                        color: 'var(--primary)', 
+                        fontWeight: '700',
+                        fontSize: '0.875rem'
+                    }}>
+                        {resultCount}
+                    </span>
+                    prospectos
+                </div>
+            </div>
+
+            {/* Active Filter Chips */}
+            {getActiveFilterChips().length > 0 && (
+                <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                    marginTop: '0.75rem',
+                    paddingLeft: '0.25rem'
+                }}>
+                    {getActiveFilterChips().map((chip, index) => (
+                        <div
+                            key={index}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem',
+                                padding: '0.375rem 0.625rem',
+                                backgroundColor: 'var(--primary)',
+                                color: 'white',
+                                borderRadius: '1rem',
+                                fontSize: '0.75rem',
+                                fontWeight: '500'
+                            }}
+                        >
+                            {chip.icon}
+                            <span>{chip.label}</span>
+                            <button
+                                onClick={() => handleRemoveChip(chip.type)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'white',
+                                    padding: '0.125rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: 0.8,
+                                    marginLeft: '0.125rem'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+                            >
+                                <XMarkIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+                            </button>
+                        </div>
+                    ))}
+                    {activeFilterCount > 1 && (
+                        <button
+                            onClick={clearFilters}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                padding: '0.375rem 0.625rem',
+                                backgroundColor: 'transparent',
+                                color: 'var(--secondary)',
+                                border: '1px dashed var(--border)',
+                                borderRadius: '1rem',
+                                fontSize: '0.75rem',
+                                fontWeight: '500',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'var(--background)';
+                                e.currentTarget.style.color = 'var(--foreground)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.color = 'var(--secondary)';
+                            }}
+                        >
+                            <XCircleIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+                            Limpiar todo
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {/* Filter Panel */}
+            {isFilterPanelOpen && (
+                <div style={{
+                    marginTop: '0.75rem',
+                    padding: '1.25rem',
+                    backgroundColor: 'var(--surface)',
+                    borderRadius: '0.75rem',
+                    border: '1px solid var(--border)',
+                    animation: 'slideDown 0.2s ease-out'
+                }}>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '1.25rem'
+                    }}>
+                        {/* Date Filter */}
+                        <div>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem',
+                                marginBottom: '0.625rem',
+                                fontSize: '0.75rem',
+                                fontWeight: '600',
+                                color: 'var(--foreground)',
+                                textTransform: 'uppercase'
+                            }}>
+                                <CalendarIcon style={{ width: '0.875rem', height: '0.875rem', color: 'var(--primary)' }} />
+                                Rango de Fechas
+                            </div>
+                            
+                            {/* Date Type Radio */}
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.375rem',
+                                marginBottom: '0.75rem',
+                                padding: '0.625rem',
+                                backgroundColor: 'var(--background)',
+                                borderRadius: '0.5rem'
+                            }}>
+                                {[
+                                    { value: 'createdAt', label: 'Fecha creación' },
+                                    { value: 'updatedAt', label: 'Última modificación' },
+                                    { value: 'lastAction', label: 'Última acción' }
+                                ].map(option => (
+                                    <label
+                                        key={option.value}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            fontSize: '0.75rem',
+                                            color: 'var(--foreground)',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="dateType"
+                                            checked={filters.dateType === option.value}
+                                            onChange={() => updateFilter('dateType', option.value as DateFilterType)}
+                                            style={{ accentColor: 'var(--primary)' }}
+                                        />
+                                        {option.label}
+                                    </label>
+                                ))}
+                            </div>
+
+                            {/* Date Inputs */}
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ 
+                                        display: 'block', 
+                                        fontSize: '0.6875rem', 
+                                        color: 'var(--secondary)', 
+                                        marginBottom: '0.25rem' 
+                                    }}>
+                                        Desde
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={filters.dateFrom}
+                                        onChange={(e) => updateFilter('dateFrom', e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.5rem',
+                                            backgroundColor: 'var(--background)',
+                                            border: '1px solid var(--border)',
+                                            borderRadius: '0.375rem',
+                                            color: 'var(--foreground)',
+                                            fontSize: '0.75rem'
+                                        }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ 
+                                        display: 'block', 
+                                        fontSize: '0.6875rem', 
+                                        color: 'var(--secondary)', 
+                                        marginBottom: '0.25rem' 
+                                    }}>
+                                        Hasta
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={filters.dateTo}
+                                        onChange={(e) => updateFilter('dateTo', e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.5rem',
+                                            backgroundColor: 'var(--background)',
+                                            border: '1px solid var(--border)',
+                                            borderRadius: '0.375rem',
+                                            color: 'var(--foreground)',
+                                            fontSize: '0.75rem'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Quick Date Presets */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                                {[
+                                    { key: 'today', label: 'Hoy' },
+                                    { key: '7days', label: '7 días' },
+                                    { key: '30days', label: '30 días' },
+                                    { key: 'thisMonth', label: 'Este mes' },
+                                    { key: 'lastMonth', label: 'Mes pasado' }
+                                ].map(preset => (
+                                    <button
+                                        key={preset.key}
+                                        onClick={() => applyDatePreset(preset.key as any)}
+                                        style={{
+                                            padding: '0.25rem 0.5rem',
+                                            backgroundColor: 'transparent',
+                                            border: '1px solid var(--border)',
+                                            borderRadius: '0.25rem',
+                                            color: 'var(--secondary)',
+                                            fontSize: '0.6875rem',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'var(--primary)';
+                                            e.currentTarget.style.borderColor = 'var(--primary)';
+                                            e.currentTarget.style.color = 'white';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.borderColor = 'var(--border)';
+                                            e.currentTarget.style.color = 'var(--secondary)';
+                                        }}
+                                    >
+                                        {preset.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Responsible Filter */}
+                        <div>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem',
+                                marginBottom: '0.625rem',
+                                fontSize: '0.75rem',
+                                fontWeight: '600',
+                                color: 'var(--foreground)',
+                                textTransform: 'uppercase'
+                            }}>
+                                <UserIcon style={{ width: '0.875rem', height: '0.875rem', color: 'var(--primary)' }} />
+                                Responsable
+                            </div>
+                            <select
+                                value={filters.responsibleId}
+                                onChange={(e) => updateFilter('responsibleId', e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.625rem',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '0.5rem',
+                                    color: 'var(--foreground)',
+                                    fontSize: '0.8125rem',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value="all">Todos los responsables</option>
+                                {uniqueResponsibles.map(resp => (
+                                    <option key={resp.id} value={resp.id}>
+                                        {resp.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Stage Filter */}
+                        <div>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem',
+                                marginBottom: '0.625rem',
+                                fontSize: '0.75rem',
+                                fontWeight: '600',
+                                color: 'var(--foreground)',
+                                textTransform: 'uppercase'
+                            }}>
+                                <FlagIcon style={{ width: '0.875rem', height: '0.875rem', color: 'var(--primary)' }} />
+                                Etapa
+                            </div>
+                            <div style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '0.375rem',
+                                padding: '0.625rem',
+                                backgroundColor: 'var(--background)',
+                                borderRadius: '0.5rem',
+                                maxHeight: '140px',
+                                overflowY: 'auto'
+                            }}>
+                                {STAGE_OPTIONS.map(stage => {
+                                    const isSelected = filters.stages.includes(stage);
+                                    return (
+                                        <button
+                                            key={stage}
+                                            onClick={() => {
+                                                if (isSelected) {
+                                                    updateFilter('stages', filters.stages.filter(s => s !== stage));
+                                                } else {
+                                                    updateFilter('stages', [...filters.stages, stage]);
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '0.375rem 0.625rem',
+                                                backgroundColor: isSelected ? 'var(--primary)' : 'transparent',
+                                                border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                                                borderRadius: '1rem',
+                                                color: isSelected ? 'white' : 'var(--foreground)',
+                                                fontSize: '0.6875rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            {stage}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Activity Status Filter */}
+                        <div>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem',
+                                marginBottom: '0.625rem',
+                                fontSize: '0.75rem',
+                                fontWeight: '600',
+                                color: 'var(--foreground)',
+                                textTransform: 'uppercase'
+                            }}>
+                                <ClockIcon style={{ width: '0.875rem', height: '0.875rem', color: 'var(--primary)' }} />
+                                Estado de Actividad
+                            </div>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.375rem',
+                                padding: '0.625rem',
+                                backgroundColor: 'var(--background)',
+                                borderRadius: '0.5rem'
+                            }}>
+                                {[
+                                    { value: 'all', label: 'Todos', desc: '' },
+                                    { value: 'active', label: 'Activos', desc: '< 7 días' },
+                                    { value: 'inactive', label: 'Inactivos', desc: '7-30 días' },
+                                    { value: 'very_inactive', label: 'Muy inactivos', desc: '> 30 días' }
+                                ].map(option => (
+                                    <label
+                                        key={option.value}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            fontSize: '0.75rem',
+                                            color: 'var(--foreground)',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="activityStatus"
+                                            checked={filters.activityStatus === option.value}
+                                            onChange={() => updateFilter('activityStatus', option.value as ActivityStatus)}
+                                            style={{ accentColor: 'var(--primary)' }}
+                                        />
+                                        <span>{option.label}</span>
+                                        {option.desc && (
+                                            <span style={{ 
+                                                fontSize: '0.625rem', 
+                                                color: 'var(--secondary)' 
+                                            }}>
+                                                ({option.desc})
+                                            </span>
+                                        )}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: '0.75rem',
+                        marginTop: '1.25rem',
+                        paddingTop: '1rem',
+                        borderTop: '1px solid var(--border)'
+                    }}>
+                        <button
+                            onClick={clearFilters}
+                            style={{
+                                padding: '0.625rem 1rem',
+                                backgroundColor: 'transparent',
+                                border: '1px solid var(--border)',
+                                borderRadius: '0.5rem',
+                                color: 'var(--foreground)',
+                                fontSize: '0.8125rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'var(--background)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                        >
+                            Limpiar filtros
+                        </button>
+                        <button
+                            onClick={() => setIsFilterPanelOpen(false)}
+                            style={{
+                                padding: '0.625rem 1rem',
+                                backgroundColor: 'var(--primary)',
+                                border: 'none',
+                                borderRadius: '0.5rem',
+                                color: 'white',
+                                fontSize: '0.8125rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Cerrar panel
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes slideDown {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+            `}</style>
+        </div>
+    );
+}
+
+function formatDisplayDate(dateStr: string): string {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
 }
 
 // Lead source options
