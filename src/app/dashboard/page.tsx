@@ -1,13 +1,12 @@
 "use client";
 
-import { useAuth } from "@/context/AuthContext";
-import { signOut } from "@/lib/firebase/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
 
 export default function DashboardPage() {
-    const { user, userProfile, loading } = useAuth();
+    const { user, userData, loading, logout } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
@@ -18,7 +17,7 @@ export default function DashboardPage() {
 
     const handleLogout = async () => {
         try {
-            await signOut();
+            await logout();
             router.push("/");
         } catch (error) {
             console.error("Error logging out:", error);
@@ -85,14 +84,14 @@ export default function DashboardPage() {
                             fontSize: '0.875rem',
                             fontWeight: '600'
                         }}>
-                            {userProfile?.displayName?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                            {userData?.displayName?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
                         </div>
                         <div style={{ textAlign: 'left' }}>
                             <div style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--foreground)' }}>
-                                {userProfile?.displayName || user.email}
+                                {userData?.displayName || user.email}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
-                                {userProfile?.role || 'user'}
+                                {userData?.role || 'user'}
                             </div>
                         </div>
                     </div>
@@ -124,7 +123,7 @@ export default function DashboardPage() {
                         color: 'var(--foreground)',
                         marginBottom: '0.5rem'
                     }}>
-                        Bienvenido, {userProfile?.displayName || user.email}
+                        Bienvenido, {userData?.displayName || user.email}
                     </h1>
                     <p style={{
                         fontSize: '1rem',
