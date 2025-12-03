@@ -35,6 +35,8 @@ export interface Prospect {
     subscriptionStartDate?: Date;
     // Follow-up date (for "Demo realizada" stage)
     nextContactDate?: Date;
+    // Scheduled demo date/time (for "Cita Demo" stage)
+    scheduledDemoDate?: Date;
 }
 
 // Create a new prospect
@@ -146,7 +148,8 @@ export const subscribeToProspects = (callback: (prospects: Prospect[]) => void) 
                         date: h.date?.toDate() || new Date()
                     })) || [],
                     subscriptionStartDate: data.subscriptionStartDate?.toDate(),
-                    nextContactDate: data.nextContactDate?.toDate()
+                    nextContactDate: data.nextContactDate?.toDate(),
+                    scheduledDemoDate: data.scheduledDemoDate?.toDate()
                 } as Prospect;
             });
             callback(prospects);

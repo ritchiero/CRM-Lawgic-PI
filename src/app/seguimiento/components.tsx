@@ -49,6 +49,8 @@ export interface Prospect {
     subscriptionStartDate?: Date;
     // Follow-up date (for "Demo realizada" stage)
     nextContactDate?: Date;
+    // Scheduled demo date/time (for "Cita Demo" stage)
+    scheduledDemoDate?: Date;
 }
 
 // ========== FILTER SYSTEM TYPES AND CONSTANTS ==========
@@ -1240,6 +1242,65 @@ export function ProspectCard({
         }
     })();
     
+    // Calculate scheduled demo info (only for "Cita Demo" stage)
+    const isCitaDemo = prospect.stage === 'Cita Demo';
+    const scheduledDemoInfo = (() => {
+        if (!isCitaDemo || !prospect.scheduledDemoDate) return null;
+        
+        const now = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Handle both Firestore Timestamp and Date objects
+        let demoDate: Date;
+        const sdd = prospect.scheduledDemoDate as Date & { toDate?: () => Date };
+        if (sdd.toDate && typeof sdd.toDate === 'function') {
+            demoDate = sdd.toDate();
+        } else if (sdd instanceof Date) {
+            demoDate = sdd;
+        } else {
+            demoDate = new Date(sdd);
+        }
+        
+        const demoDayStart = new Date(demoDate);
+        demoDayStart.setHours(0, 0, 0, 0);
+        
+        const diffTime = demoDayStart.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Format time
+        const hours = demoDate.getHours();
+        const minutes = demoDate.getMinutes();
+        const timeStr = `${hours % 12 || 12}:${minutes.toString().padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`;
+        
+        // Format short date
+        const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+        const shortDate = `${dayNames[demoDate.getDay()]} ${demoDate.getDate()} ${monthNames[demoDate.getMonth()]}`;
+        
+        if (diffDays > 3) return null; // Don't show if more than 3 days
+        
+        if (diffDays < 0) {
+            return {
+                text: 'Vencida',
+                type: 'overdue' as const,
+                icon: '⚠️'
+            };
+        } else if (diffDays === 0) {
+            return {
+                text: `HOY ${timeStr}`,
+                type: 'today' as const,
+                icon: '🔔'
+            };
+        } else {
+            return {
+                text: `${shortDate}, ${timeStr}`,
+                type: 'soon' as const,
+                icon: '📅'
+            };
+        }
+    })();
+    
     // Determine base background color (considering "En Pausa" and "Venta" states)
     const isVenta = prospect.stage === 'Venta';
     const isPausa = prospect.stage === 'En Pausa';
@@ -1365,6 +1426,32 @@ export function ProspectCard({
                 >
                     <span>{nextContactInfo.icon}</span>
                     <span>{nextContactInfo.text}</span>
+                </div>
+            )}
+
+            {/* Scheduled Demo Badge - Only for "Cita Demo" stage */}
+            {scheduledDemoInfo && (
+                <div
+                    className={scheduledDemoInfo.type === 'today' ? 'contact-alert-pulse' : ''}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: `${0.25 * zoomLevel}rem`,
+                        padding: `${0.25 * zoomLevel}rem ${0.5 * zoomLevel}rem`,
+                        borderRadius: '0.375rem',
+                        marginTop: `${0.375 * zoomLevel}rem`,
+                        fontSize: `${0.625 * zoomLevel}rem`,
+                        fontWeight: '600',
+                        backgroundColor: scheduledDemoInfo.type === 'overdue' 
+                            ? '#7f1d1d' 
+                            : scheduledDemoInfo.type === 'today'
+                                ? '#dc2626'
+                                : '#3b82f6',
+                        color: 'white'
+                    }}
+                >
+                    <span>{scheduledDemoInfo.icon}</span>
+                    <span>{scheduledDemoInfo.text}</span>
                 </div>
             )}
 
@@ -1938,6 +2025,31 @@ export function ProspectDetailModal({
         formatDateForInput(prospect.nextContactDate)
     );
     const [isEditingNextContact, setIsEditingNextContact] = useState(false);
+    
+    // Scheduled demo date state (for Cita Demo stage)
+    const formatDateTimeForInput = (date?: Date | { toDate: () => Date } | string | null): string => {
+        if (!date) return '';
+        let d: Date;
+        if (date instanceof Date) {
+            d = date;
+        } else if (typeof date === 'object' && 'toDate' in date) {
+            d = (date as { toDate: () => Date }).toDate();
+        } else {
+            d = new Date(date);
+        }
+        if (isNaN(d.getTime())) return '';
+        // Format as YYYY-MM-DDTHH:MM for datetime-local input
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+    const [scheduledDemoDate, setScheduledDemoDate] = useState<string>(
+        formatDateTimeForInput(prospect.scheduledDemoDate)
+    );
+    const [isEditingScheduledDemo, setIsEditingScheduledDemo] = useState(false);
 
     // Copy prospect info to clipboard
     const handleCopyInfo = async () => {
@@ -2044,6 +2156,29 @@ export function ProspectDetailModal({
             onUpdate(prospect.id, { nextContactDate: undefined });
             setNextContactDate('');
             setIsEditingNextContact(false);
+        }
+    };
+    
+    // Handle save scheduled demo date (Cita Demo stage)
+    const handleSaveScheduledDemo = () => {
+        if (onUpdate) {
+            const updates: Partial<Prospect> = {};
+            if (scheduledDemoDate) {
+                updates.scheduledDemoDate = new Date(scheduledDemoDate);
+            } else {
+                updates.scheduledDemoDate = undefined;
+            }
+            onUpdate(prospect.id, updates);
+            setIsEditingScheduledDemo(false);
+        }
+    };
+
+    // Handle clear scheduled demo date
+    const handleClearScheduledDemo = () => {
+        if (onUpdate) {
+            onUpdate(prospect.id, { scheduledDemoDate: undefined });
+            setScheduledDemoDate('');
+            setIsEditingScheduledDemo(false);
         }
     };
 
@@ -2514,6 +2649,164 @@ export function ProspectDetailModal({
                                 )
                             )}
                         </div>
+
+                        {/* Scheduled Demo Section - Only visible when stage is Cita para demo */}
+                        {prospect.stage === 'Cita para demo' && (
+                            <div style={{
+                                backgroundColor: 'rgba(168, 85, 247, 0.08)',
+                                border: '1px solid #a855f7',
+                                borderRadius: '0.75rem',
+                                padding: '1rem'
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '0.75rem'
+                                }}>
+                                    <div style={{
+                                        fontSize: '0.8125rem',
+                                        fontWeight: '700',
+                                        color: '#7c3aed',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.375rem'
+                                    }}>
+                                        <span style={{ fontSize: '0.875rem' }}>🗓️</span>
+                                        Fecha de Cita Demo
+                                    </div>
+                                    {!isEditingScheduledDemo && onUpdate && (
+                                        <button
+                                            onClick={() => setIsEditingScheduledDemo(true)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: '#7c3aed',
+                                                padding: '0.25rem 0.5rem',
+                                                borderRadius: '0.25rem',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.25rem',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 0.2)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                            }}
+                                        >
+                                            <PencilIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                                            {prospect.scheduledDemoDate ? 'Editar' : 'Programar'}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {isEditingScheduledDemo ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        <div>
+                                            <label style={{ 
+                                                display: 'block', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: '500', 
+                                                color: '#7c3aed', 
+                                                marginBottom: '0.25rem' 
+                                            }}>
+                                                Fecha y hora de la cita
+                                            </label>
+                                            <input
+                                                type="datetime-local"
+                                                value={scheduledDemoDate}
+                                                onChange={(e) => setScheduledDemoDate(e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: 'white',
+                                                    border: '1px solid #c4b5fd',
+                                                    borderRadius: '0.5rem',
+                                                    color: '#1e3a5f',
+                                                    fontSize: '0.8125rem'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                            {prospect.scheduledDemoDate && (
+                                                <button
+                                                    onClick={handleClearScheduledDemo}
+                                                    style={{
+                                                        padding: '0.5rem 0.75rem',
+                                                        backgroundColor: '#fee2e2',
+                                                        border: 'none',
+                                                        borderRadius: '0.5rem',
+                                                        color: '#dc2626',
+                                                        fontSize: '0.8125rem',
+                                                        fontWeight: '600',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => setIsEditingScheduledDemo(false)}
+                                                style={{
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: '#f3e8ff',
+                                                    border: 'none',
+                                                    borderRadius: '0.5rem',
+                                                    color: '#7c3aed',
+                                                    fontSize: '0.8125rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleSaveScheduledDemo}
+                                                style={{
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: '#a855f7',
+                                                    border: 'none',
+                                                    borderRadius: '0.5rem',
+                                                    color: 'white',
+                                                    fontSize: '0.8125rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        {prospect.scheduledDemoDate ? (
+                                            <div style={{ fontSize: '0.875rem', color: '#1e3a5f', fontWeight: '600' }}>
+                                                {new Date(prospect.scheduledDemoDate).toLocaleDateString('es-MX', {
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div style={{ fontSize: '0.8125rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                                                No hay fecha de cita programada. Haz clic en &quot;Programar&quot; para añadir una.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Next Contact Section - Only visible when stage is Demo realizada */}
                         {prospect.stage === 'Demo realizada' && (
