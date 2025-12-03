@@ -2166,7 +2166,10 @@ export function ProspectDetailModal({
         if (onUpdate) {
             const updates: Partial<Prospect> = {};
             if (nextContactDate) {
-                updates.nextContactDate = new Date(nextContactDate);
+                // Parse date manually to avoid timezone issues
+                const [year, month, day] = nextContactDate.split('-').map(Number);
+                // Create date at noon local time (month is 0-indexed)
+                updates.nextContactDate = new Date(year, month - 1, day, 12, 0, 0, 0);
             } else {
                 updates.nextContactDate = undefined;
             }
@@ -2187,10 +2190,11 @@ export function ProspectDetailModal({
     // Handle save scheduled demo date (Cita Demo stage)
     const handleSaveScheduledDemo = () => {
         if (onUpdate && scheduledDemoDate && scheduledDemoTime) {
-            // Combine date and time
+            // Parse date manually to avoid timezone issues
+            const [year, month, day] = scheduledDemoDate.split('-').map(Number);
             const [hours, minutes] = scheduledDemoTime.split(':').map(Number);
-            const dateObj = new Date(scheduledDemoDate);
-            dateObj.setHours(hours, minutes, 0, 0);
+            // Create date in local timezone (month is 0-indexed)
+            const dateObj = new Date(year, month - 1, day, hours, minutes, 0, 0);
             onUpdate(prospect.id, { scheduledDemoDate: dateObj });
             setIsEditingScheduledDemo(false);
         }
