@@ -1242,8 +1242,8 @@ export function ProspectCard({
         }
     })();
     
-    // Calculate scheduled demo info (only for "Cita Demo" stage)
-    const isCitaDemo = prospect.stage === 'Cita Demo';
+    // Calculate scheduled demo info (only for "Cita para demo" stage)
+    const isCitaDemo = prospect.stage === 'Cita para demo';
     const scheduledDemoInfo = (() => {
         if (!isCitaDemo || !prospect.scheduledDemoDate) return null;
         
