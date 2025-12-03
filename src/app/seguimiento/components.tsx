@@ -10,6 +10,7 @@ import {
     TrashIcon, 
     PauseCircleIcon,
     UserIcon,
+    UsersIcon,
     BuildingOfficeIcon,
     UserCircleIcon,
     EnvelopeIcon,
