@@ -2789,14 +2789,24 @@ export function ProspectDetailModal({
                                     <div>
                                         {prospect.scheduledDemoDate ? (
                                             <div style={{ fontSize: '0.875rem', color: '#1e3a5f', fontWeight: '600' }}>
-                                                {new Date(prospect.scheduledDemoDate).toLocaleDateString('es-MX', {
-                                                    weekday: 'long',
-                                                    year: 'numeric',
-                                                    month: 'long',
-                                                    day: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
+                                                {(() => {
+                                                    let d: Date;
+                                                    if (prospect.scheduledDemoDate instanceof Date) {
+                                                        d = prospect.scheduledDemoDate;
+                                                    } else if (typeof prospect.scheduledDemoDate === 'object' && prospect.scheduledDemoDate !== null && 'toDate' in prospect.scheduledDemoDate) {
+                                                        d = (prospect.scheduledDemoDate as { toDate: () => Date }).toDate();
+                                                    } else {
+                                                        d = new Date(prospect.scheduledDemoDate);
+                                                    }
+                                                    return d.toLocaleDateString('es-MX', {
+                                                        weekday: 'long',
+                                                        year: 'numeric',
+                                                        month: 'long',
+                                                        day: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    });
+                                                })()}
                                             </div>
                                         ) : (
                                             <div style={{ fontSize: '0.8125rem', color: '#9ca3af', fontStyle: 'italic' }}>
