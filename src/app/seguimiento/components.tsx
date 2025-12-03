@@ -1434,7 +1434,7 @@ export function ProspectCard({
                 </div>
             )}
 
-            {/* Scheduled Demo Badge - Only for "Cita Demo" stage */}
+            {/* Scheduled Demo Badge - Only for "Cita para demo" stage */}
             {scheduledDemoInfo && (
                 <div
                     className={scheduledDemoInfo.type === 'today' ? 'contact-alert-pulse' : ''}
@@ -1448,12 +1448,12 @@ export function ProspectCard({
                         fontSize: `${0.625 * zoomLevel}rem`,
                         fontWeight: '600',
                         backgroundColor: scheduledDemoInfo.type === 'overdue' 
-                            ? '#7f1d1d' 
+                            ? '#dc2626'  // Red - demo passed without moving
                             : scheduledDemoInfo.type === 'today'
-                                ? '#dc2626'
+                                ? '#059669'  // Emerald - today's the day!
                                 : scheduledDemoInfo.type === 'soon'
-                                    ? '#f59e0b'  // Amber for 1-3 days
-                                    : '#6b7280', // Gray for future (>3 days)
+                                    ? '#0891b2'  // Cyan - coming soon
+                                    : '#6366f1', // Indigo - scheduled for later
                         color: 'white'
                     }}
                 >
