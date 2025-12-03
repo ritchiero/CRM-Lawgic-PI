@@ -41,6 +41,8 @@ export interface Prospect {
     nextContactDate?: Date;
     // Scheduled demo date/time (for "Cita Demo" stage)
     scheduledDemoDate?: Date;
+    // Social media
+    linkedinUrl?: string;
 }
 
 // Create a new prospect

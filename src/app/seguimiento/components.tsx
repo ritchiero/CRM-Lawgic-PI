@@ -58,6 +58,8 @@ export interface Prospect {
     nextContactDate?: Date;
     // Scheduled demo date/time (for "Cita Demo" stage)
     scheduledDemoDate?: Date;
+    // Social media
+    linkedinUrl?: string;
 }
 
 // ========== FILTER SYSTEM TYPES AND CONSTANTS ==========
@@ -2189,6 +2191,11 @@ export function ProspectDetailModal({
     const [potentialValue, setPotentialValue] = useState<string>(prospect.potentialValue?.toString() || '');
     const [isEditingPotentialValue, setIsEditingPotentialValue] = useState(false);
     
+    // LinkedIn state
+    const [linkedinUrl, setLinkedinUrl] = useState<string>(prospect.linkedinUrl || '');
+    const [isEditingLinkedin, setIsEditingLinkedin] = useState(false);
+    const [linkedinError, setLinkedinError] = useState<string>('');
+    
     // Scheduled demo date state (for Cita Demo stage) - separate date and time
     const getDateAndTimeFromScheduled = (date?: Date | { toDate: () => Date } | string | null): { date: string; time: string } => {
         if (!date) return { date: '', time: '10:00' };
@@ -2355,6 +2362,25 @@ export function ProspectDetailModal({
             }
             onUpdate(prospect.id, updates);
             setIsEditingPotentialValue(false);
+        }
+    };
+
+    // Validate LinkedIn URL
+    const isValidLinkedinUrl = (url: string): boolean => {
+        if (!url) return true; // Empty is valid (optional field)
+        return url.toLowerCase().includes('linkedin.com');
+    };
+
+    // Handle save LinkedIn URL
+    const handleSaveLinkedin = () => {
+        if (!isValidLinkedinUrl(linkedinUrl)) {
+            setLinkedinError('Solo se permiten URLs de LinkedIn');
+            return;
+        }
+        setLinkedinError('');
+        if (onUpdate) {
+            onUpdate(prospect.id, { linkedinUrl: linkedinUrl || undefined });
+            setIsEditingLinkedin(false);
         }
     };
     
@@ -3583,6 +3609,175 @@ export function ProspectDetailModal({
                                 )}
                             </div>
                         )}
+
+                        {/* LinkedIn / Social Media Section */}
+                        <div style={{
+                            backgroundColor: 'rgba(10, 102, 194, 0.08)',
+                            border: '1px solid #0A66C2',
+                            borderRadius: '0.75rem',
+                            padding: '1rem'
+                        }}>
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '0.75rem'
+                            }}>
+                                <div style={{
+                                    fontSize: '0.8125rem',
+                                    fontWeight: '700',
+                                    color: '#0A66C2',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.375rem'
+                                }}>
+                                    <svg style={{ width: '1rem', height: '1rem' }} fill="#0A66C2" viewBox="0 0 24 24">
+                                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                    </svg>
+                                    Redes Sociales
+                                </div>
+                                {!isEditingLinkedin && onUpdate && (
+                                    <button
+                                        onClick={() => setIsEditingLinkedin(true)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: '#0A66C2',
+                                            padding: '0.25rem 0.5rem',
+                                            borderRadius: '0.25rem',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.25rem',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'rgba(10, 102, 194, 0.2)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <PencilIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                                        {prospect.linkedinUrl ? 'Editar' : 'Agregar'}
+                                    </button>
+                                )}
+                            </div>
+
+                            {isEditingLinkedin ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <div>
+                                        <label style={{ 
+                                            display: 'block', 
+                                            fontSize: '0.75rem', 
+                                            fontWeight: '500', 
+                                            color: '#0A66C2', 
+                                            marginBottom: '0.25rem' 
+                                        }}>
+                                            URL de LinkedIn
+                                        </label>
+                                        <input
+                                            type="url"
+                                            value={linkedinUrl}
+                                            onChange={(e) => {
+                                                setLinkedinUrl(e.target.value);
+                                                setLinkedinError('');
+                                            }}
+                                            placeholder="https://linkedin.com/in/usuario"
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.5rem 0.75rem',
+                                                backgroundColor: 'white',
+                                                border: linkedinError ? '1px solid #ef4444' : '1px solid #0A66C2',
+                                                borderRadius: '0.5rem',
+                                                color: '#1e3a5f',
+                                                fontSize: '0.8125rem'
+                                            }}
+                                        />
+                                        {linkedinError && (
+                                            <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.25rem' }}>
+                                                {linkedinError}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                        <button
+                                            onClick={() => {
+                                                setLinkedinUrl(prospect.linkedinUrl || '');
+                                                setLinkedinError('');
+                                                setIsEditingLinkedin(false);
+                                            }}
+                                            style={{
+                                                padding: '0.5rem 0.75rem',
+                                                backgroundColor: 'transparent',
+                                                border: '1px solid #0A66C2',
+                                                borderRadius: '0.5rem',
+                                                color: '#0A66C2',
+                                                fontSize: '0.8125rem',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleSaveLinkedin}
+                                            style={{
+                                                padding: '0.5rem 0.75rem',
+                                                backgroundColor: '#0A66C2',
+                                                border: 'none',
+                                                borderRadius: '0.5rem',
+                                                color: 'white',
+                                                fontSize: '0.8125rem',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            Guardar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    {prospect.linkedinUrl ? (
+                                        <a
+                                            href={prospect.linkedinUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                fontSize: '0.875rem',
+                                                color: '#0A66C2',
+                                                fontWeight: '600',
+                                                textDecoration: 'none',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.textDecoration = 'underline';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.textDecoration = 'none';
+                                            }}
+                                        >
+                                            <svg style={{ width: '1rem', height: '1rem' }} fill="#0A66C2" viewBox="0 0 24 24">
+                                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                            </svg>
+                                            Ver perfil de LinkedIn
+                                        </a>
+                                    ) : (
+                                        <div style={{ fontSize: '0.8125rem', color: '#6b7280', fontStyle: 'italic' }}>
+                                            Sin perfil de LinkedIn
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
                         {/* History */}
                         <div>
