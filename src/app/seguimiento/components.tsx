@@ -3661,7 +3661,7 @@ export function ProspectDetailModal({
                                             e.currentTarget.style.backgroundColor = 'transparent';
                                         }}
                                     >
-                                        <PencilIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                                        <span style={{ fontSize: '0.875rem' }}>✏️</span>
                                         {prospect.linkedinUrl ? 'Editar' : 'Agregar'}
                                     </button>
                                 )}
