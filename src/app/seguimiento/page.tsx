@@ -698,13 +698,17 @@ function SeguimientoContent() {
             {/* Duplicates Modal */}
             {isDuplicatesModalOpen && (
                 <DuplicatesModal
+                    isOpen={isDuplicatesModalOpen}
                     duplicateGroups={findAllDuplicates()}
                     onClose={() => setIsDuplicatesModalOpen(false)}
-                    onViewDetail={(prospect) => {
-                        setIsDuplicatesModalOpen(false);
-                        setSelectedProspect(prospect);
+                    onViewProspect={(prospectId) => {
+                        const prospect = prospects.find(p => p.id === prospectId);
+                        if (prospect) {
+                            setIsDuplicatesModalOpen(false);
+                            setSelectedProspect(prospect);
+                        }
                     }}
-                    onDelete={handleDeleteProspect}
+                    onDeleteProspect={handleDeleteProspect}
                     userMap={userMap}
                 />
             )}
