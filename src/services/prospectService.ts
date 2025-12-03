@@ -3,6 +3,7 @@ import {
     addDoc,
     updateDoc,
     deleteDoc,
+    deleteField,
     doc,
     query,
     where,
@@ -74,8 +75,19 @@ export const updateProspect = async (id: string, updates: Partial<Prospect>) => 
     try {
         const db = getDbInstance();
         const prospectRef = doc(db, 'prospects', id);
+        
+        // Convert undefined values to deleteField() for Firestore
+        const processedUpdates: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(updates)) {
+            if (value === undefined) {
+                processedUpdates[key] = deleteField();
+            } else {
+                processedUpdates[key] = value;
+            }
+        }
+        
         await updateDoc(prospectRef, {
-            ...updates,
+            ...processedUpdates,
             updatedAt: serverTimestamp()
         });
     } catch (error) {

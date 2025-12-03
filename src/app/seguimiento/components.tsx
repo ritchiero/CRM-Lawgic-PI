@@ -2186,18 +2186,12 @@ export function ProspectDetailModal({
     
     // Handle save scheduled demo date (Cita Demo stage)
     const handleSaveScheduledDemo = () => {
-        if (onUpdate) {
-            const updates: Partial<Prospect> = {};
-            if (scheduledDemoDate && scheduledDemoTime) {
-                // Combine date and time
-                const [hours, minutes] = scheduledDemoTime.split(':').map(Number);
-                const dateObj = new Date(scheduledDemoDate);
-                dateObj.setHours(hours, minutes, 0, 0);
-                updates.scheduledDemoDate = dateObj;
-            } else {
-                updates.scheduledDemoDate = undefined;
-            }
-            onUpdate(prospect.id, updates);
+        if (onUpdate && scheduledDemoDate && scheduledDemoTime) {
+            // Combine date and time
+            const [hours, minutes] = scheduledDemoTime.split(':').map(Number);
+            const dateObj = new Date(scheduledDemoDate);
+            dateObj.setHours(hours, minutes, 0, 0);
+            onUpdate(prospect.id, { scheduledDemoDate: dateObj });
             setIsEditingScheduledDemo(false);
         }
     };
