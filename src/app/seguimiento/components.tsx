@@ -25,7 +25,10 @@ import {
     CalendarIcon,
     XCircleIcon,
     AdjustmentsHorizontalIcon,
-    StarIcon
+    StarIcon,
+    EllipsisVerticalIcon,
+    EyeIcon,
+    ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 export interface Prospect {
@@ -306,7 +309,8 @@ export function FilterBar({
     applyDatePreset,
     uniqueResponsibles,
     resultCount,
-    userMap
+    userMap,
+    onOpenDuplicatesScanner
 }: {
     filters: FilterState;
     activeFilterCount: number;
@@ -319,8 +323,10 @@ export function FilterBar({
     uniqueResponsibles: Array<{ id: string; name: string }>;
     resultCount: number;
     userMap: Record<string, string>;
+    onOpenDuplicatesScanner?: () => void;
 }) {
     const [searchValue, setSearchValue] = useState(filters.searchQuery);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     // Debounced search
     useEffect(() => {
@@ -411,6 +417,110 @@ export function FilterBar({
                 borderRadius: '0.75rem',
                 border: '1px solid var(--border)'
             }}>
+                {/* Title with Menu */}
+                <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.375rem',
+                    position: 'relative'
+                }}>
+                    <h2 style={{
+                        fontSize: '1rem',
+                        fontWeight: '700',
+                        color: 'var(--foreground)',
+                        margin: 0,
+                        whiteSpace: 'nowrap'
+                    }}>
+                        Prospectos
+                    </h2>
+                    {onOpenDuplicatesScanner && (
+                        <>
+                            <button
+                                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--secondary)',
+                                    padding: '0.25rem',
+                                    borderRadius: '0.25rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'var(--background)';
+                                    e.currentTarget.style.color = 'var(--foreground)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = 'var(--secondary)';
+                                }}
+                                title="Opciones"
+                            >
+                                <EllipsisVerticalIcon style={{ width: '1.125rem', height: '1.125rem' }} />
+                            </button>
+                            {/* Dropdown Menu */}
+                            {isMenuOpen && (
+                                <div 
+                                    style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: 0,
+                                        marginTop: '0.25rem',
+                                        backgroundColor: 'var(--surface)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: '0.5rem',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                        zIndex: 100,
+                                        minWidth: '180px',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <button
+                                        onClick={() => {
+                                            setIsMenuOpen(false);
+                                            onOpenDuplicatesScanner();
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.625rem 0.875rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            backgroundColor: 'transparent',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: 'var(--foreground)',
+                                            fontSize: '0.8125rem',
+                                            fontWeight: '500',
+                                            textAlign: 'left',
+                                            transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'var(--background)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <MagnifyingGlassIcon style={{ width: '1rem', height: '1rem', color: 'var(--primary)' }} />
+                                        Buscar duplicados
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* Separator */}
+                <div style={{
+                    width: '1px',
+                    height: '1.5rem',
+                    backgroundColor: 'var(--border)'
+                }} />
+
                 {/* Search Input */}
                 <div style={{
                     flex: 1,
@@ -1485,7 +1595,7 @@ export function ProspectCard({
 }
 
 // Jaro-Winkler similarity algorithm for fuzzy string matching
-function jaroWinkler(s1: string, s2: string): number {
+export function jaroWinkler(s1: string, s2: string): number {
     if (s1 === s2) return 1;
     
     const str1 = s1.toLowerCase().trim();
@@ -3762,5 +3872,407 @@ export function AgingCracks({ count, opacity }: { count: number; opacity: number
                 );
             })}
         </svg>
+    );
+}
+
+// Type for duplicate detection result
+export interface DuplicateGroup {
+    prospects: Array<{
+        id: string;
+        name: string;
+        company: string;
+        email: string;
+        phone: string;
+        stage: string;
+    }>;
+    matchType: 'name' | 'email' | 'phone';
+    similarity?: number; // For name matches, the percentage
+}
+
+// Duplicates Modal Component
+export function DuplicatesModal({
+    isOpen,
+    onClose,
+    duplicateGroups,
+    onViewProspect,
+    onDeleteProspect,
+    userMap
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    duplicateGroups: DuplicateGroup[];
+    onViewProspect: (prospectId: string) => void;
+    onDeleteProspect: (prospectId: string) => void;
+    userMap: Record<string, string>;
+}) {
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+    if (!isOpen) return null;
+
+    const getMatchTypeLabel = (type: 'name' | 'email' | 'phone') => {
+        switch (type) {
+            case 'name': return '👤 Nombre similar';
+            case 'email': return '📧 Email idéntico';
+            case 'phone': return '📱 Teléfono idéntico';
+        }
+    };
+
+    const getMatchTypeColor = (type: 'name' | 'email' | 'phone') => {
+        switch (type) {
+            case 'name': return { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' };
+            case 'email': return { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' };
+            case 'phone': return { bg: '#d1fae5', border: '#10b981', text: '#065f46' };
+        }
+    };
+
+    return (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+        }}>
+            <div style={{
+                backgroundColor: 'var(--background)',
+                borderRadius: '1rem',
+                width: '90%',
+                maxWidth: '800px',
+                maxHeight: '85vh',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            }}>
+                {/* Header */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '1.25rem 1.5rem',
+                    borderBottom: '1px solid var(--border)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{
+                            backgroundColor: '#fef3c7',
+                            borderRadius: '0.5rem',
+                            padding: '0.5rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <UsersIcon style={{ width: '1.25rem', height: '1.25rem', color: '#f59e0b' }} />
+                        </div>
+                        <div>
+                            <h2 style={{ 
+                                fontSize: '1.125rem', 
+                                fontWeight: '700', 
+                                color: 'var(--foreground)',
+                                margin: 0 
+                            }}>
+                                Posibles Duplicados
+                            </h2>
+                            <p style={{ 
+                                fontSize: '0.8125rem', 
+                                color: 'var(--secondary)',
+                                margin: 0 
+                            }}>
+                                {duplicateGroups.length} grupo{duplicateGroups.length !== 1 ? 's' : ''} de coincidencias encontrado{duplicateGroups.length !== 1 ? 's' : ''}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '0.5rem',
+                            borderRadius: '0.5rem',
+                            color: 'var(--secondary)',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--border)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                    >
+                        <XMarkIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    padding: '1.5rem'
+                }}>
+                    {duplicateGroups.length === 0 ? (
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '3rem',
+                            color: 'var(--secondary)'
+                        }}>
+                            <div style={{
+                                width: '4rem',
+                                height: '4rem',
+                                backgroundColor: '#d1fae5',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 1rem'
+                            }}>
+                                <span style={{ fontSize: '1.5rem' }}>✅</span>
+                            </div>
+                            <h3 style={{ fontWeight: '600', color: 'var(--foreground)', marginBottom: '0.5rem' }}>
+                                ¡No se encontraron duplicados!
+                            </h3>
+                            <p style={{ fontSize: '0.875rem' }}>
+                                Todos los prospectos parecen ser únicos.
+                            </p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {duplicateGroups.map((group, groupIndex) => {
+                                const colors = getMatchTypeColor(group.matchType);
+                                return (
+                                    <div
+                                        key={groupIndex}
+                                        style={{
+                                            backgroundColor: colors.bg,
+                                            border: `1px solid ${colors.border}`,
+                                            borderRadius: '0.75rem',
+                                            overflow: 'hidden'
+                                        }}
+                                    >
+                                        {/* Group header */}
+                                        <div style={{
+                                            padding: '0.75rem 1rem',
+                                            borderBottom: `1px solid ${colors.border}`,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between'
+                                        }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem'
+                                            }}>
+                                                <span style={{
+                                                    fontSize: '0.8125rem',
+                                                    fontWeight: '600',
+                                                    color: colors.text
+                                                }}>
+                                                    {getMatchTypeLabel(group.matchType)}
+                                                </span>
+                                                {group.similarity && (
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        backgroundColor: 'white',
+                                                        padding: '0.125rem 0.5rem',
+                                                        borderRadius: '9999px',
+                                                        color: colors.text,
+                                                        fontWeight: '500'
+                                                    }}>
+                                                        {group.similarity}% similar
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span style={{
+                                                fontSize: '0.75rem',
+                                                color: colors.text
+                                            }}>
+                                                {group.prospects.length} prospectos
+                                            </span>
+                                        </div>
+
+                                        {/* Prospects in group */}
+                                        <div style={{
+                                            padding: '0.75rem',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '0.5rem'
+                                        }}>
+                                            {group.prospects.map((prospect) => (
+                                                <div
+                                                    key={prospect.id}
+                                                    style={{
+                                                        backgroundColor: 'white',
+                                                        borderRadius: '0.5rem',
+                                                        padding: '0.75rem 1rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        gap: '1rem'
+                                                    }}
+                                                >
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{
+                                                            fontWeight: '600',
+                                                            fontSize: '0.875rem',
+                                                            color: 'var(--foreground)',
+                                                            whiteSpace: 'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis'
+                                                        }}>
+                                                            {prospect.name}
+                                                        </div>
+                                                        <div style={{
+                                                            fontSize: '0.75rem',
+                                                            color: 'var(--secondary)',
+                                                            whiteSpace: 'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis'
+                                                        }}>
+                                                            {prospect.email || prospect.phone || prospect.company || 'Sin datos adicionales'}
+                                                        </div>
+                                                        <div style={{
+                                                            fontSize: '0.6875rem',
+                                                            color: '#6b7280',
+                                                            marginTop: '0.25rem',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.5rem'
+                                                        }}>
+                                                            <span style={{
+                                                                backgroundColor: '#f3f4f6',
+                                                                padding: '0.125rem 0.375rem',
+                                                                borderRadius: '0.25rem'
+                                                            }}>
+                                                                {prospect.stage}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Actions */}
+                                                    <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                                                        <button
+                                                            onClick={() => onViewProspect(prospect.id)}
+                                                            style={{
+                                                                padding: '0.5rem 0.75rem',
+                                                                backgroundColor: 'var(--primary)',
+                                                                border: 'none',
+                                                                borderRadius: '0.375rem',
+                                                                color: 'white',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: '600',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.375rem',
+                                                                transition: 'opacity 0.2s'
+                                                            }}
+                                                            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                                                            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                                                        >
+                                                            <MagnifyingGlassIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                                                            Ver
+                                                        </button>
+                                                        {confirmDeleteId === prospect.id ? (
+                                                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        onDeleteProspect(prospect.id);
+                                                                        setConfirmDeleteId(null);
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '0.5rem 0.75rem',
+                                                                        backgroundColor: '#dc2626',
+                                                                        border: 'none',
+                                                                        borderRadius: '0.375rem',
+                                                                        color: 'white',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: '600',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >
+                                                                    Confirmar
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setConfirmDeleteId(null)}
+                                                                    style={{
+                                                                        padding: '0.5rem 0.75rem',
+                                                                        backgroundColor: '#f3f4f6',
+                                                                        border: 'none',
+                                                                        borderRadius: '0.375rem',
+                                                                        color: '#374151',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: '600',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >
+                                                                    Cancelar
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => setConfirmDeleteId(prospect.id)}
+                                                                style={{
+                                                                    padding: '0.5rem 0.75rem',
+                                                                    backgroundColor: '#fee2e2',
+                                                                    border: 'none',
+                                                                    borderRadius: '0.375rem',
+                                                                    color: '#dc2626',
+                                                                    fontSize: '0.75rem',
+                                                                    fontWeight: '600',
+                                                                    cursor: 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '0.375rem',
+                                                                    transition: 'background-color 0.2s'
+                                                                }}
+                                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fecaca'; }}
+                                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fee2e2'; }}
+                                                            >
+                                                                <TrashIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                                                                Eliminar
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div style={{
+                    padding: '1rem 1.5rem',
+                    borderTop: '1px solid var(--border)',
+                    display: 'flex',
+                    justifyContent: 'flex-end'
+                }}>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            padding: '0.625rem 1.25rem',
+                            backgroundColor: 'var(--border)',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            color: 'var(--foreground)',
+                            fontSize: '0.875rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--secondary)'; e.currentTarget.style.color = 'white'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--border)'; e.currentTarget.style.color = 'var(--foreground)'; }}
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 }

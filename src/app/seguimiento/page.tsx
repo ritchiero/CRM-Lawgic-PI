@@ -16,7 +16,7 @@ import {
     MagnifyingGlassMinusIcon,
     MagnifyingGlassPlusIcon
 } from '@heroicons/react/24/outline';
-import { Column, ProspectModal, ProspectDetailModal, FilterBar, useFiltrosProspectos, type Prospect } from './components';
+import { Column, ProspectModal, ProspectDetailModal, FilterBar, DuplicatesModal, useFiltrosProspectos, jaroWinkler, type Prospect } from './components';
 import {
     subscribeToProspects,
     createProspect,
@@ -43,6 +43,7 @@ function SeguimientoContent() {
     const [loading, setLoading] = useState(true);
     const [userMap, setUserMap] = useState<Record<string, string>>({});
     const [userColorMap, setUserColorMap] = useState<Record<string, string>>({});
+    const [isDuplicatesModalOpen, setIsDuplicatesModalOpen] = useState(false);
     const { userData, logout } = useAuth();
     
     // Zoom state with localStorage persistence
@@ -195,6 +196,78 @@ function SeguimientoContent() {
         if (typeof window !== 'undefined') {
             localStorage.setItem('crm-kanban-zoom', '1.0');
         }
+    };
+
+    // Function to find all duplicate prospects
+    const findAllDuplicates = () => {
+        const duplicateGroups: { prospects: Prospect[]; matchType: string; similarity?: number }[] = [];
+        const processed = new Set<string>();
+        
+        // Normalize phone number for comparison
+        const normalizePhone = (phone?: string) => {
+            if (!phone) return '';
+            return phone.replace(/\D/g, '');
+        };
+        
+        for (let i = 0; i < prospects.length; i++) {
+            if (processed.has(prospects[i].id)) continue;
+            
+            const current = prospects[i];
+            const matches: { prospect: Prospect; matchType: string; similarity?: number }[] = [];
+            
+            for (let j = i + 1; j < prospects.length; j++) {
+                if (processed.has(prospects[j].id)) continue;
+                
+                const compare = prospects[j];
+                
+                // Check email match (exact, case-insensitive)
+                if (current.email && compare.email && 
+                    current.email.toLowerCase().trim() === compare.email.toLowerCase().trim()) {
+                    matches.push({ prospect: compare, matchType: 'email' });
+                    continue;
+                }
+                
+                // Check phone match (normalized digits)
+                const phone1 = normalizePhone(current.phone);
+                const phone2 = normalizePhone(compare.phone);
+                if (phone1 && phone2 && phone1.length >= 7 && phone1 === phone2) {
+                    matches.push({ prospect: compare, matchType: 'teléfono' });
+                    continue;
+                }
+                
+                // Check name similarity using Jaro-Winkler
+                if (current.name && compare.name) {
+                    const similarity = jaroWinkler(
+                        current.name.toLowerCase().trim(),
+                        compare.name.toLowerCase().trim()
+                    );
+                    if (similarity >= 0.85) {
+                        matches.push({ prospect: compare, matchType: 'nombre', similarity: Math.round(similarity * 100) });
+                    }
+                }
+            }
+            
+            if (matches.length > 0) {
+                // Group all matches together
+                const group: Prospect[] = [current];
+                let primaryMatchType = matches[0].matchType;
+                let avgSimilarity = matches[0].similarity;
+                
+                matches.forEach(m => {
+                    group.push(m.prospect);
+                    processed.add(m.prospect.id);
+                });
+                processed.add(current.id);
+                
+                duplicateGroups.push({
+                    prospects: group,
+                    matchType: primaryMatchType,
+                    similarity: avgSimilarity
+                });
+            }
+        }
+        
+        return duplicateGroups;
     };
 
     if (loading) {
@@ -471,6 +544,7 @@ function SeguimientoContent() {
                     uniqueResponsibles={uniqueResponsibles}
                     resultCount={filteredProspects.length}
                     userMap={userMap}
+                    onOpenDuplicatesScanner={() => setIsDuplicatesModalOpen(true)}
                 />
 
                 {/* Kanban Board */}
@@ -618,6 +692,20 @@ function SeguimientoContent() {
                     onUpdate={handleUpdateProspect}
                     userMap={userMap}
                     userColorMap={userColorMap}
+                />
+            )}
+
+            {/* Duplicates Modal */}
+            {isDuplicatesModalOpen && (
+                <DuplicatesModal
+                    duplicateGroups={findAllDuplicates()}
+                    onClose={() => setIsDuplicatesModalOpen(false)}
+                    onViewDetail={(prospect) => {
+                        setIsDuplicatesModalOpen(false);
+                        setSelectedProspect(prospect);
+                    }}
+                    onDelete={handleDeleteProspect}
+                    userMap={userMap}
                 />
             )}
         </div>
