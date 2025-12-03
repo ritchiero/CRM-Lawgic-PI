@@ -2,18 +2,38 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { subscribeToProspects, Prospect } from "@/services/prospectService";
 
 export default function DashboardPage() {
     const { user, userData, loading, logout } = useAuth();
     const router = useRouter();
+    const [prospects, setProspects] = useState<Prospect[]>([]);
 
     useEffect(() => {
         if (!loading && !user) {
             router.push("/login");
         }
     }, [user, loading, router]);
+
+    // Subscribe to prospects for sales total
+    useEffect(() => {
+        if (!user) return;
+        
+        const unsubscribe = subscribeToProspects((data) => {
+            setProspects(data);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+    // Calculate total sales from Venta stage prospects
+    const totalSales = prospects
+        .filter(p => p.stage === 'Venta')
+        .reduce((sum, p) => sum + (p.accountValue || 0), 0);
+    
+    const ventaCount = prospects.filter(p => p.stage === 'Venta').length;
 
     const handleLogout = async () => {
         try {
@@ -140,7 +160,12 @@ export default function DashboardPage() {
                         gap: '1.5rem',
                         marginBottom: '2rem'
                     }}>
-                        <StatCard title="Clientes Activos" value="0" color="#3b82f6" />
+                        <StatCard 
+                            title="Ventas Totales" 
+                            value={totalSales.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} 
+                            color="#10b981" 
+                            subtitle={`${ventaCount} cliente${ventaCount !== 1 ? 's' : ''}`}
+                        />
                         <StatCard title="Expedientes" value="0" color="#8b5cf6" />
                         <StatCard title="Tareas Pendientes" value="0" color="#f59e0b" />
                         <StatCard title="Alertas" value="0" color="#ef4444" />
@@ -181,7 +206,7 @@ export default function DashboardPage() {
     );
 }
 
-function StatCard({ title, value, color }: { title: string; value: string; color: string }) {
+function StatCard({ title, value, color, subtitle }: { title: string; value: string; color: string; subtitle?: string }) {
     return (
         <div style={{
             padding: '1.5rem',
@@ -213,6 +238,15 @@ function StatCard({ title, value, color }: { title: string; value: string; color
             }}>
                 {value}
             </div>
+            {subtitle && (
+                <div style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--secondary)',
+                    marginTop: '0.25rem'
+                }}>
+                    {subtitle}
+                </div>
+            )}
         </div>
     );
 }

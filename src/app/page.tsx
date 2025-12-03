@@ -2,14 +2,16 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      background: 'linear-gradient(to bottom right, #0f172a, #1e293b)',
-      color: '#f8fafc',
-      fontFamily: 'var(--font-plus-jakarta)'
-    }}>
+    <div 
+      suppressHydrationWarning
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'linear-gradient(to bottom right, #0f172a, #1e293b)',
+        color: '#f8fafc',
+        fontFamily: 'var(--font-plus-jakarta)'
+      }}>
       {/* Navigation */}
       <nav style={{
         padding: '1.5rem 2rem',

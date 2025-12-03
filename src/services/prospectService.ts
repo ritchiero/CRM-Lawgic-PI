@@ -34,6 +34,9 @@ export interface Prospect {
     // Client data fields (post-sale)
     brandCount?: number;
     subscriptionStartDate?: Date;
+    accountValue?: number; // Valor de cuenta en USD
+    // Potential value (for "Demo realizada" stage)
+    potentialValue?: number; // Valor potencial en USD
     // Follow-up date (for "Demo realizada" stage)
     nextContactDate?: Date;
     // Scheduled demo date/time (for "Cita Demo" stage)
@@ -48,9 +51,14 @@ export const createProspect = async (prospectData: Omit<Prospect, 'id' | 'create
         const user = auth.currentUser;
         const userId = user?.uid || 'anonymous';
 
+        // Filter out undefined values (Firestore doesn't accept undefined)
+        const filteredData = Object.fromEntries(
+            Object.entries(prospectData).filter(([, value]) => value !== undefined)
+        );
+
         const now = new Date();
         const newProspect = {
-            ...prospectData,
+            ...filteredData,
             stage: 'Detección de prospecto',
             createdAt: Timestamp.fromDate(now),
             updatedAt: serverTimestamp(),

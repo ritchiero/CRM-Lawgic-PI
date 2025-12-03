@@ -51,6 +51,9 @@ export interface Prospect {
     // Client data fields (post-sale)
     brandCount?: number;
     subscriptionStartDate?: Date;
+    accountValue?: number; // Valor de cuenta en USD
+    // Potential value (for "Demo realizada" stage)
+    potentialValue?: number; // Valor potencial en USD
     // Follow-up date (for "Demo realizada" stage)
     nextContactDate?: Date;
     // Scheduled demo date/time (for "Cita Demo" stage)
@@ -1195,6 +1198,16 @@ export function Column({
     };
     const specialStyles = getColumnSpecialStyles(title);
     
+    // Calculate total sales for Venta column
+    const totalSales = title === 'Venta' 
+        ? prospects.reduce((sum, p) => sum + (p.accountValue || 0), 0)
+        : 0;
+    
+    // Calculate total potential value for Realizada column
+    const totalPotential = title === 'Realizada'
+        ? prospects.reduce((sum, p) => sum + (p.potentialValue || 0), 0)
+        : 0;
+    
     return (
         <div
             onDrop={onDrop}
@@ -1210,20 +1223,47 @@ export function Column({
                 transition: 'all 0.2s ease-out',
                 ...specialStyles
             }}>
-            <h3 style={{
-                fontSize: `${0.8125 * zoomLevel}rem`,
-                fontWeight: '600',
-                color: 'var(--foreground)',
-                margin: 0,
+            <div style={{
                 padding: `${0.375 * zoomLevel}rem`,
                 borderBottom: '2px solid var(--border)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: `${0.375 * zoomLevel}rem`
+                justifyContent: 'space-between',
+                gap: `${0.5 * zoomLevel}rem`
             }}>
-                <Icon style={{ width: `${1 * zoomLevel}rem`, height: `${1 * zoomLevel}rem`, color: getColumnIconColor(title) }} />
-                {title}
-            </h3>
+                <h3 style={{
+                    fontSize: `${0.8125 * zoomLevel}rem`,
+                    fontWeight: '600',
+                    color: 'var(--foreground)',
+                    margin: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: `${0.375 * zoomLevel}rem`
+                }}>
+                    <Icon style={{ width: `${1 * zoomLevel}rem`, height: `${1 * zoomLevel}rem`, color: getColumnIconColor(title) }} />
+                    {title} ({prospects.length})
+                </h3>
+                {title === 'Venta' && (
+                    <div style={{
+                        fontSize: `${0.75 * zoomLevel}rem`,
+                        fontWeight: '700',
+                        color: '#10b981',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        {totalSales.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                    </div>
+                )}
+                {title === 'Realizada' && (
+                    <div style={{
+                        fontSize: `${0.75 * zoomLevel}rem`,
+                        fontWeight: '700',
+                        color: '#3b82f6',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        {totalPotential.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                    </div>
+                )}
+            </div>
 
             {/* Column content area */}
             <div style={{
@@ -2135,6 +2175,7 @@ export function ProspectDetailModal({
     const [subscriptionStartDate, setSubscriptionStartDate] = useState<string>(
         formatDateForInput(prospect.subscriptionStartDate)
     );
+    const [accountValue, setAccountValue] = useState<string>(prospect.accountValue?.toString() || '');
     const [isEditingClientData, setIsEditingClientData] = useState(false);
     const [copied, setCopied] = useState(false);
     
@@ -2143,6 +2184,10 @@ export function ProspectDetailModal({
         formatDateForInput(prospect.nextContactDate)
     );
     const [isEditingNextContact, setIsEditingNextContact] = useState(false);
+    
+    // Potential value state (for Realizada stage)
+    const [potentialValue, setPotentialValue] = useState<string>(prospect.potentialValue?.toString() || '');
+    const [isEditingPotentialValue, setIsEditingPotentialValue] = useState(false);
     
     // Scheduled demo date state (for Cita Demo stage) - separate date and time
     const getDateAndTimeFromScheduled = (date?: Date | { toDate: () => Date } | string | null): { date: string; time: string } => {
@@ -2267,6 +2312,9 @@ export function ProspectDetailModal({
             if (subscriptionStartDate) {
                 updates.subscriptionStartDate = new Date(subscriptionStartDate);
             }
+            if (accountValue) {
+                updates.accountValue = parseFloat(accountValue);
+            }
             onUpdate(prospect.id, updates);
             setIsEditingClientData(false);
         }
@@ -2295,6 +2343,18 @@ export function ProspectDetailModal({
             onUpdate(prospect.id, { nextContactDate: undefined });
             setNextContactDate('');
             setIsEditingNextContact(false);
+        }
+    };
+
+    // Handle save potential value (Realizada stage)
+    const handleSavePotentialValue = () => {
+        if (onUpdate) {
+            const updates: Partial<Prospect> = {};
+            if (potentialValue) {
+                updates.potentialValue = parseFloat(potentialValue);
+            }
+            onUpdate(prospect.id, updates);
+            setIsEditingPotentialValue(false);
         }
     };
     
@@ -3144,6 +3204,157 @@ export function ProspectDetailModal({
                             </div>
                         )}
 
+                        {/* Potential Value Section - Only visible when stage is Demo realizada */}
+                        {prospect.stage === 'Demo realizada' && (
+                            <div style={{
+                                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                border: '1px solid #3b82f6',
+                                borderRadius: '0.75rem',
+                                padding: '1rem'
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '0.75rem'
+                                }}>
+                                    <div style={{
+                                        fontSize: '0.8125rem',
+                                        fontWeight: '700',
+                                        color: '#1d4ed8',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.375rem'
+                                    }}>
+                                        <span style={{ fontSize: '0.875rem' }}>💰</span>
+                                        Valor Potencial
+                                    </div>
+                                    {!isEditingPotentialValue && onUpdate && (
+                                        <button
+                                            onClick={() => setIsEditingPotentialValue(true)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: '#1d4ed8',
+                                                padding: '0.25rem 0.5rem',
+                                                borderRadius: '0.25rem',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.25rem',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                            }}
+                                        >
+                                            <PencilIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                                            {prospect.potentialValue ? 'Editar' : 'Agregar'}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {isEditingPotentialValue ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        <div>
+                                            <label style={{ 
+                                                display: 'block', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: '500', 
+                                                color: '#1d4ed8', 
+                                                marginBottom: '0.25rem' 
+                                            }}>
+                                                Valor potencial de venta (USD)
+                                            </label>
+                                            <div style={{ position: 'relative' }}>
+                                                <span style={{
+                                                    position: 'absolute',
+                                                    left: '0.75rem',
+                                                    top: '50%',
+                                                    transform: 'translateY(-50%)',
+                                                    color: '#1d4ed8',
+                                                    fontWeight: '600',
+                                                    fontSize: '0.8125rem'
+                                                }}>$</span>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    value={potentialValue}
+                                                    onChange={(e) => setPotentialValue(e.target.value)}
+                                                    placeholder="Ej: 5,000"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.5rem 0.75rem',
+                                                        paddingLeft: '1.5rem',
+                                                        backgroundColor: 'white',
+                                                        border: '1px solid #93c5fd',
+                                                        borderRadius: '0.5rem',
+                                                        color: '#1e3a5f',
+                                                        fontSize: '0.8125rem'
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                            <button
+                                                onClick={() => {
+                                                    setPotentialValue(prospect.potentialValue?.toString() || '');
+                                                    setIsEditingPotentialValue(false);
+                                                }}
+                                                style={{
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: 'transparent',
+                                                    border: '1px solid #93c5fd',
+                                                    borderRadius: '0.5rem',
+                                                    color: '#1d4ed8',
+                                                    fontSize: '0.8125rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleSavePotentialValue}
+                                                style={{
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: '#3b82f6',
+                                                    border: 'none',
+                                                    borderRadius: '0.5rem',
+                                                    color: 'white',
+                                                    fontSize: '0.8125rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        {prospect.potentialValue ? (
+                                            <div style={{ fontSize: '1rem', color: '#1d4ed8', fontWeight: '700' }}>
+                                                {prospect.potentialValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                                            </div>
+                                        ) : (
+                                            <div style={{ fontSize: '0.8125rem', color: '#6b7280', fontStyle: 'italic' }}>
+                                                Sin valor definido
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Client Data Section - Only visible when stage is Venta */}
                         {prospect.stage === 'Venta' && (
                             <div style={{
@@ -3254,11 +3465,52 @@ export function ProspectDetailModal({
                                                 }}
                                             />
                                         </div>
+                                        <div>
+                                            <label style={{ 
+                                                display: 'block', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: '500', 
+                                                color: '#854d0e', 
+                                                marginBottom: '0.25rem' 
+                                            }}>
+                                                Valor de cuenta (USD)
+                                            </label>
+                                            <div style={{ position: 'relative' }}>
+                                                <span style={{
+                                                    position: 'absolute',
+                                                    left: '0.5rem',
+                                                    top: '50%',
+                                                    transform: 'translateY(-50%)',
+                                                    color: '#854d0e',
+                                                    fontWeight: '600',
+                                                    fontSize: '0.8125rem'
+                                                }}>$</span>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    value={accountValue}
+                                                    onChange={(e) => setAccountValue(e.target.value)}
+                                                    placeholder="Ej: 5,000"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.5rem',
+                                                        paddingLeft: '1.25rem',
+                                                        backgroundColor: 'white',
+                                                        border: '1px solid #eab308',
+                                                        borderRadius: '0.5rem',
+                                                        color: 'var(--foreground)',
+                                                        fontSize: '0.8125rem'
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
                                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                             <button
                                                 onClick={() => {
                                                     setBrandCount(prospect.brandCount?.toString() || '');
                                                     setSubscriptionStartDate(formatDateForInput(prospect.subscriptionStartDate));
+                                                    setAccountValue(prospect.accountValue?.toString() || '');
                                                     setIsEditingClientData(false);
                                                 }}
                                                 style={{
@@ -3294,17 +3546,17 @@ export function ProspectDetailModal({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                        <div>
-                                            <div style={{ fontSize: '0.6875rem', color: '#854d0e', marginBottom: '0.25rem', fontWeight: '500' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ fontSize: '0.75rem', color: '#854d0e', fontWeight: '500' }}>
                                                 Número de marcas
                                             </div>
                                             <div style={{ fontSize: '1rem', fontWeight: '700', color: '#854d0e' }}>
                                                 {prospect.brandCount !== undefined ? prospect.brandCount.toLocaleString() : '—'}
                                             </div>
                                         </div>
-                                        <div>
-                                            <div style={{ fontSize: '0.6875rem', color: '#854d0e', marginBottom: '0.25rem', fontWeight: '500' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ fontSize: '0.75rem', color: '#854d0e', fontWeight: '500' }}>
                                                 Inicio suscripción
                                             </div>
                                             <div style={{ fontSize: '1rem', fontWeight: '700', color: '#854d0e' }}>
@@ -3314,6 +3566,16 @@ export function ProspectDetailModal({
                                                         month: 'short', 
                                                         day: 'numeric' 
                                                     }) 
+                                                    : '—'}
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ fontSize: '0.75rem', color: '#854d0e', fontWeight: '500' }}>
+                                                Valor de cuenta
+                                            </div>
+                                            <div style={{ fontSize: '1rem', fontWeight: '700', color: '#854d0e' }}>
+                                                {prospect.accountValue !== undefined 
+                                                    ? prospect.accountValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
                                                     : '—'}
                                             </div>
                                         </div>
