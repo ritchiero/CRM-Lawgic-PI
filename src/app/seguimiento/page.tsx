@@ -200,7 +200,7 @@ function SeguimientoContent() {
 
     // Function to find all duplicate prospects
     const findAllDuplicates = () => {
-        const duplicateGroups: { prospects: Prospect[]; matchType: string; similarity?: number }[] = [];
+        const duplicateGroups: { prospects: Prospect[]; matchType: 'name' | 'email' | 'phone'; similarity?: number }[] = [];
         const processed = new Set<string>();
         
         // Normalize phone number for comparison
@@ -213,7 +213,7 @@ function SeguimientoContent() {
             if (processed.has(prospects[i].id)) continue;
             
             const current = prospects[i];
-            const matches: { prospect: Prospect; matchType: string; similarity?: number }[] = [];
+            const matches: { prospect: Prospect; matchType: 'name' | 'email' | 'phone'; similarity?: number }[] = [];
             
             for (let j = i + 1; j < prospects.length; j++) {
                 if (processed.has(prospects[j].id)) continue;
