@@ -33,6 +33,8 @@ export interface Prospect {
     // Client data fields (post-sale)
     brandCount?: number;
     subscriptionStartDate?: Date;
+    // Follow-up date (for "Demo realizada" stage)
+    nextContactDate?: Date;
 }
 
 // Create a new prospect
@@ -143,7 +145,8 @@ export const subscribeToProspects = (callback: (prospects: Prospect[]) => void) 
                         ...h,
                         date: h.date?.toDate() || new Date()
                     })) || [],
-                    subscriptionStartDate: data.subscriptionStartDate?.toDate()
+                    subscriptionStartDate: data.subscriptionStartDate?.toDate(),
+                    nextContactDate: data.nextContactDate?.toDate()
                 } as Prospect;
             });
             callback(prospects);

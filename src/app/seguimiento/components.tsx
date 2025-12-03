@@ -47,6 +47,8 @@ export interface Prospect {
     // Client data fields (post-sale)
     brandCount?: number;
     subscriptionStartDate?: Date;
+    // Follow-up date (for "Demo realizada" stage)
+    nextContactDate?: Date;
 }
 
 // ========== FILTER SYSTEM TYPES AND CONSTANTS ==========
@@ -1192,6 +1194,52 @@ export function ProspectCard({
     const agingLevel = getAgingLevel(daysSinceMovement);
     const agingData = getAgingStyles(agingLevel);
     
+    // Calculate next contact countdown (only for "Demo realizada" stage)
+    const isRealizada = prospect.stage === 'Demo realizada';
+    const nextContactInfo = (() => {
+        if (!isRealizada || !prospect.nextContactDate) return null;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Handle both Firestore Timestamp and Date objects
+        let contactDate: Date;
+        const ncd = prospect.nextContactDate as Date & { toDate?: () => Date };
+        if (ncd.toDate && typeof ncd.toDate === 'function') {
+            contactDate = ncd.toDate();
+        } else if (ncd instanceof Date) {
+            contactDate = ncd;
+        } else {
+            contactDate = new Date(ncd);
+        }
+        contactDate.setHours(0, 0, 0, 0);
+        
+        const diffTime = contactDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 3) return null; // Don't show if more than 3 days
+        
+        if (diffDays < 0) {
+            return {
+                text: `Hace ${Math.abs(diffDays)} día${Math.abs(diffDays) !== 1 ? 's' : ''}`,
+                type: 'overdue' as const,
+                icon: '⚠️'
+            };
+        } else if (diffDays === 0) {
+            return {
+                text: 'HOY',
+                type: 'today' as const,
+                icon: '🔔'
+            };
+        } else {
+            return {
+                text: `En ${diffDays} día${diffDays !== 1 ? 's' : ''}`,
+                type: 'soon' as const,
+                icon: '⏰'
+            };
+        }
+    })();
+    
     // Determine base background color (considering "En Pausa" and "Venta" states)
     const isVenta = prospect.stage === 'Venta';
     const isPausa = prospect.stage === 'En Pausa';
@@ -1293,6 +1341,32 @@ export function ProspectCard({
                     {displayName}
                 </div>
             </div>
+
+            {/* Next Contact Badge - Only for "Realizada" stage */}
+            {nextContactInfo && (
+                <div
+                    className={nextContactInfo.type === 'today' ? 'contact-alert-pulse' : ''}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: `${0.25 * zoomLevel}rem`,
+                        padding: `${0.25 * zoomLevel}rem ${0.5 * zoomLevel}rem`,
+                        borderRadius: '0.375rem',
+                        marginTop: `${0.375 * zoomLevel}rem`,
+                        fontSize: `${0.625 * zoomLevel}rem`,
+                        fontWeight: '600',
+                        backgroundColor: nextContactInfo.type === 'overdue' 
+                            ? '#7f1d1d' 
+                            : nextContactInfo.type === 'today'
+                                ? '#dc2626'
+                                : '#eab308',
+                        color: 'white'
+                    }}
+                >
+                    <span>{nextContactInfo.icon}</span>
+                    <span>{nextContactInfo.text}</span>
+                </div>
+            )}
 
             {/* Company and Email - Only show in full view */}
             {!isCompactView && (
@@ -1858,6 +1932,12 @@ export function ProspectDetailModal({
     );
     const [isEditingClientData, setIsEditingClientData] = useState(false);
     const [copied, setCopied] = useState(false);
+    
+    // Next contact date state (for Realizada stage)
+    const [nextContactDate, setNextContactDate] = useState<string>(
+        formatDateForInput(prospect.nextContactDate)
+    );
+    const [isEditingNextContact, setIsEditingNextContact] = useState(false);
 
     // Copy prospect info to clipboard
     const handleCopyInfo = async () => {
@@ -1941,6 +2021,29 @@ export function ProspectDetailModal({
             }
             onUpdate(prospect.id, updates);
             setIsEditingClientData(false);
+        }
+    };
+
+    // Handle save next contact date (Realizada stage)
+    const handleSaveNextContact = () => {
+        if (onUpdate) {
+            const updates: Partial<Prospect> = {};
+            if (nextContactDate) {
+                updates.nextContactDate = new Date(nextContactDate);
+            } else {
+                updates.nextContactDate = undefined;
+            }
+            onUpdate(prospect.id, updates);
+            setIsEditingNextContact(false);
+        }
+    };
+
+    // Handle clear next contact date
+    const handleClearNextContact = () => {
+        if (onUpdate) {
+            onUpdate(prospect.id, { nextContactDate: undefined });
+            setNextContactDate('');
+            setIsEditingNextContact(false);
         }
     };
 
@@ -2411,6 +2514,162 @@ export function ProspectDetailModal({
                                 )
                             )}
                         </div>
+
+                        {/* Next Contact Section - Only visible when stage is Demo realizada */}
+                        {prospect.stage === 'Demo realizada' && (
+                            <div style={{
+                                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                border: '1px solid #3b82f6',
+                                borderRadius: '0.75rem',
+                                padding: '1rem'
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '0.75rem'
+                                }}>
+                                    <div style={{
+                                        fontSize: '0.8125rem',
+                                        fontWeight: '700',
+                                        color: '#1d4ed8',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.375rem'
+                                    }}>
+                                        <span style={{ fontSize: '0.875rem' }}>📅</span>
+                                        Próximo Contacto
+                                    </div>
+                                    {!isEditingNextContact && onUpdate && (
+                                        <button
+                                            onClick={() => setIsEditingNextContact(true)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: '#1d4ed8',
+                                                padding: '0.25rem 0.5rem',
+                                                borderRadius: '0.25rem',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.25rem',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                            }}
+                                        >
+                                            <PencilIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                                            {prospect.nextContactDate ? 'Editar' : 'Programar'}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {isEditingNextContact ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        <div>
+                                            <label style={{ 
+                                                display: 'block', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: '500', 
+                                                color: '#1d4ed8', 
+                                                marginBottom: '0.25rem' 
+                                            }}>
+                                                Fecha de próximo contacto
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={nextContactDate}
+                                                onChange={(e) => setNextContactDate(e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: 'white',
+                                                    border: '1px solid #93c5fd',
+                                                    borderRadius: '0.5rem',
+                                                    color: '#1e3a5f',
+                                                    fontSize: '0.8125rem'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                            {prospect.nextContactDate && (
+                                                <button
+                                                    onClick={handleClearNextContact}
+                                                    style={{
+                                                        padding: '0.5rem 0.75rem',
+                                                        backgroundColor: 'transparent',
+                                                        border: '1px solid #ef4444',
+                                                        borderRadius: '0.5rem',
+                                                        color: '#ef4444',
+                                                        fontSize: '0.8125rem',
+                                                        fontWeight: '600',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => setIsEditingNextContact(false)}
+                                                style={{
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: 'transparent',
+                                                    border: '1px solid #93c5fd',
+                                                    borderRadius: '0.5rem',
+                                                    color: '#1d4ed8',
+                                                    fontSize: '0.8125rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleSaveNextContact}
+                                                style={{
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: '#3b82f6',
+                                                    border: 'none',
+                                                    borderRadius: '0.5rem',
+                                                    color: 'white',
+                                                    fontSize: '0.8125rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        {prospect.nextContactDate ? (
+                                            <div style={{ fontSize: '0.875rem', color: '#1e3a5f', fontWeight: '600' }}>
+                                                {new Date(prospect.nextContactDate).toLocaleDateString('es-MX', {
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div style={{ fontSize: '0.8125rem', color: '#6b7280', fontStyle: 'italic' }}>
+                                                Sin fecha programada
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Client Data Section - Only visible when stage is Venta */}
                         {prospect.stage === 'Venta' && (

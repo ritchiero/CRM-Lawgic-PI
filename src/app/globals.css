@@ -95,3 +95,19 @@ button {
 .venta-glow {
   animation: gold-pulse 2.5s infinite ease-in-out;
 }
+
+/* Contact alert pulse animation for urgent follow-ups */
+@keyframes contact-alert {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.contact-alert-pulse {
+  animation: contact-alert 1s infinite ease-in-out;
+}
