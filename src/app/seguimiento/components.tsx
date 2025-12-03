@@ -1,4 +1,5 @@
 "use client";
+// Seguimiento components - Last updated: Dec 2024
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { generateColorFromUID } from '@/services/authService';
