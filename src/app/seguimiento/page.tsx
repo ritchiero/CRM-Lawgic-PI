@@ -231,7 +231,7 @@ function SeguimientoContent() {
                 const phone1 = normalizePhone(current.phone);
                 const phone2 = normalizePhone(compare.phone);
                 if (phone1 && phone2 && phone1.length >= 7 && phone1 === phone2) {
-                    matches.push({ prospect: compare, matchType: 'teléfono' });
+                    matches.push({ prospect: compare, matchType: 'phone' });
                     continue;
                 }
                 
@@ -242,7 +242,7 @@ function SeguimientoContent() {
                         compare.name.toLowerCase().trim()
                     );
                     if (similarity >= 0.85) {
-                        matches.push({ prospect: compare, matchType: 'nombre', similarity: Math.round(similarity * 100) });
+                        matches.push({ prospect: compare, matchType: 'name', similarity: Math.round(similarity * 100) });
                     }
                 }
             }
