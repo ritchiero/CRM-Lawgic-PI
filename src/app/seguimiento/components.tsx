@@ -4256,7 +4256,7 @@ export function AgingBorder({ irregular, gaps, borderColor }: { irregular: boole
                 return (
                     <path
                         key={`border-crack-${i}`}
-                        d={`M ${pos.x} ${pos.y} Q ${pos.x + (endX - pos.x) * 0.5} ${pos.y + (endY - pos.y) * 0.5 + (Math.random() - 0.5) * 2} ${endX} ${endY}`}
+                        d={`M ${pos.x} ${pos.y} Q ${pos.x + (endX - pos.x) * 0.5} ${pos.y + (endY - pos.y) * 0.5 + ((i % 3) - 1) * 0.5} ${endX} ${endY}`}
                         stroke={borderColor}
                         strokeWidth={1}
                         fill="none"
