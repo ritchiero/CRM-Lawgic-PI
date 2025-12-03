@@ -1278,8 +1278,6 @@ export function ProspectCard({
         const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
         const shortDate = `${dayNames[demoDate.getDay()]} ${demoDate.getDate()} ${monthNames[demoDate.getMonth()]}`;
         
-        if (diffDays > 3) return null; // Don't show if more than 3 days
-        
         if (diffDays < 0) {
             return {
                 text: 'Vencida',
@@ -1292,10 +1290,17 @@ export function ProspectCard({
                 type: 'today' as const,
                 icon: '🔔'
             };
-        } else {
+        } else if (diffDays <= 3) {
             return {
                 text: `${shortDate}, ${timeStr}`,
                 type: 'soon' as const,
+                icon: '🗓️'
+            };
+        } else {
+            // More than 3 days - show in neutral color
+            return {
+                text: `${shortDate}, ${timeStr}`,
+                type: 'future' as const,
                 icon: '📅'
             };
         }
@@ -1446,7 +1451,9 @@ export function ProspectCard({
                             ? '#7f1d1d' 
                             : scheduledDemoInfo.type === 'today'
                                 ? '#dc2626'
-                                : '#3b82f6',
+                                : scheduledDemoInfo.type === 'soon'
+                                    ? '#f59e0b'  // Amber for 1-3 days
+                                    : '#6b7280', // Gray for future (>3 days)
                         color: 'white'
                     }}
                 >
