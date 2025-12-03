@@ -2033,9 +2033,9 @@ export function ProspectDetailModal({
     );
     const [isEditingNextContact, setIsEditingNextContact] = useState(false);
     
-    // Scheduled demo date state (for Cita Demo stage)
-    const formatDateTimeForInput = (date?: Date | { toDate: () => Date } | string | null): string => {
-        if (!date) return '';
+    // Scheduled demo date state (for Cita Demo stage) - separate date and time
+    const getDateAndTimeFromScheduled = (date?: Date | { toDate: () => Date } | string | null): { date: string; time: string } => {
+        if (!date) return { date: '', time: '10:00' };
         let d: Date;
         if (date instanceof Date) {
             d = date;
@@ -2044,19 +2044,37 @@ export function ProspectDetailModal({
         } else {
             d = new Date(date);
         }
-        if (isNaN(d.getTime())) return '';
-        // Format as YYYY-MM-DDTHH:MM for datetime-local input
+        if (isNaN(d.getTime())) return { date: '', time: '10:00' };
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
-        const hours = String(d.getHours()).padStart(2, '0');
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
+        const hours = d.getHours();
+        const minutes = d.getMinutes();
+        // Round to nearest 30 min
+        const roundedMinutes = minutes < 15 ? '00' : minutes < 45 ? '30' : '00';
+        const roundedHours = minutes >= 45 ? hours + 1 : hours;
+        return { 
+            date: `${year}-${month}-${day}`,
+            time: `${String(roundedHours).padStart(2, '0')}:${roundedMinutes}`
+        };
     };
-    const [scheduledDemoDate, setScheduledDemoDate] = useState<string>(
-        formatDateTimeForInput(prospect.scheduledDemoDate)
-    );
+    const initialScheduled = getDateAndTimeFromScheduled(prospect.scheduledDemoDate);
+    const [scheduledDemoDate, setScheduledDemoDate] = useState<string>(initialScheduled.date);
+    const [scheduledDemoTime, setScheduledDemoTime] = useState<string>(initialScheduled.time);
     const [isEditingScheduledDemo, setIsEditingScheduledDemo] = useState(false);
+    
+    // Generate time options (every 30 minutes)
+    const timeOptions = [];
+    for (let h = 7; h <= 21; h++) {
+        for (const m of ['00', '30']) {
+            if (h === 21 && m === '30') continue; // Stop at 21:00
+            const hour12 = h % 12 || 12;
+            const ampm = h < 12 ? 'AM' : 'PM';
+            const value = `${String(h).padStart(2, '0')}:${m}`;
+            const label = `${hour12}:${m} ${ampm}`;
+            timeOptions.push({ value, label });
+        }
+    }
 
     // Copy prospect info to clipboard
     const handleCopyInfo = async () => {
@@ -2170,8 +2188,12 @@ export function ProspectDetailModal({
     const handleSaveScheduledDemo = () => {
         if (onUpdate) {
             const updates: Partial<Prospect> = {};
-            if (scheduledDemoDate) {
-                updates.scheduledDemoDate = new Date(scheduledDemoDate);
+            if (scheduledDemoDate && scheduledDemoTime) {
+                // Combine date and time
+                const [hours, minutes] = scheduledDemoTime.split(':').map(Number);
+                const dateObj = new Date(scheduledDemoDate);
+                dateObj.setHours(hours, minutes, 0, 0);
+                updates.scheduledDemoDate = dateObj;
             } else {
                 updates.scheduledDemoDate = undefined;
             }
@@ -2185,6 +2207,7 @@ export function ProspectDetailModal({
         if (onUpdate) {
             onUpdate(prospect.id, { scheduledDemoDate: undefined });
             setScheduledDemoDate('');
+            setScheduledDemoTime('10:00');
             setIsEditingScheduledDemo(false);
         }
     };
@@ -2714,30 +2737,61 @@ export function ProspectDetailModal({
 
                                 {isEditingScheduledDemo ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        <div>
-                                            <label style={{ 
-                                                display: 'block', 
-                                                fontSize: '0.75rem', 
-                                                fontWeight: '500', 
-                                                color: '#7c3aed', 
-                                                marginBottom: '0.25rem' 
-                                            }}>
-                                                Fecha y hora de la cita
-                                            </label>
-                                            <input
-                                                type="datetime-local"
-                                                value={scheduledDemoDate}
-                                                onChange={(e) => setScheduledDemoDate(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '0.5rem 0.75rem',
-                                                    backgroundColor: 'white',
-                                                    border: '1px solid #c4b5fd',
-                                                    borderRadius: '0.5rem',
-                                                    color: '#1e3a5f',
-                                                    fontSize: '0.8125rem'
-                                                }}
-                                            />
+                                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ 
+                                                    display: 'block', 
+                                                    fontSize: '0.75rem', 
+                                                    fontWeight: '500', 
+                                                    color: '#7c3aed', 
+                                                    marginBottom: '0.25rem' 
+                                                }}>
+                                                    Fecha
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    value={scheduledDemoDate}
+                                                    onChange={(e) => setScheduledDemoDate(e.target.value)}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.5rem 0.75rem',
+                                                        backgroundColor: 'white',
+                                                        border: '1px solid #c4b5fd',
+                                                        borderRadius: '0.5rem',
+                                                        color: '#1e3a5f',
+                                                        fontSize: '0.8125rem'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div style={{ width: '140px' }}>
+                                                <label style={{ 
+                                                    display: 'block', 
+                                                    fontSize: '0.75rem', 
+                                                    fontWeight: '500', 
+                                                    color: '#7c3aed', 
+                                                    marginBottom: '0.25rem' 
+                                                }}>
+                                                    Hora
+                                                </label>
+                                                <select
+                                                    value={scheduledDemoTime}
+                                                    onChange={(e) => setScheduledDemoTime(e.target.value)}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.5rem 0.75rem',
+                                                        backgroundColor: 'white',
+                                                        border: '1px solid #c4b5fd',
+                                                        borderRadius: '0.5rem',
+                                                        color: '#1e3a5f',
+                                                        fontSize: '0.8125rem',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    {timeOptions.map(opt => (
+                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                                             {prospect.scheduledDemoDate && (
