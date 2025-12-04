@@ -668,7 +668,17 @@ function SeguimientoContent() {
                     <Column
                         title="Cita Demo"
                         icon={CalendarDaysIcon}
-                        prospects={filteredProspects.filter(p => p.stage === 'Cita para demo')}
+                        prospects={filteredProspects
+                            .filter(p => p.stage === 'Cita para demo')
+                            .sort((a, b) => {
+                                // Prospectos sin fecha van al final
+                                if (!a.scheduledDemoDate && !b.scheduledDemoDate) return 0;
+                                if (!a.scheduledDemoDate) return 1;
+                                if (!b.scheduledDemoDate) return -1;
+                                // Ordenar por fecha ascendente (más próximas primero)
+                                return new Date(a.scheduledDemoDate).getTime() - new Date(b.scheduledDemoDate).getTime();
+                            })
+                        }
                         onDrop={(e) => handleDrop(e, 'Cita para demo')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}
