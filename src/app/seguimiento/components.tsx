@@ -2263,6 +2263,22 @@ export function ProspectDetailModal({
     const [isEditingLinkedin, setIsEditingLinkedin] = useState(false);
     const [linkedinError, setLinkedinError] = useState<string>('');
     
+    // Phone editing state
+    const [editedPhone, setEditedPhone] = useState<string>(prospect.phone || '');
+    const [isEditingPhone, setIsEditingPhone] = useState(false);
+    
+    // Name editing state
+    const [editedName, setEditedName] = useState<string>(prospect.name || '');
+    const [isEditingName, setIsEditingName] = useState(false);
+    
+    // Company editing state
+    const [editedCompany, setEditedCompany] = useState<string>(prospect.company || '');
+    const [isEditingCompany, setIsEditingCompany] = useState(false);
+    
+    // Email editing state
+    const [editedEmail, setEditedEmail] = useState<string>(prospect.email || '');
+    const [isEditingEmail, setIsEditingEmail] = useState(false);
+    
     // Scheduled demo date state (for Cita Demo stage) - separate date and time
     const getDateAndTimeFromScheduled = (date?: Date | { toDate: () => Date } | string | null): { date: string; time: string } => {
         if (!date) return { date: '', time: '10:00' };
@@ -2339,7 +2355,19 @@ export function ProspectDetailModal({
         setBrandCount(prospect.brandCount?.toString() || '');
         setSubscriptionStartDate(formatDateForInput(prospect.subscriptionStartDate));
         setIsEditingClientData(false);
-    }, [prospect.id, prospect.notes, prospect.brandCount, prospect.subscriptionStartDate]);
+        // Sync phone
+        setEditedPhone(prospect.phone || '');
+        setIsEditingPhone(false);
+        // Sync name
+        setEditedName(prospect.name || '');
+        setIsEditingName(false);
+        // Sync company
+        setEditedCompany(prospect.company || '');
+        setIsEditingCompany(false);
+        // Sync email
+        setEditedEmail(prospect.email || '');
+        setIsEditingEmail(false);
+    }, [prospect.id, prospect.notes, prospect.brandCount, prospect.subscriptionStartDate, prospect.phone, prospect.name, prospect.company, prospect.email]);
 
     // Get creator color from userColorMap or generate from UID
     const creatorColor = userColorMap[prospect.createdBy] || (prospect.createdBy !== 'anonymous' ? generateColorFromUID(prospect.createdBy) : 'var(--primary)');
@@ -2449,6 +2477,62 @@ export function ProspectDetailModal({
             onUpdate(prospect.id, { linkedinUrl: linkedinUrl || undefined });
             setIsEditingLinkedin(false);
         }
+    };
+
+    // Handle save phone
+    const handleSavePhone = () => {
+        if (onUpdate) {
+            onUpdate(prospect.id, { phone: editedPhone.trim() || '' });
+            setIsEditingPhone(false);
+        }
+    };
+
+    // Handle cancel phone editing
+    const handleCancelPhoneEdit = () => {
+        setEditedPhone(prospect.phone || '');
+        setIsEditingPhone(false);
+    };
+
+    // Handle save name
+    const handleSaveName = () => {
+        if (onUpdate && editedName.trim()) {
+            onUpdate(prospect.id, { name: editedName.trim() });
+            setIsEditingName(false);
+        }
+    };
+
+    // Handle cancel name editing
+    const handleCancelNameEdit = () => {
+        setEditedName(prospect.name || '');
+        setIsEditingName(false);
+    };
+
+    // Handle save company
+    const handleSaveCompany = () => {
+        if (onUpdate) {
+            onUpdate(prospect.id, { company: editedCompany.trim() || '' });
+            setIsEditingCompany(false);
+        }
+    };
+
+    // Handle cancel company editing
+    const handleCancelCompanyEdit = () => {
+        setEditedCompany(prospect.company || '');
+        setIsEditingCompany(false);
+    };
+
+    // Handle save email
+    const handleSaveEmail = () => {
+        if (onUpdate) {
+            onUpdate(prospect.id, { email: editedEmail.trim() || '' });
+            setIsEditingEmail(false);
+        }
+    };
+
+    // Handle cancel email editing
+    const handleCancelEmailEdit = () => {
+        setEditedEmail(prospect.email || '');
+        setIsEditingEmail(false);
     };
     
     // Handle save scheduled demo date (Cita Demo stage)
@@ -2607,14 +2691,101 @@ export function ProspectDetailModal({
                                 textTransform: 'uppercase',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.375rem'
+                                justifyContent: 'space-between'
                             }}>
-                                <UserIcon style={{ width: '0.75rem', height: '0.75rem' }} />
-                                Nombre
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                    <UserIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+                                    Nombre
+                                </div>
+                                {!isEditingName && onUpdate && (
+                                    <button
+                                        onClick={() => setIsEditingName(true)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: 'var(--primary)',
+                                            padding: '0.125rem 0.375rem',
+                                            borderRadius: '0.25rem',
+                                            fontSize: '0.625rem',
+                                            fontWeight: '600',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.25rem',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'var(--background)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <PencilIcon style={{ width: '0.625rem', height: '0.625rem' }} />
+                                        Editar
+                                    </button>
+                                )}
                             </div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--foreground)', fontWeight: '600' }}>
-                                {prospect.name}
-                            </div>
+                            {isEditingName ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <input
+                                        type="text"
+                                        value={editedName}
+                                        onChange={(e) => setEditedName(e.target.value)}
+                                        placeholder="Nombre del prospecto"
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.5rem 0.75rem',
+                                            backgroundColor: 'var(--background)',
+                                            border: '1px solid var(--primary)',
+                                            borderRadius: '0.5rem',
+                                            color: 'var(--foreground)',
+                                            fontSize: '0.875rem',
+                                            fontWeight: '600'
+                                        }}
+                                        autoFocus
+                                    />
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.375rem' }}>
+                                        <button
+                                            onClick={handleCancelNameEdit}
+                                            style={{
+                                                padding: '0.375rem 0.625rem',
+                                                backgroundColor: 'transparent',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: '0.375rem',
+                                                color: 'var(--foreground)',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleSaveName}
+                                            disabled={!editedName.trim()}
+                                            style={{
+                                                padding: '0.375rem 0.625rem',
+                                                backgroundColor: editedName.trim() ? 'var(--primary)' : 'var(--secondary)',
+                                                border: 'none',
+                                                borderRadius: '0.375rem',
+                                                color: 'white',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                                cursor: editedName.trim() ? 'pointer' : 'not-allowed',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            Guardar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: '0.875rem', color: 'var(--foreground)', fontWeight: '600' }}>
+                                    {prospect.name}
+                                </div>
+                            )}
                         </div>
 
                         {/* Company */}
@@ -2627,14 +2798,99 @@ export function ProspectDetailModal({
                                 textTransform: 'uppercase',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.375rem'
+                                justifyContent: 'space-between'
                             }}>
-                                <BuildingOfficeIcon style={{ width: '0.75rem', height: '0.75rem' }} />
-                                Firma / Despacho / Empresa
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                    <BuildingOfficeIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+                                    Firma / Despacho / Empresa
+                                </div>
+                                {!isEditingCompany && onUpdate && (
+                                    <button
+                                        onClick={() => setIsEditingCompany(true)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: 'var(--primary)',
+                                            padding: '0.125rem 0.375rem',
+                                            borderRadius: '0.25rem',
+                                            fontSize: '0.625rem',
+                                            fontWeight: '600',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.25rem',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'var(--background)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <PencilIcon style={{ width: '0.625rem', height: '0.625rem' }} />
+                                        {prospect.company ? 'Editar' : 'Agregar'}
+                                    </button>
+                                )}
                             </div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--foreground)' }}>
-                                {prospect.company}
-                            </div>
+                            {isEditingCompany ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <input
+                                        type="text"
+                                        value={editedCompany}
+                                        onChange={(e) => setEditedCompany(e.target.value)}
+                                        placeholder="Nombre de la empresa"
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.5rem 0.75rem',
+                                            backgroundColor: 'var(--background)',
+                                            border: '1px solid var(--primary)',
+                                            borderRadius: '0.5rem',
+                                            color: 'var(--foreground)',
+                                            fontSize: '0.875rem'
+                                        }}
+                                        autoFocus
+                                    />
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.375rem' }}>
+                                        <button
+                                            onClick={handleCancelCompanyEdit}
+                                            style={{
+                                                padding: '0.375rem 0.625rem',
+                                                backgroundColor: 'transparent',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: '0.375rem',
+                                                color: 'var(--foreground)',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleSaveCompany}
+                                            style={{
+                                                padding: '0.375rem 0.625rem',
+                                                backgroundColor: 'var(--primary)',
+                                                border: 'none',
+                                                borderRadius: '0.375rem',
+                                                color: 'white',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            Guardar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: '0.875rem', color: 'var(--foreground)' }}>
+                                    {prospect.company || <span style={{ color: 'var(--secondary)', fontStyle: 'italic' }}>Sin empresa</span>}
+                                </div>
+                            )}
                         </div>
 
                         {/* Creator */}
@@ -2683,68 +2939,245 @@ export function ProspectDetailModal({
                         </div>
 
                         {/* Email and Phone - Two columns layout */}
-                        {(prospect.email || prospect.phone) && (
-                            <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                {prospect.email && (
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ 
-                                            fontSize: '0.75rem', 
-                                            fontWeight: '600', 
-                                            color: 'var(--secondary)', 
-                                            marginBottom: '0.375rem', 
-                                            textTransform: 'uppercase',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.375rem'
-                                        }}>
-                                            <EnvelopeIcon style={{ width: '0.75rem', height: '0.75rem' }} />
-                                            Email
-                                        </div>
-                                        <a href={`mailto:${prospect.email}`} style={{ fontSize: '0.875rem', color: 'var(--primary)', textDecoration: 'none' }}>
-                                            {prospect.email}
-                                        </a>
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            {/* Email - Always show, editable */}
+                            <div style={{ flex: 1 }}>
+                                <div style={{ 
+                                    fontSize: '0.75rem', 
+                                    fontWeight: '600', 
+                                    color: 'var(--secondary)', 
+                                    marginBottom: '0.375rem', 
+                                    textTransform: 'uppercase',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                        <EnvelopeIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+                                        Email
                                     </div>
-                                )}
-                                {prospect.phone && (
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ 
-                                            fontSize: '0.75rem', 
-                                            fontWeight: '600', 
-                                            color: 'var(--secondary)', 
-                                            marginBottom: '0.375rem', 
-                                            textTransform: 'uppercase',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.375rem'
-                                        }}>
-                                            <PhoneIcon style={{ width: '0.75rem', height: '0.75rem' }} />
-                                            Teléfono
-                                        </div>
-                                        <a 
-                                            href={`https://wa.me/${prospect.phone.replace(/[^0-9]/g, '')}`} 
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style={{ 
-                                                fontSize: '0.875rem', 
-                                                color: '#25D366', 
-                                                textDecoration: 'none',
+                                    {!isEditingEmail && onUpdate && (
+                                        <button
+                                            onClick={() => setIsEditingEmail(true)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: 'var(--primary)',
+                                                padding: '0.125rem 0.375rem',
+                                                borderRadius: '0.25rem',
+                                                fontSize: '0.625rem',
+                                                fontWeight: '600',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                gap: '0.375rem'
+                                                gap: '0.25rem',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'var(--background)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
                                             }}
                                         >
-                                            {prospect.phone}
-                                            <svg 
-                                                viewBox="0 0 24 24" 
-                                                style={{ width: '1rem', height: '1rem', fill: '#25D366' }}
+                                            <PencilIcon style={{ width: '0.625rem', height: '0.625rem' }} />
+                                            {prospect.email ? 'Editar' : 'Agregar'}
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                {isEditingEmail ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        <input
+                                            type="email"
+                                            value={editedEmail}
+                                            onChange={(e) => setEditedEmail(e.target.value)}
+                                            placeholder="correo@ejemplo.com"
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.5rem 0.75rem',
+                                                backgroundColor: 'var(--background)',
+                                                border: '1px solid var(--primary)',
+                                                borderRadius: '0.5rem',
+                                                color: 'var(--foreground)',
+                                                fontSize: '0.8125rem'
+                                            }}
+                                            autoFocus
+                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.375rem' }}>
+                                            <button
+                                                onClick={handleCancelEmailEdit}
+                                                style={{
+                                                    padding: '0.375rem 0.625rem',
+                                                    backgroundColor: 'transparent',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: '0.375rem',
+                                                    color: 'var(--foreground)',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
                                             >
-                                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                                            </svg>
-                                        </a>
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleSaveEmail}
+                                                style={{
+                                                    padding: '0.375rem 0.625rem',
+                                                    backgroundColor: 'var(--primary)',
+                                                    border: 'none',
+                                                    borderRadius: '0.375rem',
+                                                    color: 'white',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : prospect.email ? (
+                                    <a href={`mailto:${prospect.email}`} style={{ fontSize: '0.875rem', color: 'var(--primary)', textDecoration: 'none' }}>
+                                        {prospect.email}
+                                    </a>
+                                ) : (
+                                    <div style={{ fontSize: '0.8125rem', color: 'var(--secondary)', fontStyle: 'italic' }}>
+                                        Sin email
                                     </div>
                                 )}
                             </div>
-                        )}
+                            
+                            {/* Phone - Always show, editable */}
+                            <div style={{ flex: 1 }}>
+                                <div style={{ 
+                                    fontSize: '0.75rem', 
+                                    fontWeight: '600', 
+                                    color: 'var(--secondary)', 
+                                    marginBottom: '0.375rem', 
+                                    textTransform: 'uppercase',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                        <PhoneIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+                                        Teléfono
+                                    </div>
+                                    {!isEditingPhone && onUpdate && (
+                                        <button
+                                            onClick={() => setIsEditingPhone(true)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: '#25D366',
+                                                padding: '0.125rem 0.375rem',
+                                                borderRadius: '0.25rem',
+                                                fontSize: '0.625rem',
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.25rem',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'rgba(37, 211, 102, 0.15)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                            }}
+                                        >
+                                            <PencilIcon style={{ width: '0.625rem', height: '0.625rem' }} />
+                                            {prospect.phone ? 'Editar' : 'Agregar'}
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                {isEditingPhone ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        <input
+                                            type="tel"
+                                            value={editedPhone}
+                                            onChange={(e) => setEditedPhone(e.target.value)}
+                                            placeholder="+52 5512345678"
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.5rem 0.75rem',
+                                                backgroundColor: 'var(--background)',
+                                                border: '1px solid #25D366',
+                                                borderRadius: '0.5rem',
+                                                color: 'var(--foreground)',
+                                                fontSize: '0.8125rem'
+                                            }}
+                                            autoFocus
+                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.375rem' }}>
+                                            <button
+                                                onClick={handleCancelPhoneEdit}
+                                                style={{
+                                                    padding: '0.375rem 0.625rem',
+                                                    backgroundColor: 'transparent',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: '0.375rem',
+                                                    color: 'var(--foreground)',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleSavePhone}
+                                                style={{
+                                                    padding: '0.375rem 0.625rem',
+                                                    backgroundColor: '#25D366',
+                                                    border: 'none',
+                                                    borderRadius: '0.375rem',
+                                                    color: 'white',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : prospect.phone ? (
+                                    <a 
+                                        href={`https://wa.me/${prospect.phone.replace(/[^0-9]/g, '')}`} 
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{ 
+                                            fontSize: '0.875rem', 
+                                            color: '#25D366', 
+                                            textDecoration: 'none',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.375rem'
+                                        }}
+                                    >
+                                        {prospect.phone}
+                                        <svg 
+                                            viewBox="0 0 24 24" 
+                                            style={{ width: '1rem', height: '1rem', fill: '#25D366' }}
+                                        >
+                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                                        </svg>
+                                    </a>
+                                ) : (
+                                    <div style={{ fontSize: '0.8125rem', color: 'var(--secondary)', fontStyle: 'italic' }}>
+                                        Sin teléfono
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
                         {/* Lead Source */}
                         <div>
