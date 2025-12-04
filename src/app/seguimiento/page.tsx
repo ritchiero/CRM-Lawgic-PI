@@ -16,7 +16,7 @@ import {
     MagnifyingGlassMinusIcon,
     MagnifyingGlassPlusIcon
 } from '@heroicons/react/24/outline';
-import { Column, ProspectModal, ProspectDetailModal, FilterBar, DuplicatesModal, useFiltrosProspectos, jaroWinkler, type Prospect } from './components';
+import { Column, ProspectModal, ProspectDetailModal, FilterBar, DuplicatesModal, IncompletesModal, useFiltrosProspectos, jaroWinkler, type Prospect, type IncompleteGroup } from './components';
 import {
     subscribeToProspects,
     createProspect,
@@ -44,6 +44,7 @@ function SeguimientoContent() {
     const [userMap, setUserMap] = useState<Record<string, string>>({});
     const [userColorMap, setUserColorMap] = useState<Record<string, string>>({});
     const [isDuplicatesModalOpen, setIsDuplicatesModalOpen] = useState(false);
+    const [isIncompletesModalOpen, setIsIncompletesModalOpen] = useState(false);
     const { userData, logout } = useAuth();
     
     // Zoom state with localStorage persistence
@@ -268,6 +269,59 @@ function SeguimientoContent() {
         }
         
         return duplicateGroups;
+    };
+
+    // Function to find all incomplete prospects (missing email or phone)
+    const findAllIncompletes = (): { groups: IncompleteGroup[]; total: number } => {
+        const incompleteByUser: Record<string, IncompleteGroup> = {};
+        let totalIncompletes = 0;
+
+        for (const prospect of prospects) {
+            const missingFields: ('email' | 'phone')[] = [];
+            
+            // Check for missing email
+            if (!prospect.email || prospect.email.trim() === '') {
+                missingFields.push('email');
+            }
+            
+            // Check for missing phone
+            if (!prospect.phone || prospect.phone.trim() === '') {
+                missingFields.push('phone');
+            }
+
+            // If has any missing fields, add to incomplete list
+            if (missingFields.length > 0) {
+                totalIncompletes++;
+                const userId = prospect.createdBy || 'unknown';
+                const userName = userMap[userId] || 'Usuario desconocido';
+
+                if (!incompleteByUser[userId]) {
+                    incompleteByUser[userId] = {
+                        userId,
+                        userName,
+                        prospects: [],
+                        count: 0
+                    };
+                }
+
+                incompleteByUser[userId].prospects.push({
+                    id: prospect.id,
+                    name: prospect.name,
+                    company: prospect.company,
+                    email: prospect.email,
+                    phone: prospect.phone,
+                    stage: prospect.stage,
+                    createdBy: prospect.createdBy,
+                    missingFields
+                });
+                incompleteByUser[userId].count++;
+            }
+        }
+
+        // Convert to array and sort by count (most incompletes first)
+        const groups = Object.values(incompleteByUser).sort((a, b) => b.count - a.count);
+
+        return { groups, total: totalIncompletes };
     };
 
     if (loading) {
@@ -545,6 +599,7 @@ function SeguimientoContent() {
                     resultCount={filteredProspects.length}
                     userMap={userMap}
                     onOpenDuplicatesScanner={() => setIsDuplicatesModalOpen(true)}
+                    onOpenIncompletesScanner={() => setIsIncompletesModalOpen(true)}
                 />
 
                 {/* Kanban Board */}
@@ -712,6 +767,26 @@ function SeguimientoContent() {
                     userMap={userMap}
                 />
             )}
+
+            {/* Incompletes Modal */}
+            {isIncompletesModalOpen && (() => {
+                const { groups, total } = findAllIncompletes();
+                return (
+                    <IncompletesModal
+                        isOpen={isIncompletesModalOpen}
+                        incompleteGroups={groups}
+                        totalIncompletes={total}
+                        onClose={() => setIsIncompletesModalOpen(false)}
+                        onViewProspect={(prospectId) => {
+                            const prospect = prospects.find(p => p.id === prospectId);
+                            if (prospect) {
+                                setIsIncompletesModalOpen(false);
+                                setSelectedProspect(prospect);
+                            }
+                        }}
+                    />
+                );
+            })()}
         </div>
     );
 }

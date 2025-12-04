@@ -317,7 +317,8 @@ export function FilterBar({
     uniqueResponsibles,
     resultCount,
     userMap,
-    onOpenDuplicatesScanner
+    onOpenDuplicatesScanner,
+    onOpenIncompletesScanner
 }: {
     filters: FilterState;
     activeFilterCount: number;
@@ -331,6 +332,7 @@ export function FilterBar({
     resultCount: number;
     userMap: Record<string, string>;
     onOpenDuplicatesScanner?: () => void;
+    onOpenIncompletesScanner?: () => void;
 }) {
     const [searchValue, setSearchValue] = useState(filters.searchQuery);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -515,6 +517,39 @@ export function FilterBar({
                                         <MagnifyingGlassIcon style={{ width: '1rem', height: '1rem', color: 'var(--primary)' }} />
                                         Buscar duplicados
                                     </button>
+                                    {onOpenIncompletesScanner && (
+                                        <button
+                                            onClick={() => {
+                                                setIsMenuOpen(false);
+                                                onOpenIncompletesScanner();
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.625rem 0.875rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                backgroundColor: 'transparent',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: 'var(--foreground)',
+                                                fontSize: '0.8125rem',
+                                                fontWeight: '500',
+                                                textAlign: 'left',
+                                                transition: 'all 0.15s',
+                                                borderTop: '1px solid var(--border)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'var(--background)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                            }}
+                                        >
+                                            <ExclamationTriangleIcon style={{ width: '1rem', height: '1rem', color: '#f59e0b' }} />
+                                            Buscar incompletos
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </>
@@ -1350,10 +1385,11 @@ export function ProspectCard({
     const agingLevel = getAgingLevel(daysSinceMovement);
     const agingData = getAgingStyles(agingLevel);
     
-    // Calculate next contact countdown (only for "Demo realizada" stage)
+    // Calculate next contact countdown (for "Demo realizada" and "En Pausa" stages)
     const isRealizada = prospect.stage === 'Demo realizada';
+    const isPausaStage = prospect.stage === 'En Pausa';
     const nextContactInfo = (() => {
-        if (!isRealizada || !prospect.nextContactDate) return null;
+        if ((!isRealizada && !isPausaStage) || !prospect.nextContactDate) return null;
         
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1372,26 +1408,46 @@ export function ProspectCard({
         
         const diffTime = contactDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diffWeeks = Math.ceil(diffDays / 7);
         
-        if (diffDays > 3) return null; // Don't show if more than 3 days
+        // For Demo realizada: only show if 3 days or less
+        // For Pausa: always show
+        if (isRealizada && diffDays > 3) return null;
         
         if (diffDays < 0) {
             return {
                 text: `Hace ${Math.abs(diffDays)} día${Math.abs(diffDays) !== 1 ? 's' : ''}`,
                 type: 'overdue' as const,
-                icon: '⚠️'
+                icon: '⚠️',
+                isPausa: isPausaStage
             };
         } else if (diffDays === 0) {
             return {
                 text: 'HOY',
                 type: 'today' as const,
-                icon: '🔔'
+                icon: '🔔',
+                isPausa: isPausaStage
             };
-        } else {
+        } else if (diffDays <= 3) {
             return {
                 text: `En ${diffDays} día${diffDays !== 1 ? 's' : ''}`,
                 type: 'soon' as const,
-                icon: '⏰'
+                icon: '⏰',
+                isPausa: isPausaStage
+            };
+        } else if (diffDays <= 7) {
+            return {
+                text: `En ${diffDays} días`,
+                type: 'upcoming' as const,
+                icon: '📅',
+                isPausa: isPausaStage
+            };
+        } else {
+            return {
+                text: `En ${diffWeeks} sem${diffWeeks !== 1 ? 's' : ''}`,
+                type: 'future' as const,
+                icon: '📆',
+                isPausa: isPausaStage
             };
         }
     })();
@@ -1562,7 +1618,7 @@ export function ProspectCard({
                 </div>
             </div>
 
-            {/* Next Contact Badge - Only for "Realizada" stage */}
+            {/* Next Contact Badge - For "Realizada" and "En Pausa" stages */}
             {nextContactInfo && (
                 <div
                     className={nextContactInfo.type === 'today' ? 'contact-alert-pulse' : ''}
@@ -1575,11 +1631,21 @@ export function ProspectCard({
                         marginTop: `${0.375 * zoomLevel}rem`,
                         fontSize: `${0.625 * zoomLevel}rem`,
                         fontWeight: '600',
-                        backgroundColor: nextContactInfo.type === 'overdue' 
-                            ? '#7f1d1d' 
-                            : nextContactInfo.type === 'today'
-                                ? '#dc2626'
-                                : '#eab308',
+                        backgroundColor: nextContactInfo.isPausa
+                            ? (nextContactInfo.type === 'overdue' 
+                                ? '#92400e' // Amber dark for Pausa overdue
+                                : nextContactInfo.type === 'today'
+                                    ? '#dc2626' // Red for HOY
+                                    : nextContactInfo.type === 'soon'
+                                        ? '#d97706' // Amber for soon
+                                        : nextContactInfo.type === 'upcoming'
+                                            ? '#b45309' // Amber darker for upcoming week
+                                            : '#78350f') // Amber darkest for future
+                            : (nextContactInfo.type === 'overdue' 
+                                ? '#7f1d1d' 
+                                : nextContactInfo.type === 'today'
+                                    ? '#dc2626'
+                                    : '#eab308'),
                         color: 'white'
                     }}
                 >
@@ -2182,7 +2248,7 @@ export function ProspectDetailModal({
     const [isEditingClientData, setIsEditingClientData] = useState(false);
     const [copied, setCopied] = useState(false);
     
-    // Next contact date state (for Realizada stage)
+    // Next contact date state (for Realizada and Pausa stages)
     const [nextContactDate, setNextContactDate] = useState<string>(
         formatDateForInput(prospect.nextContactDate)
     );
@@ -2328,7 +2394,7 @@ export function ProspectDetailModal({
         }
     };
 
-    // Handle save next contact date (Realizada stage)
+    // Handle save next contact date (Realizada and Pausa stages)
     const handleSaveNextContact = () => {
         if (onUpdate) {
             const updates: Partial<Prospect> = {};
@@ -3075,11 +3141,16 @@ export function ProspectDetailModal({
                             </div>
                         )}
 
-                        {/* Next Contact Section - Only visible when stage is Demo realizada */}
-                        {prospect.stage === 'Demo realizada' && (
+                        {/* Next Contact Section - Visible for Demo realizada and En Pausa */}
+                        {(prospect.stage === 'Demo realizada' || prospect.stage === 'En Pausa') && (() => {
+                            const isPausaModal = prospect.stage === 'En Pausa';
+                            const themeColors = isPausaModal 
+                                ? { bg: 'rgba(245, 158, 11, 0.08)', border: '#f59e0b', text: '#92400e', hover: 'rgba(245, 158, 11, 0.2)', inputBorder: '#fcd34d', saveBtn: '#f59e0b' }
+                                : { bg: 'rgba(59, 130, 246, 0.08)', border: '#3b82f6', text: '#1d4ed8', hover: 'rgba(59, 130, 246, 0.2)', inputBorder: '#93c5fd', saveBtn: '#3b82f6' };
+                            return (
                             <div style={{
-                                backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                border: '1px solid #3b82f6',
+                                backgroundColor: themeColors.bg,
+                                border: `1px solid ${themeColors.border}`,
                                 borderRadius: '0.75rem',
                                 padding: '1rem'
                             }}>
@@ -3092,13 +3163,13 @@ export function ProspectDetailModal({
                                     <div style={{
                                         fontSize: '0.8125rem',
                                         fontWeight: '700',
-                                        color: '#1d4ed8',
+                                        color: themeColors.text,
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '0.375rem'
                                     }}>
-                                        <span style={{ fontSize: '0.875rem' }}>📅</span>
-                                        Próximo Contacto
+                                        <span style={{ fontSize: '0.875rem' }}>{isPausaModal ? '⏰' : '📅'}</span>
+                                        {isPausaModal ? 'Volver a Contactar' : 'Próximo Contacto'}
                                     </div>
                                     {!isEditingNextContact && onUpdate && (
                                         <button
@@ -3107,7 +3178,7 @@ export function ProspectDetailModal({
                                                 background: 'none',
                                                 border: 'none',
                                                 cursor: 'pointer',
-                                                color: '#1d4ed8',
+                                                color: themeColors.text,
                                                 padding: '0.25rem 0.5rem',
                                                 borderRadius: '0.25rem',
                                                 fontSize: '0.75rem',
@@ -3118,7 +3189,7 @@ export function ProspectDetailModal({
                                                 transition: 'all 0.2s'
                                             }}
                                             onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                                                e.currentTarget.style.backgroundColor = themeColors.hover;
                                             }}
                                             onMouseLeave={(e) => {
                                                 e.currentTarget.style.backgroundColor = 'transparent';
@@ -3137,10 +3208,10 @@ export function ProspectDetailModal({
                                                 display: 'block', 
                                                 fontSize: '0.75rem', 
                                                 fontWeight: '500', 
-                                                color: '#1d4ed8', 
+                                                color: themeColors.text, 
                                                 marginBottom: '0.25rem' 
                                             }}>
-                                                Fecha de próximo contacto
+                                                {isPausaModal ? 'Fecha para volver a contactar' : 'Fecha de próximo contacto'}
                                             </label>
                                             <input
                                                 type="date"
@@ -3150,7 +3221,7 @@ export function ProspectDetailModal({
                                                     width: '100%',
                                                     padding: '0.5rem 0.75rem',
                                                     backgroundColor: 'white',
-                                                    border: '1px solid #93c5fd',
+                                                    border: `1px solid ${themeColors.inputBorder}`,
                                                     borderRadius: '0.5rem',
                                                     color: '#1e3a5f',
                                                     fontSize: '0.8125rem'
@@ -3181,9 +3252,9 @@ export function ProspectDetailModal({
                                                 style={{
                                                     padding: '0.5rem 0.75rem',
                                                     backgroundColor: 'transparent',
-                                                    border: '1px solid #93c5fd',
+                                                    border: `1px solid ${themeColors.inputBorder}`,
                                                     borderRadius: '0.5rem',
-                                                    color: '#1d4ed8',
+                                                    color: themeColors.text,
                                                     fontSize: '0.8125rem',
                                                     fontWeight: '600',
                                                     cursor: 'pointer',
@@ -3196,7 +3267,7 @@ export function ProspectDetailModal({
                                                 onClick={handleSaveNextContact}
                                                 style={{
                                                     padding: '0.5rem 0.75rem',
-                                                    backgroundColor: '#3b82f6',
+                                                    backgroundColor: themeColors.saveBtn,
                                                     border: 'none',
                                                     borderRadius: '0.5rem',
                                                     color: 'white',
@@ -3223,13 +3294,14 @@ export function ProspectDetailModal({
                                             </div>
                                         ) : (
                                             <div style={{ fontSize: '0.8125rem', color: '#6b7280', fontStyle: 'italic' }}>
-                                                Sin fecha programada
+                                                {isPausaModal ? 'Sin fecha programada para recontacto' : 'Sin fecha programada'}
                                             </div>
                                         )}
                                     </div>
                                 )}
                             </div>
-                        )}
+                            );
+                        })()}
 
                         {/* Potential Value Section - Only visible when stage is Demo realizada */}
                         {prospect.stage === 'Demo realizada' && (
@@ -4348,6 +4420,25 @@ export interface DuplicateGroup {
     similarity?: number; // For name matches, the percentage
 }
 
+// Type for incomplete prospect detection
+export interface IncompleteProspect {
+    id: string;
+    name: string;
+    company: string;
+    email: string;
+    phone: string;
+    stage: string;
+    createdBy: string;
+    missingFields: ('email' | 'phone')[];
+}
+
+export interface IncompleteGroup {
+    userId: string;
+    userName: string;
+    prospects: IncompleteProspect[];
+    count: number;
+}
+
 // Duplicates Modal Component
 export function DuplicatesModal({
     isOpen,
@@ -4698,6 +4789,396 @@ export function DuplicatesModal({
                                                 </div>
                                             ))}
                                         </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div style={{
+                    padding: '1rem 1.5rem',
+                    borderTop: '1px solid var(--border)',
+                    display: 'flex',
+                    justifyContent: 'flex-end'
+                }}>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            padding: '0.625rem 1.25rem',
+                            backgroundColor: 'var(--border)',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            color: 'var(--foreground)',
+                            fontSize: '0.875rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--secondary)'; e.currentTarget.style.color = 'white'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--border)'; e.currentTarget.style.color = 'var(--foreground)'; }}
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Incompletes Modal Component
+export function IncompletesModal({
+    isOpen,
+    onClose,
+    incompleteGroups,
+    onViewProspect,
+    totalIncompletes
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    incompleteGroups: IncompleteGroup[];
+    onViewProspect: (prospectId: string) => void;
+    totalIncompletes: number;
+}) {
+    const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+
+    if (!isOpen) return null;
+
+    const toggleUser = (userId: string) => {
+        const newExpanded = new Set(expandedUsers);
+        if (newExpanded.has(userId)) {
+            newExpanded.delete(userId);
+        } else {
+            newExpanded.add(userId);
+        }
+        setExpandedUsers(newExpanded);
+    };
+
+    const getMissingFieldLabel = (field: 'email' | 'phone') => {
+        switch (field) {
+            case 'email': return 'Email';
+            case 'phone': return 'Teléfono';
+        }
+    };
+
+    return (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+        }}>
+            <div style={{
+                backgroundColor: 'var(--background)',
+                borderRadius: '1rem',
+                width: '90%',
+                maxWidth: '800px',
+                maxHeight: '85vh',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            }}>
+                {/* Header */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '1.25rem 1.5rem',
+                    borderBottom: '1px solid var(--border)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{
+                            backgroundColor: '#fef3c7',
+                            borderRadius: '0.5rem',
+                            padding: '0.5rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <ExclamationTriangleIcon style={{ width: '1.25rem', height: '1.25rem', color: '#f59e0b' }} />
+                        </div>
+                        <div>
+                            <h2 style={{ 
+                                fontSize: '1.125rem', 
+                                fontWeight: '700', 
+                                color: 'var(--foreground)',
+                                margin: 0 
+                            }}>
+                                Prospectos Incompletos
+                            </h2>
+                            <p style={{ 
+                                fontSize: '0.8125rem', 
+                                color: 'var(--secondary)',
+                                margin: 0 
+                            }}>
+                                {totalIncompletes} prospecto{totalIncompletes !== 1 ? 's' : ''} con datos faltantes
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '0.5rem',
+                            borderRadius: '0.5rem',
+                            color: 'var(--secondary)',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--border)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                    >
+                        <XMarkIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    padding: '1.5rem'
+                }}>
+                    {incompleteGroups.length === 0 ? (
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '3rem',
+                            color: 'var(--secondary)'
+                        }}>
+                            <div style={{
+                                width: '4rem',
+                                height: '4rem',
+                                backgroundColor: '#d1fae5',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 1rem'
+                            }}>
+                                <span style={{ fontSize: '1.5rem' }}>✅</span>
+                            </div>
+                            <h3 style={{ fontWeight: '600', color: 'var(--foreground)', marginBottom: '0.5rem' }}>
+                                ¡Todos los prospectos están completos!
+                            </h3>
+                            <p style={{ fontSize: '0.875rem' }}>
+                                No hay prospectos con datos faltantes.
+                            </p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {/* Summary by user */}
+                            <div style={{
+                                backgroundColor: 'var(--surface)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '0.75rem',
+                                padding: '1rem',
+                                marginBottom: '0.5rem'
+                            }}>
+                                <h4 style={{ 
+                                    fontSize: '0.8125rem', 
+                                    fontWeight: '600', 
+                                    color: 'var(--foreground)',
+                                    marginBottom: '0.75rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem'
+                                }}>
+                                    <UsersIcon style={{ width: '1rem', height: '1rem' }} />
+                                    Resumen por vendedor
+                                </h4>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    {incompleteGroups.map(group => (
+                                        <div
+                                            key={group.userId}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                padding: '0.375rem 0.75rem',
+                                                backgroundColor: '#fef3c7',
+                                                borderRadius: '9999px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '500'
+                                            }}
+                                        >
+                                            <span style={{ color: '#92400e' }}>{group.userName}</span>
+                                            <span style={{
+                                                backgroundColor: '#f59e0b',
+                                                color: 'white',
+                                                padding: '0.125rem 0.5rem',
+                                                borderRadius: '9999px',
+                                                fontWeight: '700'
+                                            }}>
+                                                {group.count}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Detailed list by user */}
+                            {incompleteGroups.map(group => {
+                                const isExpanded = expandedUsers.has(group.userId);
+                                return (
+                                    <div
+                                        key={group.userId}
+                                        style={{
+                                            backgroundColor: 'var(--surface)',
+                                            border: '1px solid var(--border)',
+                                            borderRadius: '0.75rem',
+                                            overflow: 'hidden'
+                                        }}
+                                    >
+                                        {/* User header - clickable */}
+                                        <button
+                                            onClick={() => toggleUser(group.userId)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.875rem 1rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                backgroundColor: 'transparent',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                borderBottom: isExpanded ? '1px solid var(--border)' : 'none'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                <div style={{
+                                                    width: '2rem',
+                                                    height: '2rem',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: '#f59e0b',
+                                                    color: 'white',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '0.875rem',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {group.userName.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div style={{ textAlign: 'left' }}>
+                                                    <div style={{ fontWeight: '600', color: 'var(--foreground)', fontSize: '0.875rem' }}>
+                                                        {group.userName}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
+                                                        {group.count} prospecto{group.count !== 1 ? 's' : ''} incompleto{group.count !== 1 ? 's' : ''}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{
+                                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                transition: 'transform 0.2s'
+                                            }}>
+                                                <ChevronDownIcon style={{ width: '1.25rem', height: '1.25rem', color: 'var(--secondary)' }} />
+                                            </div>
+                                        </button>
+
+                                        {/* Prospects list - expandable */}
+                                        {isExpanded && (
+                                            <div style={{ padding: '0.75rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    {group.prospects.map(prospect => (
+                                                        <div
+                                                            key={prospect.id}
+                                                            style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                padding: '0.75rem',
+                                                                backgroundColor: 'var(--background)',
+                                                                borderRadius: '0.5rem',
+                                                                gap: '1rem'
+                                                            }}
+                                                        >
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div style={{
+                                                                    fontWeight: '600',
+                                                                    fontSize: '0.8125rem',
+                                                                    color: 'var(--foreground)',
+                                                                    whiteSpace: 'nowrap',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis'
+                                                                }}>
+                                                                    {prospect.name || 'Sin nombre'}
+                                                                </div>
+                                                                <div style={{
+                                                                    fontSize: '0.75rem',
+                                                                    color: 'var(--secondary)',
+                                                                    whiteSpace: 'nowrap',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis'
+                                                                }}>
+                                                                    {prospect.company || 'Sin empresa'} • {prospect.stage}
+                                                                </div>
+                                                                {/* Missing fields */}
+                                                                <div style={{ display: 'flex', gap: '0.375rem', marginTop: '0.375rem' }}>
+                                                                    {prospect.missingFields.map(field => (
+                                                                        <span
+                                                                            key={field}
+                                                                            style={{
+                                                                                display: 'inline-flex',
+                                                                                alignItems: 'center',
+                                                                                gap: '0.25rem',
+                                                                                fontSize: '0.6875rem',
+                                                                                padding: '0.125rem 0.5rem',
+                                                                                backgroundColor: '#fee2e2',
+                                                                                color: '#dc2626',
+                                                                                borderRadius: '9999px',
+                                                                                fontWeight: '500'
+                                                                            }}
+                                                                        >
+                                                                            {field === 'email' ? (
+                                                                                <EnvelopeIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+                                                                            ) : (
+                                                                                <PhoneIcon style={{ width: '0.75rem', height: '0.75rem' }} />
+                                                                            )}
+                                                                            Falta {getMissingFieldLabel(field)}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => onViewProspect(prospect.id)}
+                                                                style={{
+                                                                    padding: '0.5rem 0.75rem',
+                                                                    backgroundColor: 'var(--primary)',
+                                                                    border: 'none',
+                                                                    borderRadius: '0.375rem',
+                                                                    color: 'white',
+                                                                    fontSize: '0.75rem',
+                                                                    fontWeight: '600',
+                                                                    cursor: 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '0.375rem',
+                                                                    transition: 'opacity 0.2s',
+                                                                    flexShrink: 0
+                                                                }}
+                                                                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                                                                onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                                                            >
+                                                                <PencilIcon style={{ width: '0.875rem', height: '0.875rem' }} />
+                                                                Completar
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
