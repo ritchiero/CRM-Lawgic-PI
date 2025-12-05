@@ -14,7 +14,8 @@ import {
     PlusIcon,
     ArrowLeftOnRectangleIcon,
     MagnifyingGlassMinusIcon,
-    MagnifyingGlassPlusIcon
+    MagnifyingGlassPlusIcon,
+    UserMinusIcon
 } from '@heroicons/react/24/outline';
 import { Column, ProspectModal, ProspectDetailModal, FilterBar, DuplicatesModal, IncompletesModal, useFiltrosProspectos, jaroWinkler, type Prospect, type IncompleteGroup } from './components';
 import {
@@ -728,6 +729,18 @@ function SeguimientoContent() {
                         icon={TrashIcon}
                         prospects={filteredProspects.filter(p => p.stage === 'Basura')}
                         onDrop={(e) => handleDrop(e, 'Basura')}
+                        onDragOver={handleDragOver}
+                        onDragStart={handleDragStart}
+                        onProspectClick={setSelectedProspect}
+                        userMap={userMap}
+                        userColorMap={userColorMap}
+                        zoomLevel={zoomLevel}
+                    />
+                    <Column
+                        title="Perdido"
+                        icon={UserMinusIcon}
+                        prospects={filteredProspects.filter(p => p.stage === 'Cliente Perdido')}
+                        onDrop={(e) => handleDrop(e, 'Cliente Perdido')}
                         onDragOver={handleDragOver}
                         onDragStart={handleDragStart}
                         onProspectClick={setSelectedProspect}

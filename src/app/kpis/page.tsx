@@ -159,15 +159,19 @@ interface WeeklyMetrics {
     ventas: number;
     enPausa: number;
     basura: number;
+    clientePerdido: number;
     // Revenue metrics
     ingresoTotal: number;
     ventasCerradas: number;
     // Conversion metrics
     conversionRate: number;
     avgDaysToSale: number;
-    // Churn metrics
-    totalPerdidos: number;
-    tasaPerdida: number;
+    // Churn metrics (solo Cliente Perdido - ex-clientes que no renovaron)
+    churn: number;
+    tasaChurn: number;
+    // Descartados metrics (solo Basura - prospectos que nunca fueron clientes)
+    descartados: number;
+    tasaDescarte: number;
 }
 
 function calculateWeeklyMetrics(prospects: Prospect[], weeks: string[]): Map<string, WeeklyMetrics> {
@@ -186,18 +190,24 @@ function calculateWeeklyMetrics(prospects: Prospect[], weeks: string[]): Map<str
             ventas: 0,
             enPausa: 0,
             basura: 0,
+            clientePerdido: 0,
             ingresoTotal: 0,
             ventasCerradas: 0,
             conversionRate: 0,
             avgDaysToSale: 0,
-            totalPerdidos: 0,
-            tasaPerdida: 0
+            churn: 0,
+            tasaChurn: 0,
+            descartados: 0,
+            tasaDescarte: 0
         });
     });
     
     const weeksSet = new Set(weeks);
     const salesDaysPerWeek: Map<string, number[]> = new Map();
     weeks.forEach(w => salesDaysPerWeek.set(w, []));
+    
+    // Track total ventas for churn rate calculation
+    let totalVentasCumulative = 0;
     
     prospects.forEach(prospect => {
         // Count new prospects by creation date
@@ -239,12 +249,18 @@ function calculateWeeklyMetrics(prospects: Prospect[], weeks: string[]): Map<str
                     salesDaysPerWeek.get(entryWeek)!.push(daysToSale);
                     break;
                 case 'En Pausa':
+                    // Solo contar para actividad, NO es pérdida ni churn
                     m.enPausa++;
-                    m.totalPerdidos++;
                     break;
                 case 'Basura':
+                    // Prospectos descartados (nunca fueron clientes)
                     m.basura++;
-                    m.totalPerdidos++;
+                    m.descartados++;
+                    break;
+                case 'Cliente Perdido':
+                    // Churn real: ex-clientes que no renovaron
+                    m.clientePerdido++;
+                    m.churn++;
                     break;
             }
         });
@@ -265,14 +281,22 @@ function calculateWeeklyMetrics(prospects: Prospect[], weeks: string[]): Map<str
         // Cumulative news for conversion rate calculation
         totalNewsCumulative += m.nuevos;
         
+        // Track cumulative sales for churn rate
+        totalVentasCumulative += m.ventas;
+        
         // Conversion rate (ventas / total nuevos hasta esa semana)
         if (totalNewsCumulative > 0) {
             m.conversionRate = (m.ventas / totalNewsCumulative) * 100;
         }
         
-        // Loss rate (perdidos / nuevos de esa semana)
+        // Tasa de descarte (basura / nuevos de esa semana)
         if (m.nuevos > 0) {
-            m.tasaPerdida = (m.totalPerdidos / m.nuevos) * 100;
+            m.tasaDescarte = (m.descartados / m.nuevos) * 100;
+        }
+        
+        // Tasa de churn (clientes perdidos / total ventas acumuladas)
+        if (totalVentasCumulative > 0) {
+            m.tasaChurn = (m.churn / totalVentasCumulative) * 100;
         }
     });
     
@@ -549,6 +573,7 @@ function ActivityTable({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>
                             <th style={{ ...tableStyles.th, ...tableStyles.numberCell, color: '#10b981' }}>Ventas</th>
                             <th style={{ ...tableStyles.th, ...tableStyles.numberCell, color: '#f59e0b' }}>Pausa</th>
                             <th style={{ ...tableStyles.th, ...tableStyles.numberCell, color: '#ef4444' }}>Basura</th>
+                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell, color: '#991b1b' }}>Perdido</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -571,6 +596,7 @@ function ActivityTable({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>
                                     <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#10b981', fontWeight: '600' }}>{m.ventas}</td>
                                     <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#f59e0b' }}>{m.enPausa}</td>
                                     <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#ef4444' }}>{m.basura}</td>
+                                    <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#991b1b' }}>{m.clientePerdido}</td>
                                 </tr>
                             );
                         })}
@@ -775,20 +801,30 @@ function MonthlyRevenueTable({ metrics, months }: { metrics: Map<string, Monthly
 }
 
 function ChurnTable({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>; weeks: string[] }) {
+    // Calculate total ventas and churn for the period
+    let totalVentas = 0;
+    let totalChurn = 0;
+    weeks.forEach(weekKey => {
+        const m = metrics.get(weekKey)!;
+        totalVentas += m.ventas;
+        totalChurn += m.churn;
+    });
+    
     return (
         <div style={tableStyles.container}>
             <div style={tableStyles.header}>
-                <h3 style={tableStyles.title}>📉 Churn / Pérdidas</h3>
+                <h3 style={tableStyles.title}>📉 Churn (Clientes Perdidos)</h3>
+                <div style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
+                    Ex-clientes que no renovaron
+                </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
                 <table style={tableStyles.table}>
                     <thead>
                         <tr>
                             <th style={tableStyles.th}>Semana</th>
-                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell }}>A Pausa</th>
-                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell }}>A Basura</th>
-                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell }}>Total Perdidos</th>
-                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell }}>Tasa Pérdida</th>
+                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell }}>Clientes Perdidos</th>
+                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell }}>Tasa Churn</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -802,24 +838,119 @@ function ChurnTable({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>; w
                                             {formatWeekDisplay(weekKey)}
                                         </div>
                                     </td>
-                                    <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#f59e0b' }}>{m.enPausa}</td>
-                                    <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#ef4444' }}>{m.basura}</td>
-                                    <td style={{ ...tableStyles.td, ...tableStyles.numberCell, fontWeight: '600' }}>{m.totalPerdidos}</td>
+                                    <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#991b1b', fontWeight: '600' }}>{m.churn}</td>
                                     <td style={{ ...tableStyles.td, ...tableStyles.numberCell }}>
                                         <span style={{
-                                            backgroundColor: m.tasaPerdida > 0 ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-                                            color: m.tasaPerdida > 0 ? '#ef4444' : 'var(--secondary)',
+                                            backgroundColor: m.tasaChurn > 0 ? 'rgba(153, 27, 27, 0.1)' : 'transparent',
+                                            color: m.tasaChurn > 0 ? '#991b1b' : 'var(--secondary)',
                                             padding: '0.25rem 0.5rem',
                                             borderRadius: '0.25rem',
                                             fontWeight: '500'
                                         }}>
-                                            {m.tasaPerdida.toFixed(1)}%
+                                            {m.tasaChurn.toFixed(1)}%
                                         </span>
                                     </td>
                                 </tr>
                             );
                         })}
                     </tbody>
+                    <tfoot>
+                        <tr style={{ backgroundColor: 'var(--background)' }}>
+                            <td style={{ ...tableStyles.td, fontWeight: '600' }}>Total</td>
+                            <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#991b1b', fontWeight: '700' }}>{totalChurn}</td>
+                            <td style={{ ...tableStyles.td, ...tableStyles.numberCell }}>
+                                <span style={{
+                                    backgroundColor: totalVentas > 0 && totalChurn > 0 ? 'rgba(153, 27, 27, 0.1)' : 'transparent',
+                                    color: totalVentas > 0 && totalChurn > 0 ? '#991b1b' : 'var(--secondary)',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '0.25rem',
+                                    fontWeight: '600'
+                                }}>
+                                    {totalVentas > 0 ? ((totalChurn / totalVentas) * 100).toFixed(1) : '0.0'}%
+                                </span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+function DescartadosTable({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>; weeks: string[] }) {
+    // Calculate totals for the period
+    let totalNuevos = 0;
+    let totalDescartados = 0;
+    weeks.forEach(weekKey => {
+        const m = metrics.get(weekKey)!;
+        totalNuevos += m.nuevos;
+        totalDescartados += m.descartados;
+    });
+    
+    return (
+        <div style={tableStyles.container}>
+            <div style={tableStyles.header}>
+                <h3 style={tableStyles.title}>🗑️ Prospectos Descartados</h3>
+                <div style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
+                    Prospectos que nunca fueron clientes
+                </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+                <table style={tableStyles.table}>
+                    <thead>
+                        <tr>
+                            <th style={tableStyles.th}>Semana</th>
+                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell }}>Nuevos</th>
+                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell }}>Descartados</th>
+                            <th style={{ ...tableStyles.th, ...tableStyles.numberCell }}>Tasa Descarte</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {weeks.map(weekKey => {
+                            const m = metrics.get(weekKey)!;
+                            return (
+                                <tr key={weekKey}>
+                                    <td style={{ ...tableStyles.td, ...tableStyles.weekCell }}>
+                                        <div>{weekKey}</div>
+                                        <div style={{ fontSize: '0.6875rem', color: 'var(--secondary)', fontWeight: '400' }}>
+                                            {formatWeekDisplay(weekKey)}
+                                        </div>
+                                    </td>
+                                    <td style={{ ...tableStyles.td, ...tableStyles.numberCell }}>{m.nuevos}</td>
+                                    <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#ef4444', fontWeight: '600' }}>{m.descartados}</td>
+                                    <td style={{ ...tableStyles.td, ...tableStyles.numberCell }}>
+                                        <span style={{
+                                            backgroundColor: m.tasaDescarte > 0 ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                                            color: m.tasaDescarte > 0 ? '#ef4444' : 'var(--secondary)',
+                                            padding: '0.25rem 0.5rem',
+                                            borderRadius: '0.25rem',
+                                            fontWeight: '500'
+                                        }}>
+                                            {m.tasaDescarte.toFixed(1)}%
+                                        </span>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                    <tfoot>
+                        <tr style={{ backgroundColor: 'var(--background)' }}>
+                            <td style={{ ...tableStyles.td, fontWeight: '600' }}>Total</td>
+                            <td style={{ ...tableStyles.td, ...tableStyles.numberCell, fontWeight: '600' }}>{totalNuevos}</td>
+                            <td style={{ ...tableStyles.td, ...tableStyles.numberCell, color: '#ef4444', fontWeight: '700' }}>{totalDescartados}</td>
+                            <td style={{ ...tableStyles.td, ...tableStyles.numberCell }}>
+                                <span style={{
+                                    backgroundColor: totalNuevos > 0 && totalDescartados > 0 ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                                    color: totalNuevos > 0 && totalDescartados > 0 ? '#ef4444' : 'var(--secondary)',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '0.25rem',
+                                    fontWeight: '600'
+                                }}>
+                                    {totalNuevos > 0 ? ((totalDescartados / totalNuevos) * 100).toFixed(1) : '0.0'}%
+                                </span>
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
@@ -1108,7 +1239,8 @@ function SummaryCards({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>;
         let totalNuevos = 0;
         let totalVentas = 0;
         let totalIngreso = 0;
-        let totalPerdidos = 0;
+        let totalChurn = 0;
+        let totalDescartados = 0;
         let totalDays = 0;
         let countWithDays = 0;
 
@@ -1117,7 +1249,8 @@ function SummaryCards({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>;
             totalNuevos += m.nuevos;
             totalVentas += m.ventas;
             totalIngreso += m.ingresoTotal;
-            totalPerdidos += m.totalPerdidos;
+            totalChurn += m.churn;
+            totalDescartados += m.descartados;
             if (m.avgDaysToSale > 0) {
                 totalDays += m.avgDaysToSale;
                 countWithDays++;
@@ -1128,10 +1261,12 @@ function SummaryCards({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>;
             totalNuevos,
             totalVentas,
             totalIngreso,
-            totalPerdidos,
+            totalChurn,
+            totalDescartados,
             avgDays: countWithDays > 0 ? Math.round(totalDays / countWithDays) : 0,
             conversionRate: totalNuevos > 0 ? (totalVentas / totalNuevos) * 100 : 0,
-            avgTicket: totalVentas > 0 ? Math.round(totalIngreso / totalVentas) : 0
+            avgTicket: totalVentas > 0 ? Math.round(totalIngreso / totalVentas) : 0,
+            churnRate: totalVentas > 0 ? (totalChurn / totalVentas) * 100 : 0
         };
     }, [metrics, weeks]);
 
@@ -1142,7 +1277,8 @@ function SummaryCards({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>;
         { label: 'Ticket Promedio', value: totals.avgTicket > 0 ? `$${totals.avgTicket.toLocaleString('en-US')}` : '-', color: '#a855f7' },
         { label: 'Tasa Conversión', value: `${totals.conversionRate.toFixed(1)}%`, color: '#f59e0b' },
         { label: 'Días Promedio', value: totals.avgDays > 0 ? `${totals.avgDays}` : '-', color: '#06b6d4' },
-        { label: 'Perdidos', value: totals.totalPerdidos.toString(), color: '#ef4444' }
+        { label: 'Churn', value: totals.totalChurn.toString(), color: '#991b1b', subtitle: `${totals.churnRate.toFixed(1)}% de clientes` },
+        { label: 'Descartados', value: totals.totalDescartados.toString(), color: '#ef4444' }
     ];
 
     return (
@@ -1185,6 +1321,15 @@ function SummaryCards({ metrics, weeks }: { metrics: Map<string, WeeklyMetrics>;
                     }}>
                         {card.value}
                     </div>
+                    {'subtitle' in card && card.subtitle && (
+                        <div style={{
+                            fontSize: '0.6875rem',
+                            color: 'var(--secondary)',
+                            marginTop: '0.25rem'
+                        }}>
+                            {card.subtitle}
+                        </div>
+                    )}
                 </div>
             ))}
         </div>
@@ -1315,6 +1460,7 @@ function KPIsContent() {
                         <RevenueTable metrics={metrics} weeks={weeks} />
                         <MonthlyRevenueTable metrics={monthlyMetrics} months={months} />
                         <ChurnTable metrics={metrics} weeks={weeks} />
+                        <DescartadosTable metrics={metrics} weeks={weeks} />
                     </>
                 )}
             </div>

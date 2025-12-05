@@ -89,7 +89,8 @@ export const STAGE_OPTIONS = [
     'Demo realizada',
     'Venta',
     'En Pausa',
-    'Basura'
+    'Basura',
+    'Cliente Perdido'
 ];
 
 const FILTER_STORAGE_KEY = 'crm-filters-seguimiento';
@@ -1243,6 +1244,9 @@ export function Column({
         if (columnTitle === 'Venta') {
             return '#10b981'; // Verde
         }
+        if (columnTitle === 'Perdido') {
+            return '#991b1b'; // Rojo oscuro
+        }
         return 'var(--primary)'; // Color primario por defecto
     };
 
@@ -1264,6 +1268,12 @@ export function Column({
             return {
                 backdropFilter: 'blur(8px)',
                 boxShadow: '0 2px 12px rgba(16, 185, 129, 0.2)'
+            };
+        }
+        if (columnTitle === 'Perdido') {
+            return {
+                backdropFilter: 'blur(8px)',
+                boxShadow: '0 2px 12px rgba(153, 27, 27, 0.2)'
             };
         }
         return {};
@@ -2417,7 +2427,8 @@ export function ProspectDetailModal({
             'Demo realizada': { backgroundColor: '#10b981', color: 'white' },
             'Venta': { backgroundColor: '#059669', color: 'white' },
             'En Pausa': { backgroundColor: '#f59e0b', color: 'white' },
-            'Basura': { backgroundColor: '#ef4444', color: 'white' }
+            'Basura': { backgroundColor: '#ef4444', color: 'white' },
+            'Cliente Perdido': { backgroundColor: '#991b1b', color: 'white' }
         };
         return stageColors[stage] || { backgroundColor: 'var(--primary)', color: 'white' };
     };
