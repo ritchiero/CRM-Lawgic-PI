@@ -30,8 +30,10 @@ import {
     StarIcon,
     EllipsisVerticalIcon,
     EyeIcon,
-    ExclamationTriangleIcon
+    ExclamationTriangleIcon,
+    ChartBarIcon
 } from '@heroicons/react/24/outline';
+import { useRouter } from 'next/navigation';
 
 export interface Prospect {
     id: string;
@@ -334,6 +336,7 @@ export function FilterBar({
     onOpenDuplicatesScanner?: () => void;
     onOpenIncompletesScanner?: () => void;
 }) {
+    const router = useRouter();
     const [searchValue, setSearchValue] = useState(filters.searchQuery);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -550,6 +553,37 @@ export function FilterBar({
                                             Buscar incompletos
                                         </button>
                                     )}
+                                    <button
+                                        onClick={() => {
+                                            setIsMenuOpen(false);
+                                            router.push('/kpis');
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.625rem 0.875rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            backgroundColor: 'transparent',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: 'var(--foreground)',
+                                            fontSize: '0.8125rem',
+                                            fontWeight: '500',
+                                            textAlign: 'left',
+                                            transition: 'all 0.15s',
+                                            borderTop: '1px solid var(--border)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'var(--background)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <ChartBarIcon style={{ width: '1rem', height: '1rem', color: '#8b5cf6' }} />
+                                        KPI's
+                                    </button>
                                 </div>
                             )}
                         </>
