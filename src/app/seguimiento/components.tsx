@@ -612,7 +612,7 @@ export function FilterBar({
                                                                                                                     e.currentTarget.style.backgroundColor = 'transparent';
                                                                                         }}
                                                                                 >
-                                                                                <FlagIcon style={{ width: '1rem', height: '1rem', color: '#10b981' }} />
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1rem', height: '1rem' }}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>
                                                                                 Target
                                                         </button>
                                 </div>
