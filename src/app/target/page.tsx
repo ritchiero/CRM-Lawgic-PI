@@ -1,17 +1,18 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToProspects, Prospect } from '@/services/prospectService';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 export default function TargetPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -23,6 +24,14 @@ export default function TargetPage() {
 
     return () => unsubscribe();
   }, [user]);
+
+  const filteredProspects = useMemo(() => {
+    if (!searchTerm.trim()) return prospects;
+    const term = searchTerm.toLowerCase().trim();
+    return prospects.filter((p) =>
+      p.name.toLowerCase().includes(term)
+    );
+  }, [prospects, searchTerm]);
 
   return (
     <ProtectedRoute>
@@ -69,6 +78,41 @@ export default function TargetPage() {
             </p>
           </div>
 
+          {/* Search Bar */}
+          <div style={{
+            marginBottom: '1rem',
+            position: 'relative'
+          }}>
+            <MagnifyingGlassIcon style={{
+              width: '1.25rem',
+              height: '1.25rem',
+              position: 'absolute',
+              left: '1rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--secondary)',
+              pointerEvents: 'none'
+            }} />
+            <input
+              type="text"
+              placeholder="Buscar cliente por nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem 0.75rem 3rem',
+                fontSize: '0.9375rem',
+                border: '1px solid var(--border)',
+                borderRadius: '0.75rem',
+                backgroundColor: 'var(--surface)',
+                color: 'var(--foreground)',
+                outline: 'none',
+                fontFamily: 'inherit',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
           {/* Client List Table */}
           <div style={{
             backgroundColor: 'var(--surface)',
@@ -103,19 +147,19 @@ export default function TargetPage() {
             )}
 
             {/* Empty State */}
-            {!loading && prospects.length === 0 && (
+            {!loading && filteredProspects.length === 0 && (
               <div style={{
                 padding: '3rem',
                 textAlign: 'center',
                 color: 'var(--secondary)',
                 fontSize: '0.875rem'
               }}>
-                No hay clientes registrados
+                {searchTerm.trim() ? 'No se encontraron clientes con ese nombre' : 'No hay clientes registrados'}
               </div>
             )}
 
             {/* Client Rows */}
-            {!loading && prospects.map((prospect) => (
+            {!loading && filteredProspects.map((prospect) => (
               <div
                 key={prospect.id}
                 style={{
@@ -145,7 +189,7 @@ export default function TargetPage() {
               color: 'var(--secondary)',
               textAlign: 'right'
             }}>
-              {prospects.length} cliente{prospects.length !== 1 ? 's' : ''} en total
+              {filteredProspects.length}{searchTerm.trim() ? ` de ${prospects.length}` : ''} cliente{filteredProspects.length !== 1 ? 's' : ''} en total
             </div>
           )}
         </div>
