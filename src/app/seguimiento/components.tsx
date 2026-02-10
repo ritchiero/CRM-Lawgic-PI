@@ -585,6 +585,36 @@ export function FilterBar({
                                         <ChartBarIcon style={{ width: '1rem', height: '1rem', color: '#8b5cf6' }} />
                                         KPI's
                                     </button>
+                                                        <button
+                                                                                    onClick={() => {
+                                                                                                                    setIsMenuOpen(false);
+                                                                                        }}
+                                                                                    style={{
+                                                                                                                    width: '100%',
+                                                                                                                    padding: '0.625rem 0.875rem',
+                                                                                                                    display: 'flex',
+                                                                                                                    alignItems: 'center',
+                                                                                                                    gap: '0.5rem',
+                                                                                                                    backgroundColor: 'transparent',
+                                                                                                                    border: 'none',
+                                                                                                                    cursor: 'pointer',
+                                                                                                                    color: 'var(--foreground)',
+                                                                                                                    fontSize: '0.8125rem',
+                                                                                                                    fontWeight: '500',
+                                                                                                                    textAlign: 'left',
+                                                                                                                    transition: 'all 0.15s',
+                                                                                                                    borderTop: '1px solid var(--border)'
+                                                                                        }}
+                                                                                    onMouseEnter={(e) => {
+                                                                                                                    e.currentTarget.style.backgroundColor = 'var(--background)';
+                                                                                        }}
+                                                                                    onMouseLeave={(e) => {
+                                                                                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                                                        }}
+                                                                                >
+                                                                                <FlagIcon style={{ width: '1rem', height: '1rem', color: '#10b981' }} />
+                                                                                Target
+                                                        </button>
                                 </div>
                             )}
                         </>
