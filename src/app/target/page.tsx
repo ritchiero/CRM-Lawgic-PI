@@ -62,7 +62,7 @@ export default function TargetPage() {
       <div style={{
         minHeight: '100vh',
         backgroundColor: 'var(--background)',
-        fontFamily: 'var(--font-plus-jakarta)',
+        fontFamily: 'var(--font-sans)',
         padding: '2rem'
       }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
@@ -253,13 +253,12 @@ export default function TargetPage() {
         />
       )}
 
-      {/* SIDEBAR MODAL */}
+      {/* SIDEBAR MODAL - 3/4 width */}
       <div style={{
         position: 'fixed',
         top: 0,
-        right: selectedProspect ? '0' : '-520px',
-        width: '500px',
-        maxWidth: '90vw',
+        right: selectedProspect ? '0' : '-76vw',
+        width: '75vw',
         height: '100vh',
         backgroundColor: 'var(--surface)',
         boxShadow: selectedProspect ? '-8px 0 30px rgba(0,0,0,0.15)' : 'none',
@@ -267,12 +266,13 @@ export default function TargetPage() {
         transition: 'right 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         overflowY: 'auto',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        fontFamily: 'var(--font-sans)'
       }}>
         {selectedProspect && (
           <>
             {/* Back button */}
-            <div style={{ padding: '1.25rem 1.5rem 0' }}>
+            <div style={{ padding: '1.25rem 2rem 0' }}>
               <button
                 onClick={() => setSelectedProspect(null)}
                 style={{
@@ -294,22 +294,22 @@ export default function TargetPage() {
 
             {/* Profile Header */}
             <div style={{
-              padding: '1.5rem 1.5rem 2rem',
+              padding: '1.5rem 2rem 2rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '1.25rem'
+              gap: '1.5rem'
             }}>
               {/* Avatar */}
               <div style={{
-                width: '5rem',
-                height: '5rem',
+                width: '5.5rem',
+                height: '5.5rem',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
-                fontSize: '1.5rem',
+                fontSize: '1.75rem',
                 fontWeight: '700',
                 flexShrink: 0,
                 boxShadow: '0 4px 14px rgba(99,102,241,0.3)'
@@ -318,7 +318,7 @@ export default function TargetPage() {
               </div>
               <div style={{ minWidth: 0 }}>
                 <h2 style={{
-                  fontSize: '1.375rem',
+                  fontSize: '1.5rem',
                   fontWeight: '700',
                   color: 'var(--foreground)',
                   margin: 0,
@@ -349,176 +349,184 @@ export default function TargetPage() {
             </div>
 
             {/* Divider */}
-            <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 1.5rem' }} />
+            <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 2rem' }} />
 
-            {/* Info Sections */}
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Info Sections - two column layout for wider panel */}
+            <div style={{ padding: '2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
 
-              {/* Contact Info */}
-              <div>
-                <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
-                  Informacion de Contacto
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                  {selectedProspect.email && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <EnvelopeIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.email}</span>
-                    </div>
-                  )}
-                  {selectedProspect.phone && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <PhoneIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.phone}</span>
-                    </div>
-                  )}
-                  {selectedProspect.company && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <BuildingOfficeIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.company}</span>
-                    </div>
-                  )}
-                  {selectedProspect.linkedinUrl && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <svg style={{ width: '1.1rem', height: '1.1rem', flexShrink: 0 }} viewBox="0 0 24 24" fill="var(--secondary)">
-                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                      </svg>
-                      <a href={selectedProspect.linkedinUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: '#6366f1', textDecoration: 'none' }}>
-                        Ver perfil de LinkedIn
-                      </a>
-                    </div>
-                  )}
-                  {!selectedProspect.email && !selectedProspect.phone && !selectedProspect.company && (
-                    <span style={{ fontSize: '0.85rem', color: 'var(--secondary)', fontStyle: 'italic' }}>Sin datos de contacto registrados</span>
-                  )}
+              {/* LEFT COLUMN */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+
+                {/* Contact Info */}
+                <div>
+                  <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+                    Informacion de Contacto
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    {selectedProspect.email && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <EnvelopeIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.email}</span>
+                      </div>
+                    )}
+                    {selectedProspect.phone && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <PhoneIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.phone}</span>
+                      </div>
+                    )}
+                    {selectedProspect.company && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <BuildingOfficeIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.company}</span>
+                      </div>
+                    )}
+                    {selectedProspect.linkedinUrl && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <svg style={{ width: '1.1rem', height: '1.1rem', flexShrink: 0 }} viewBox="0 0 24 24" fill="var(--secondary)">
+                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                        </svg>
+                        <a href={selectedProspect.linkedinUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: '#6366f1', textDecoration: 'none' }}>
+                          Ver perfil de LinkedIn
+                        </a>
+                      </div>
+                    )}
+                    {!selectedProspect.email && !selectedProspect.phone && !selectedProspect.company && (
+                      <span style={{ fontSize: '0.85rem', color: 'var(--secondary)', fontStyle: 'italic' }}>Sin datos de contacto registrados</span>
+                    )}
+                  </div>
                 </div>
+
+                {/* Lead Source */}
+                {selectedProspect.leadSource && (
+                  <div>
+                    <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+                      Origen del Lead
+                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <TagIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.leadSource}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {selectedProspect.notes && (
+                  <div>
+                    <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+                      Notas
+                    </h3>
+                    <div style={{
+                      padding: '1rem',
+                      backgroundColor: 'var(--background)',
+                      borderRadius: '0.5rem',
+                      border: '1px solid var(--border)',
+                      fontSize: '0.875rem',
+                      color: 'var(--foreground)',
+                      lineHeight: 1.6,
+                      whiteSpace: 'pre-wrap'
+                    }}>
+                      <ChatBubbleLeftIcon style={{ width: '1rem', height: '1rem', color: 'var(--secondary)', marginBottom: '0.5rem' }} />
+                      <div>{selectedProspect.notes}</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Lead Source */}
-              {selectedProspect.leadSource && (
+              {/* RIGHT COLUMN */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+
+                {/* Key Dates */}
                 <div>
                   <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
-                    Origen del Lead
+                    Fechas Clave
                   </h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <TagIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
-                    <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.leadSource}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Key Dates */}
-              <div>
-                <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
-                  Fechas Clave
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
-                    <span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Creado:</span>
-                    <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.createdAt) || 'N/A'}</span>
-                  </div>
-                  {selectedProspect.nextContactDate && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: '#f59e0b', flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Proximo contacto:</span>
-                      <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.nextContactDate)}</span>
+                      <CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Creado:</span>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.createdAt) || 'N/A'}</span>
                     </div>
-                  )}
-                  {selectedProspect.scheduledDemoDate && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: '#3b82f6', flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Demo programada:</span>
-                      <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.scheduledDemoDate)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Financial */}
-              {(selectedProspect.potentialValue || selectedProspect.accountValue || selectedProspect.brandCount) && (
-                <div>
-                  <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
-                    Datos Comerciales
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
-                    {selectedProspect.potentialValue != null && (
-                      <div style={{ padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>Valor Potencial</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#22c55e' }}>{'$' + selectedProspect.potentialValue.toLocaleString()}</div>
+                    {selectedProspect.nextContactDate && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: '#f59e0b', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Proximo contacto:</span>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.nextContactDate)}</span>
                       </div>
                     )}
-                    {selectedProspect.accountValue != null && (
-                      <div style={{ padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>Valor de Cuenta</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#3b82f6' }}>{'$' + selectedProspect.accountValue.toLocaleString()}</div>
-                      </div>
-                    )}
-                    {selectedProspect.brandCount != null && (
-                      <div style={{ padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>Marcas</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#8b5cf6' }}>{selectedProspect.brandCount}</div>
+                    {selectedProspect.scheduledDemoDate && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: '#3b82f6', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Demo programada:</span>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.scheduledDemoDate)}</span>
                       </div>
                     )}
                   </div>
                 </div>
-              )}
 
-              {/* Notes */}
-              {selectedProspect.notes && (
-                <div>
-                  <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
-                    Notas
-                  </h3>
-                  <div style={{
-                    padding: '1rem',
-                    backgroundColor: 'var(--background)',
-                    borderRadius: '0.5rem',
-                    border: '1px solid var(--border)',
-                    fontSize: '0.875rem',
-                    color: 'var(--foreground)',
-                    lineHeight: 1.6,
-                    whiteSpace: 'pre-wrap'
-                  }}>
-                    <ChatBubbleLeftIcon style={{ width: '1rem', height: '1rem', color: 'var(--secondary)', marginBottom: '0.5rem' }} />
-                    <div>{selectedProspect.notes}</div>
-                  </div>
-                </div>
-              )}
-
-              {/* History Timeline */}
-              {selectedProspect.history && selectedProspect.history.length > 0 && (
-                <div>
-                  <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
-                    Historial de Etapas
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {selectedProspect.history.map((entry, idx) => (
-                      <div key={idx} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                        padding: '0.5rem 0.75rem',
-                        backgroundColor: idx === 0 ? getStageColor(entry.stage) + '10' : 'transparent',
-                        borderRadius: '0.375rem',
-                        borderLeft: '3px solid ' + getStageColor(entry.stage)
-                      }}>
-                        <div style={{
-                          width: '0.5rem',
-                          height: '0.5rem',
-                          borderRadius: '50%',
-                          backgroundColor: getStageColor(entry.stage),
-                          flexShrink: 0
-                        }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)' }}>{entry.stage}</span>
+                {/* Financial */}
+                {(selectedProspect.potentialValue || selectedProspect.accountValue || selectedProspect.brandCount) && (
+                  <div>
+                    <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+                      Datos Comerciales
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
+                      {selectedProspect.potentialValue != null && (
+                        <div style={{ padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>Valor Potencial</div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#22c55e' }}>{'$' + selectedProspect.potentialValue.toLocaleString()}</div>
                         </div>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--secondary)', flexShrink: 0 }}>{formatDate(entry.date)}</span>
-                      </div>
-                    ))}
+                      )}
+                      {selectedProspect.accountValue != null && (
+                        <div style={{ padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>Valor de Cuenta</div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#3b82f6' }}>{'$' + selectedProspect.accountValue.toLocaleString()}</div>
+                        </div>
+                      )}
+                      {selectedProspect.brandCount != null && (
+                        <div style={{ padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>Marcas</div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#8b5cf6' }}>{selectedProspect.brandCount}</div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* History Timeline */}
+                {selectedProspect.history && selectedProspect.history.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+                      Historial de Etapas
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {selectedProspect.history.map((entry, idx) => (
+                        <div key={idx} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          padding: '0.5rem 0.75rem',
+                          backgroundColor: idx === 0 ? getStageColor(entry.stage) + '10' : 'transparent',
+                          borderRadius: '0.375rem',
+                          borderLeft: '3px solid ' + getStageColor(entry.stage)
+                        }}>
+                          <div style={{
+                            width: '0.5rem',
+                            height: '0.5rem',
+                            borderRadius: '50%',
+                            backgroundColor: getStageColor(entry.stage),
+                            flexShrink: 0
+                          }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)' }}>{entry.stage}</span>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--secondary)', flexShrink: 0 }}>{formatDate(entry.date)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
