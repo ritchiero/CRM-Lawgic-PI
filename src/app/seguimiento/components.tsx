@@ -588,10 +588,12 @@ export function FilterBar({
                                                         <button
                                                                                     onClick={() => {
                                                                                                                     setIsMenuOpen(false);
+                                                                                                                    router.push('/target');
                                                                                         }}
                                                                                     style={{
                                                                                                                     width: '100%',
                                                                                                                     padding: '0.625rem 0.875rem',
+                                                                                            
                                                                                                                     display: 'flex',
                                                                                                                     alignItems: 'center',
                                                                                                                     gap: '0.5rem',
