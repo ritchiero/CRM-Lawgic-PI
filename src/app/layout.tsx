@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={plusJakarta.variable} suppressHydrationWarning>
+      <body className={`${plusJakarta.variable} ${plusJakarta.className}`} suppressHydrationWarning>
         <AuthProvider>
           {children}
         </AuthProvider>
