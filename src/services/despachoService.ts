@@ -16,6 +16,7 @@ export interface Despacho {
   color: string;
   initials: string;
   logo: string;
+  logoUrl: string;
   direccion: string;
   telefono: string;
   email: string;
@@ -90,6 +91,7 @@ export const subscribeToDespachos = (callback: (despachos: Despacho[]) => void) 
           color: data.color || '#6366f1',
           initials: data.initials || '',
           logo: data.logo || '',
+          logoUrl: data.logoUrl || '',
           direccion: data.direccion || '',
           telefono: data.telefono || '',
           email: data.email || '',
@@ -139,6 +141,7 @@ export const seedDefaultDespachos = async () => {
       await addDoc(collection(db, COLLECTION_NAME), {
         ...d,
         logo: '',
+        logoUrl: '',
         direccion: '',
         telefono: '',
         email: '',
