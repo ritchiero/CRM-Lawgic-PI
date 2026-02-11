@@ -48,7 +48,7 @@ export default function DespachosEmpresasPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [expandedColabs, setExpandedColabs] = useState(true);
   const [editForm, setEditForm] = useState({
-    nombre: '', color: '#6366f1', initials: '', logo: '',
+    nombre: '', color: '#6366f1', initials: '', logo: '', logoUrl: '',
     direccion: '', telefono: '', email: '', sitioWeb: '', notas: '',
   });
   const [seeding, setSeeding] = useState(false);
