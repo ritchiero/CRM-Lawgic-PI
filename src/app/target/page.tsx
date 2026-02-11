@@ -1,4 +1,158 @@
-undefined
+"use client";
+
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo } from 'react';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
+import { subscribeToTargets, Target } from '@/services/targetService';
+import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
+import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, TagIcon, CalendarIcon, ChatBubbleLeftIcon, CameraIcon, DocumentTextIcon, InformationCircleIcon, FlagIcon, StarIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
+
+export default function TargetPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [prospects, setProspects] = useState<Target[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [representatives, setRepresentatives] = useState<Representative[]>([]);
+  const [loadingReps, setLoadingReps] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProspect, setSelectedProspect] = useState<Target | null>(null);
+  const [activeTab, setActiveTab] = useState('infos');
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToTargets((data) => {
+      setProspects(data);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    const unsubReps = subscribeToRepresentatives((data) => {
+      setRepresentatives(data);
+      setLoadingReps(false);
+    });
+    return () => unsubReps();
+  }, []);
+
+  useEffect(() => {
+    if (selectedProspect) setActiveTab('infos');
+  }, [selectedProspect]);
+
+  const filteredProspects = useMemo(() => {
+    const repsAsTargets: Target[] = representatives.map(rep => ({
+      id: rep.id,
+      name: rep.name,
+      company: '',
+      email: '',
+      phone: '',
+      notes: '',
+      stage: '',
+      createdAt: rep.createdAt || new Date(),
+      createdBy: 'representative',
+      history: [],
+      brandCount: rep.brandCount,
+    }));
+    const allItems = [...prospects, ...repsAsTargets];
+    if (!searchTerm.trim()) return allItems;
+    const term = searchTerm.toLowerCase();
+    return allItems.filter((p) =>
+      p.name.toLowerCase().includes(term)
+    );
+  }, [prospects, representatives, searchTerm]);
+
+  const handleExportCSV = () => {
+    const withEmail = filteredProspects.filter(p => p.email && p.email.trim() !== '');
+    if (withEmail.length === 0) {
+      alert('No hay contactos con correo disponible.');
+      return;
+    }
+    const header = 'Nombre,Correo';
+    const rows = withEmail.map(p => {
+      const name = p.name.replace(/,/g, ' ');
+      const email = p.email.replace(/,/g, ' ');
+      return name + ',' + email;
+    });
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'contactos_target.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  };
+
+  const getStageColor = (stage: string) => {
+    const colors: Record<string, string> = {
+      'Detección de prospecto': '#6366f1',
+      '1er Contacto': '#8b5cf6',
+      'Contacto efectivo': '#a855f7',
+      'Muestra de interés': '#ec4899',
+      'Cita para demo': '#3b82f6',
+      'Demo realizada': '#0ea5e9',
+      'Venta': '#22c55e',
+      'En Pausa': '#f59e0b',
+      'Basura': '#6b7280',
+      'Cliente Perdido': '#ef4444',
+    };
+    return colors[stage] || '#6366f1';
+  };
+
+  const getStageProgress = (stage: string) => {
+    const stages: Record<string, number> = {
+      'Detección de prospecto': 14,
+      '1er Contacto': 28,
+      'Contacto efectivo': 42,
+      'Muestra de interés': 50,
+      'Cita para demo': 64,
+      'Demo realizada': 78,
+      'Venta': 100,
+      'En Pausa': 0,
+      'Basura': 0,
+      'Cliente Perdido': 0,
+    };
+    return stages[stage] || 0;
+  };
+
+  const getStageRisk = (stage: string) => {
+    const risk: Record<string, { label: string; color: string }> = {
+      'Detección de prospecto': { label: 'Early Stage', color: '#6366f1' },
+      '1er Contacto': { label: 'In Progress', color: '#8b5cf6' },
+      'Contacto efectivo': { label: 'In Progress', color: '#a855f7' },
+      'Muestra de interés': { label: 'Engaged', color: '#ec4899' },
+      'Cita para demo': { label: 'On Track', color: '#3b82f6' },
+      'Demo realizada': { label: 'On Track', color: '#0ea5e9' },
+      'Venta': { label: 'Won', color: '#22c55e' },
+      'En Pausa': { label: 'Paused', color: '#f59e0b' },
+      'Basura': { label: 'Discarded', color: '#6b7280' },
+      'Cliente Perdido': { label: 'Lost', color: '#ef4444' },
+    };
+    return risk[stage] || { label: 'Unknown', color: '#6b7280' };
+  };
+
+  const getStageIndex = (stage: string) => {
+    const order = ['Detección de prospecto', '1er Contacto', 'Contacto efectivo', 'Muestra de interés', 'Cita para demo', 'Demo realizada', 'Venta'];
+    const idx = order.indexOf(stage);
+    return idx >= 0 ? idx + 1 : 0;
+  };
+
+  const formatDate = (date: Date | undefined) => {
+    if (!date) return null;
+    return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+  };
+
+  const tabs = [
+    { id: 'infos', label: 'Infos', icon: 'info' },
+    { id: 'objectives', label: 'Objectives', icon: 'flag' },
+    { id: 'documents', label: 'Documents', icon: 'doc' },
+    { id: 'reviews', label: 'Reviews', icon: 'star' },
+  ];
 
   return (
     <ProtectedRoute>
@@ -308,7 +462,6 @@ undefined
                   }}>
                     {getInitials(selectedProspect.name)}
                   </div>
-                  {/* Camera icon overlay */}
                   <div style={{
                     position: 'absolute',
                     bottom: '0',
