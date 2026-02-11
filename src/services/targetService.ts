@@ -26,6 +26,7 @@ export interface Target {
   nextContactDate?: Date;
   scheduledDemoDate?: Date;
   linkedinUrl?: string;
+    companyLogo?: string;
   // Field to track origin
   copiedFromProspectId?: string;
 }
