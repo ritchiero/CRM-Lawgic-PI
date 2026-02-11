@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { subscribeToTargets, Target, updateTarget } from '@/services/targetService';
+import { subscribeToTargets, Target, updateTarget, createTarget } from '@/services/targetService';
 import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
 import ScrapeIMPIButton from '@/components/ScrapeIMPIButton';
 import { subscribeToDespachos, Despacho } from '@/services/despachoService';
@@ -80,23 +80,52 @@ export default function TargetPage() {
   }, []);
 
   const filteredProspects = useMemo(() => {
-    const repsAsTargets: Target[] = representatives.map(rep => ({
-      id: rep.id,
-      name: rep.name,
-      company: '',
-      email: '',
-      phone: '',
-      notes: '',
-      stage: '',
-      createdAt: rep.createdAt || new Date(),
-      createdBy: 'representative',
-      history: [],
-      brandCount: rep.brandCount,
-    }));
-    const allItems = [...prospects, ...repsAsTargets];
+    // Merge representatives into targets, deduplicating by name
+    const targetsByName = new Map<string, Target>();
+    
+    // First, add all real targets
+    for (const target of prospects) {
+      const key = target.name.toLowerCase().trim();
+      targetsByName.set(key, target);
+    }
+    
+    // Then, for each representative:
+    // - If a target with the same name exists, merge brandCount into it
+    // - If not, add as a virtual target entry
+    for (const rep of representatives) {
+      const key = rep.name.toLowerCase().trim();
+      const existingTarget = targetsByName.get(key);
+      if (existingTarget) {
+        // Merge brandCount from representative into the existing target
+        targetsByName.set(key, {
+          ...existingTarget,
+          brandCount: rep.brandCount || existingTarget.brandCount,
+        });
+      } else {
+        // No matching target, add as virtual entry
+        targetsByName.set(key, {
+          id: rep.id,
+          name: rep.name,
+          company: '',
+          email: '',
+          phone: '',
+          notes: '',
+          stage: '',
+          createdAt: rep.createdAt || new Date(),
+          createdBy: 'representative',
+          history: [],
+          brandCount: rep.brandCount,
+        });
+      }
+    }
+    
+    const allItems = Array.from(targetsByName.values());
+
     if (!searchTerm.trim()) return allItems;
     const term = searchTerm.toLowerCase();
-    return allItems.filter((p) => p.name.toLowerCase().includes(term));
+    return allItems.filter((p) =>
+      p.name.toLowerCase().includes(term)
+    );
   }, [prospects, representatives, searchTerm]);
 
   const handleExportCSV = () => {
@@ -140,12 +169,27 @@ export default function TargetPage() {
   const handleDespachoSelect = async (despachoName: string) => {
     if (!selectedProspect) return;
     try {
-      await updateTarget(selectedProspect.id, { company: despachoName });
-      setSelectedProspect({ ...selectedProspect, company: despachoName });
+      // Check if this is a representative entry (not a real target)
+      if (selectedProspect.createdBy === 'representative') {
+        // Create a new target from the representative data, then assign despacho
+        const newTargetId = await createTarget({
+          name: selectedProspect.name,
+          company: despachoName,
+          email: '',
+          phone: '',
+          notes: '',
+          brandCount: selectedProspect.brandCount,
+        });
+        setSelectedProspect({ ...selectedProspect, id: newTargetId, company: despachoName, createdBy: 'system' });
+      } else {
+        await updateTarget(selectedProspect.id, { company: despachoName });
+        setSelectedProspect({ ...selectedProspect, company: despachoName });
+      }
       setDespachoDropdownOpen(false);
       setCustomDespacho('');
     } catch (error) {
       console.error('Error updating despacho:', error);
+      alert('Error al asignar despacho. Intenta de nuevo.');
     }
   };
 
