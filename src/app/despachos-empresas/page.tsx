@@ -1,13 +1,16 @@
 "use client";
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { subscribeToDespachos, createDespacho, updateDespacho, deleteDespacho, seedDefaultDespachos, Despacho, Colaborador } from '@/services/despachoService';
+import { subscribeToDespachos, createDespacho, updateDespacho, deleteDespacho, seedDefaultDespachos, Despacho } from '@/services/despachoService';
+import { subscribeToTargets, Target, updateTarget } from '@/services/targetService';
+import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
 import {
   ArrowLeftIcon, MagnifyingGlassIcon, PlusIcon, XMarkIcon,
-  BuildingOfficeIcon, PencilIcon, TrashIcon, UserPlusIcon,
+  BuildingOfficeIcon, PencilIcon, TrashIcon,
   EnvelopeIcon, PhoneIcon, GlobeAltIcon, MapPinIcon,
-  UserGroupIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon
+  UserGroupIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon,
+  LinkIcon, UserMinusIcon
 } from '@heroicons/react/24/outline';
 
 const COLOR_OPTIONS = [
@@ -22,13 +25,22 @@ function generateInitials(name: string): string {
   return name.trim().substring(0, 2).toUpperCase();
 }
 
-function generateColabId(): string {
-  return 'col_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-}
+type PersonItem = {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  brandCount?: number;
+  source: 'target' | 'representative';
+  stage?: string;
+};
 
 export default function DespachosEmpresasPage() {
   const router = useRouter();
   const [despachos, setDespachos] = useState<Despacho[]>([]);
+  const [targets, setTargets] = useState<Target[]>([]);
+  const [representatives, setRepresentatives] = useState<Representative[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDespacho, setSelectedDespacho] = useState<Despacho | null>(null);
@@ -39,48 +51,79 @@ export default function DespachosEmpresasPage() {
     nombre: '', color: '#6366f1', initials: '', logo: '',
     direccion: '', telefono: '', email: '', sitioWeb: '', notas: '',
   });
-  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
-  const [newColab, setNewColab] = useState({ nombre: '', email: '', telefono: '', puesto: '', notas: '' });
-  const [showNewColabForm, setShowNewColabForm] = useState(false);
-  const [editingColabId, setEditingColabId] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // For the person search dropdown
+  const [personSearch, setPersonSearch] = useState('');
+  const [showPersonDropdown, setShowPersonDropdown] = useState(false);
+  const personDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const unsub = subscribeToDespachos((data) => {
-      setDespachos(data);
-      setLoading(false);
-    });
-    return () => unsub();
+    const unsub1 = subscribeToDespachos((data) => { setDespachos(data); setLoading(false); });
+    const unsub2 = subscribeToTargets((data) => { setTargets(data); });
+    const unsub3 = subscribeToRepresentatives((data) => { setRepresentatives(data); });
+    return () => { unsub1(); unsub2(); unsub3(); };
+  }, []);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (personDropdownRef.current && !personDropdownRef.current.contains(e.target as Node)) {
+        setShowPersonDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   useEffect(() => {
     if (selectedDespacho) {
       setEditForm({
-        nombre: selectedDespacho.nombre,
-        color: selectedDespacho.color,
-        initials: selectedDespacho.initials,
-        logo: selectedDespacho.logo,
-        direccion: selectedDespacho.direccion,
-        telefono: selectedDespacho.telefono,
-        email: selectedDespacho.email,
-        sitioWeb: selectedDespacho.sitioWeb,
+        nombre: selectedDespacho.nombre, color: selectedDespacho.color,
+        initials: selectedDespacho.initials, logo: selectedDespacho.logo,
+        direccion: selectedDespacho.direccion, telefono: selectedDespacho.telefono,
+        email: selectedDespacho.email, sitioWeb: selectedDespacho.sitioWeb,
         notas: selectedDespacho.notas,
       });
-      setColaboradores(selectedDespacho.colaboradores || []);
       setIsEditing(false);
-      setShowNewColabForm(false);
-      setEditingColabId(null);
+      setShowPersonDropdown(false);
+      setPersonSearch('');
     }
   }, [selectedDespacho]);
+
+  // People linked to the current despacho (by company field matching despacho name)
+  const linkedTargets = useMemo(() => {
+    const name = selectedDespacho?.nombre || editForm.nombre;
+    if (!name) return [];
+    return targets.filter(t => t.company?.toLowerCase() === name.toLowerCase());
+  }, [targets, selectedDespacho, editForm.nombre]);
+
+  // People available to add (not yet linked)
+  const availablePeople = useMemo(() => {
+    const name = selectedDespacho?.nombre || editForm.nombre;
+    if (!name) return [];
+    const all: PersonItem[] = [
+      ...targets.filter(t => t.company?.toLowerCase() !== name.toLowerCase()).map(t => ({
+        id: t.id, name: t.name, email: t.email, phone: t.phone,
+        company: t.company, brandCount: t.brandCount, source: 'target' as const, stage: t.stage,
+      })),
+      ...representatives.map(r => ({
+        id: r.id, name: r.name, brandCount: r.brandCount, source: 'representative' as const,
+      })),
+    ];
+    if (!personSearch.trim()) return all.slice(0, 30);
+    const q = personSearch.toLowerCase();
+    return all.filter(p => p.name.toLowerCase().includes(q)).slice(0, 30);
+  }, [targets, representatives, selectedDespacho, editForm.nombre, personSearch]);
+
+  // Count linked people (targets only since reps don't have company)
+  const linkedCount = linkedTargets.length;
 
   const filtered = useMemo(() => {
     if (!searchTerm.trim()) return despachos;
     const t = searchTerm.toLowerCase();
-    return despachos.filter(d =>
-      d.nombre.toLowerCase().includes(t) ||
-      d.colaboradores?.some(c => c.nombre.toLowerCase().includes(t))
-    );
+    return despachos.filter(d => d.nombre.toLowerCase().includes(t));
   }, [despachos, searchTerm]);
 
   const handleSeed = async () => {
@@ -97,13 +140,7 @@ export default function DespachosEmpresasPage() {
     setSaving(true);
     try {
       const initials = editForm.initials || generateInitials(editForm.nombre);
-      await createDespacho({
-        nombre: editForm.nombre, color: editForm.color, initials,
-        logo: editForm.logo, direccion: editForm.direccion,
-        telefono: editForm.telefono, email: editForm.email,
-        sitioWeb: editForm.sitioWeb, notas: editForm.notas,
-        colaboradores,
-      });
+      await createDespacho({ nombre: editForm.nombre, color: editForm.color, initials, logo: editForm.logo, direccion: editForm.direccion, telefono: editForm.telefono, email: editForm.email, sitioWeb: editForm.sitioWeb, notas: editForm.notas, colaboradores: [] });
       setIsCreating(false);
       resetForm();
     } catch { alert('Error al crear despacho.'); }
@@ -115,13 +152,7 @@ export default function DespachosEmpresasPage() {
     setSaving(true);
     try {
       const initials = editForm.initials || generateInitials(editForm.nombre);
-      await updateDespacho(selectedDespacho.id, {
-        nombre: editForm.nombre, color: editForm.color, initials,
-        logo: editForm.logo, direccion: editForm.direccion,
-        telefono: editForm.telefono, email: editForm.email,
-        sitioWeb: editForm.sitioWeb, notas: editForm.notas,
-        colaboradores,
-      });
+      await updateDespacho(selectedDespacho.id, { nombre: editForm.nombre, color: editForm.color, initials, logo: editForm.logo, direccion: editForm.direccion, telefono: editForm.telefono, email: editForm.email, sitioWeb: editForm.sitioWeb, notas: editForm.notas });
       setIsEditing(false);
     } catch { alert('Error al actualizar despacho.'); }
     setSaving(false);
@@ -138,28 +169,29 @@ export default function DespachosEmpresasPage() {
 
   const resetForm = () => {
     setEditForm({ nombre: '', color: '#6366f1', initials: '', logo: '', direccion: '', telefono: '', email: '', sitioWeb: '', notas: '' });
-    setColaboradores([]);
   };
 
-  const addColaborador = () => {
-    if (!newColab.nombre.trim()) return;
-    const c: Colaborador = { id: generateColabId(), ...newColab };
-    setColaboradores([...colaboradores, c]);
-    setNewColab({ nombre: '', email: '', telefono: '', puesto: '', notas: '' });
-    setShowNewColabForm(false);
+  // Link a target to this despacho by setting its company field
+  const linkPerson = async (person: PersonItem) => {
+    if (person.source !== 'target') return;
+    const despachoName = selectedDespacho?.nombre || editForm.nombre;
+    if (!despachoName) return;
+    try {
+      await updateTarget(person.id, { company: despachoName });
+      setShowPersonDropdown(false);
+      setPersonSearch('');
+    } catch { alert('Error al vincular persona.'); }
   };
 
-  const removeColaborador = (id: string) => {
-    setColaboradores(colaboradores.filter(c => c.id !== id));
-  };
-
-  const updateColaborador = (id: string, updates: Partial<Colaborador>) => {
-    setColaboradores(colaboradores.map(c => c.id === id ? { ...c, ...updates } : c));
+  // Unlink a target from this despacho
+  const unlinkPerson = async (targetId: string) => {
+    try {
+      await updateTarget(targetId, { company: '' });
+    } catch { alert('Error al desvincular persona.'); }
   };
 
   const startCreating = () => {
     resetForm();
-    setColaboradores([]);
     setSelectedDespacho(null);
     setIsCreating(true);
     setIsEditing(true);
@@ -171,18 +203,13 @@ export default function DespachosEmpresasPage() {
     backgroundColor: 'var(--background)', color: 'var(--foreground)',
     outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const,
   };
-
-  const labelStyle = {
-    fontSize: '0.75rem', fontWeight: '600' as const, color: 'var(--secondary)',
-    marginBottom: '0.35rem', display: 'block' as const,
-  };
+  const labelStyle = { fontSize: '0.75rem', fontWeight: '600' as const, color: 'var(--secondary)', marginBottom: '0.35rem', display: 'block' as const };
 
   return (
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)', fontFamily: 'var(--font-sans)', display: 'flex' }}>
-        {/* LEFT PANEL - List */}
+        {/* LEFT PANEL */}
         <div style={{ width: '380px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          {/* Header */}
           <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
             <button onClick={() => router.push('/seguimiento')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', marginBottom: '0.75rem', fontSize: '0.8rem', fontFamily: 'inherit', padding: 0 }}>
               <ArrowLeftIcon style={{ width: '0.9rem', height: '0.9rem' }} /> Volver
@@ -197,17 +224,12 @@ export default function DespachosEmpresasPage() {
               </button>
             </div>
           </div>
-
-          {/* Search */}
           <div style={{ padding: '0.75rem 1.5rem' }}>
             <div style={{ position: 'relative' }}>
               <MagnifyingGlassIcon style={{ width: '1rem', height: '1rem', position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)', pointerEvents: 'none' }} />
-              <input type="text" placeholder="Buscar despacho o colaborador..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ ...inputStyle, paddingLeft: '2.25rem', fontSize: '0.8rem' }} />
+              <input type="text" placeholder="Buscar despacho..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ ...inputStyle, paddingLeft: '2.25rem', fontSize: '0.8rem' }} />
             </div>
           </div>
-
-          {/* List */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 0.75rem 0.75rem' }}>
             {loading && <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--secondary)', fontSize: '0.85rem' }}>Cargando...</div>}
             {!loading && despachos.length === 0 && (
@@ -219,23 +241,26 @@ export default function DespachosEmpresasPage() {
                 </button>
               </div>
             )}
-            {!loading && filtered.map((d) => (
-              <div key={d.id} onClick={() => { setIsCreating(false); setSelectedDespacho(d); }}
-                style={{ padding: '0.85rem 1rem', marginBottom: '0.35rem', borderRadius: '0.6rem', cursor: 'pointer', backgroundColor: selectedDespacho?.id === d.id ? d.color + '12' : 'transparent', border: selectedDespacho?.id === d.id ? '1px solid ' + d.color + '30' : '1px solid transparent', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', backgroundColor: d.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0 }}>{d.initials}</div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nombre}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <UserGroupIcon style={{ width: '0.8rem', height: '0.8rem' }} />
-                    {d.colaboradores?.length || 0} colaborador{(d.colaboradores?.length || 0) !== 1 ? 'es' : ''}
+            {!loading && filtered.map((d) => {
+              const dLinked = targets.filter(t => t.company?.toLowerCase() === d.nombre.toLowerCase()).length;
+              return (
+                <div key={d.id} onClick={() => { setIsCreating(false); setSelectedDespacho(d); }}
+                  style={{ padding: '0.85rem 1rem', marginBottom: '0.35rem', borderRadius: '0.6rem', cursor: 'pointer', backgroundColor: selectedDespacho?.id === d.id ? d.color + '12' : 'transparent', border: selectedDespacho?.id === d.id ? '1px solid ' + d.color + '30' : '1px solid transparent', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', backgroundColor: d.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0 }}>{d.initials}</div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nombre}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <UserGroupIcon style={{ width: '0.8rem', height: '0.8rem' }} />
+                      {dLinked} persona{dLinked !== 1 ? 's' : ''} vinculada{dLinked !== 1 ? 's' : ''}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* RIGHT PANEL - Detail / Editor */}
+        {/* RIGHT PANEL */}
         <div style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--background)' }}>
           {!selectedDespacho && !isCreating ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--secondary)' }}>
@@ -286,19 +311,19 @@ export default function DespachosEmpresasPage() {
                     <div style={{ fontSize: '1.15rem', fontWeight: '700', color: 'var(--foreground)' }}>{editForm.nombre}</div>
                   )}
                   <div style={{ fontSize: '0.8rem', color: 'var(--secondary)', marginTop: '0.25rem' }}>
-                    {colaboradores.length} colaborador{colaboradores.length !== 1 ? 'es' : ''} registrado{colaboradores.length !== 1 ? 's' : ''}
+                    {linkedCount} persona{linkedCount !== 1 ? 's' : ''} vinculada{linkedCount !== 1 ? 's' : ''}
                   </div>
                 </div>
               </div>
 
-              {/* Color Picker (only in edit mode) */}
+              {/* Color Picker */}
               {(isEditing || isCreating) && (
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={labelStyle}>Color del despacho</label>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {COLOR_OPTIONS.map(c => (
-                      <button key={c} onClick={() => setEditForm({ ...editForm, color: c })}
-                        style={{ width: '2rem', height: '2rem', borderRadius: '0.375rem', backgroundColor: c, border: editForm.color === c ? '3px solid var(--foreground)' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.15s' }} />
+                    {COLOR_OPTIONS.map(clr => (
+                      <button key={clr} onClick={() => setEditForm({ ...editForm, color: clr })}
+                        style={{ width: '2rem', height: '2rem', borderRadius: '0.375rem', backgroundColor: clr, border: editForm.color === clr ? '3px solid var(--foreground)' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.15s' }} />
                     ))}
                   </div>
                 </div>
@@ -324,85 +349,91 @@ export default function DespachosEmpresasPage() {
                 </div>
               )}
 
-              {/* COLABORADORES Section */}
+              {/* PERSONAS VINCULADAS Section */}
+              {!isCreating && (
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <button onClick={() => setExpandedColabs(!expandedColabs)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
                     <UserGroupIcon style={{ width: '1.15rem', height: '1.15rem', color: 'var(--primary)' }} />
-                    <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--foreground)' }}>Colaboradores ({colaboradores.length})</span>
+                    <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--foreground)' }}>Personas vinculadas ({linkedCount})</span>
                     {expandedColabs ? <ChevronUpIcon style={{ width: '0.9rem', height: '0.9rem', color: 'var(--secondary)' }} /> : <ChevronDownIcon style={{ width: '0.9rem', height: '0.9rem', color: 'var(--secondary)' }} />}
                   </button>
-                  {(isEditing || isCreating) && (
-                    <button onClick={() => setShowNewColabForm(true)} style={{ padding: '0.4rem 0.75rem', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <UserPlusIcon style={{ width: '0.85rem', height: '0.85rem' }} /> Agregar
-                    </button>
-                  )}
                 </div>
 
                 {expandedColabs && (
                   <>
-                    {/* New Colaborador Form */}
-                    {showNewColabForm && (isEditing || isCreating) && (
-                      <div style={{ padding: '1rem', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--primary)', marginBottom: '0.75rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                          <div><label style={labelStyle}>Nombre *</label><input type="text" value={newColab.nombre} onChange={(e) => setNewColab({ ...newColab, nombre: e.target.value })} style={inputStyle} placeholder="Nombre completo" /></div>
-                          <div><label style={labelStyle}>Puesto</label><input type="text" value={newColab.puesto} onChange={(e) => setNewColab({ ...newColab, puesto: e.target.value })} style={inputStyle} placeholder="Ej: Socio, Asociado" /></div>
-                          <div><label style={labelStyle}>Email</label><input type="email" value={newColab.email} onChange={(e) => setNewColab({ ...newColab, email: e.target.value })} style={inputStyle} placeholder="correo@ejemplo.com" /></div>
-                          <div><label style={labelStyle}>Teléfono</label><input type="text" value={newColab.telefono} onChange={(e) => setNewColab({ ...newColab, telefono: e.target.value })} style={inputStyle} placeholder="+52 55 1234 5678" /></div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                          <button onClick={() => { setShowNewColabForm(false); setNewColab({ nombre: '', email: '', telefono: '', puesto: '', notas: '' }); }} style={{ padding: '0.4rem 0.75rem', background: 'none', border: '1px solid var(--border)', borderRadius: '0.375rem', color: 'var(--secondary)', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' }}>Cancelar</button>
-                          <button onClick={addColaborador} disabled={!newColab.nombre.trim()} style={{ padding: '0.4rem 0.75rem', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '0.375rem', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', opacity: !newColab.nombre.trim() ? 0.5 : 1 }}>Añadir</button>
-                        </div>
+                    {/* Search to add person */}
+                    <div ref={personDropdownRef} style={{ position: 'relative', marginBottom: '1rem' }}>
+                      <div style={{ position: 'relative' }}>
+                        <LinkIcon style={{ width: '1rem', height: '1rem', position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)', pointerEvents: 'none' }} />
+                        <input type="text" placeholder="Buscar persona para vincular..." value={personSearch}
+                          onFocus={() => setShowPersonDropdown(true)}
+                          onChange={(e) => { setPersonSearch(e.target.value); setShowPersonDropdown(true); }}
+                          style={{ ...inputStyle, paddingLeft: '2.25rem', fontSize: '0.85rem' }} />
                       </div>
-                    )}
 
-                    {/* Colaboradores list */}
-                    {colaboradores.length === 0 && (
+                      {showPersonDropdown && (
+                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, maxHeight: '260px', overflowY: 'auto', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 100 }}>
+                          {availablePeople.length === 0 && (
+                            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--secondary)', fontSize: '0.8rem' }}>No se encontraron personas</div>
+                          )}
+                          {availablePeople.map((p) => (
+                            <button key={p.source + '-' + p.id} onClick={() => linkPerson(p)} disabled={p.source !== 'target'}
+                              style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', width: '100%', padding: '0.65rem 0.85rem', border: 'none', background: 'transparent', cursor: p.source === 'target' ? 'pointer' : 'default', fontSize: '0.85rem', color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.1s', opacity: p.source !== 'target' ? 0.5 : 1 }}
+                              onMouseEnter={(e) => { if (p.source === 'target') e.currentTarget.style.background = 'var(--background)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                              <div style={{ width: '2rem', height: '2rem', borderRadius: '50%', backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.6rem', fontWeight: '700', flexShrink: 0 }}>
+                                {p.name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--secondary)', display: 'flex', gap: '0.5rem' }}>
+                                  <span style={{ padding: '0.1rem 0.35rem', borderRadius: '0.25rem', backgroundColor: p.source === 'target' ? '#6366f120' : '#f59e0b20', color: p.source === 'target' ? '#6366f1' : '#f59e0b', fontSize: '0.65rem', fontWeight: '600' }}>
+                                    {p.source === 'target' ? 'Target' : 'Representante'}
+                                  </span>
+                                  {p.company && <span>{p.company}</span>}
+                                  {p.stage && <span>{p.stage}</span>}
+                                  {p.brandCount != null && <span>{p.brandCount} marcas</span>}
+                                </div>
+                              </div>
+                              {p.source === 'target' && <LinkIcon style={{ width: '0.9rem', height: '0.9rem', color: 'var(--primary)', flexShrink: 0 }} />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Linked people list */}
+                    {linkedTargets.length === 0 && (
                       <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--secondary)', fontSize: '0.85rem', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)' }}>
-                        No hay colaboradores registrados
+                        No hay personas vinculadas a este despacho
                       </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {colaboradores.map((c) => (
-                        <div key={c.id} style={{ padding: '1rem', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', transition: 'all 0.15s' }}>
-                          {editingColabId === c.id && (isEditing || isCreating) ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                              <input type="text" value={c.nombre} onChange={(e) => updateColaborador(c.id, { nombre: e.target.value })} style={inputStyle} placeholder="Nombre" />
-                              <input type="text" value={c.puesto} onChange={(e) => updateColaborador(c.id, { puesto: e.target.value })} style={inputStyle} placeholder="Puesto" />
-                              <input type="email" value={c.email} onChange={(e) => updateColaborador(c.id, { email: e.target.value })} style={inputStyle} placeholder="Email" />
-                              <input type="text" value={c.telefono} onChange={(e) => updateColaborador(c.id, { telefono: e.target.value })} style={inputStyle} placeholder="Teléfono" />
-                              <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end' }}>
-                                <button onClick={() => setEditingColabId(null)} style={{ padding: '0.35rem 0.65rem', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '0.375rem', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit' }}>Listo</button>
-                              </div>
+                      {linkedTargets.map((t) => (
+                        <div key={t.id} style={{ padding: '0.85rem 1rem', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', backgroundColor: editForm.color + '20', color: editForm.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '700', flexShrink: 0 }}>
+                            {t.name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--foreground)' }}>{t.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', display: 'flex', gap: '0.75rem', marginTop: '0.15rem', flexWrap: 'wrap' }}>
+                              {t.stage && <span style={{ padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: '#6366f115', color: '#6366f1', fontWeight: '600', fontSize: '0.65rem' }}>{t.stage}</span>}
+                              {t.email && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><EnvelopeIcon style={{ width: '0.7rem', height: '0.7rem' }} />{t.email}</span>}
+                              {t.phone && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><PhoneIcon style={{ width: '0.7rem', height: '0.7rem' }} />{t.phone}</span>}
+                              {t.brandCount != null && t.brandCount > 0 && <span>{t.brandCount} marcas</span>}
                             </div>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                              <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', backgroundColor: editForm.color + '20', color: editForm.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '700', flexShrink: 0 }}>
-                                {c.nombre ? c.nombre.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() : '?'}
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--foreground)' }}>{c.nombre}</div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', display: 'flex', gap: '0.75rem', marginTop: '0.15rem', flexWrap: 'wrap' }}>
-                                  {c.puesto && <span>{c.puesto}</span>}
-                                  {c.email && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><EnvelopeIcon style={{ width: '0.7rem', height: '0.7rem' }} />{c.email}</span>}
-                                  {c.telefono && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><PhoneIcon style={{ width: '0.7rem', height: '0.7rem' }} />{c.telefono}</span>}
-                                </div>
-                              </div>
-                              {(isEditing || isCreating) && (
-                                <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
-                                  <button onClick={() => setEditingColabId(c.id)} style={{ padding: '0.3rem', background: 'none', border: '1px solid var(--border)', borderRadius: '0.25rem', color: 'var(--secondary)', cursor: 'pointer', display: 'flex' }}><PencilIcon style={{ width: '0.8rem', height: '0.8rem' }} /></button>
-                                  <button onClick={() => removeColaborador(c.id)} style={{ padding: '0.3rem', background: 'none', border: '1px solid #ef444440', borderRadius: '0.25rem', color: '#ef4444', cursor: 'pointer', display: 'flex' }}><XMarkIcon style={{ width: '0.8rem', height: '0.8rem' }} /></button>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          </div>
+                          <button onClick={() => unlinkPerson(t.id)} title="Desvincular persona" style={{ padding: '0.35rem', background: 'none', border: '1px solid #ef444430', borderRadius: '0.35rem', color: '#ef4444', cursor: 'pointer', display: 'flex', flexShrink: 0 }}>
+                            <UserMinusIcon style={{ width: '0.85rem', height: '0.85rem' }} />
+                          </button>
                         </div>
                       ))}
                     </div>
                   </>
                 )}
               </div>
+              )}
             </div>
           )}
         </div>
