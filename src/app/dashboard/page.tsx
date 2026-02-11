@@ -201,7 +201,7 @@ export default function DashboardPage() {
                             <Link href="/target" style={{ textDecoration: 'none' }}>
                                                     <Link href="/duplicates" style={{ textDecoration: 'none' }}>
                                                                                 <ActionButton label="Gestión de Duplicados" />
-                                                    </Link>Link>
+                                                    </Link>
                                 <ActionButton label="Targets" />
                             </Link>
                             <Link href="/despachos-empresas" style={{ textDecoration: 'none' }}>
