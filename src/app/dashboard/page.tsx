@@ -198,6 +198,12 @@ export default function DashboardPage() {
                             <ActionButton label="Nuevo Expediente" />
                             <ActionButton label="Búsqueda Fonética" />
                             <ActionButton label="Gestionar Timelines" />
+                            <Link href="/target" style={{ textDecoration: 'none' }}>
+                                <ActionButton label="Targets" />
+                            </Link>
+                            <Link href="/despachos-empresas" style={{ textDecoration: 'none' }}>
+                                <ActionButton label="Despachos y Empresas" />
+                            </Link>
                         </div>
                     </div>
                 </div>
