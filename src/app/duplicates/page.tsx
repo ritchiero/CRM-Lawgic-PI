@@ -327,8 +327,8 @@ export default function DuplicatesPage() {
                                                           </button>
                                             </div>
                                 </div>
-                      </>>
+                      </>
                     )}
           </ProtectedRoute>
         );
-}</></ProtectedRoute>
+}
