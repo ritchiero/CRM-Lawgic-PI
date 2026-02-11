@@ -10,7 +10,7 @@ import {
   BuildingOfficeIcon, PencilIcon, TrashIcon,
   EnvelopeIcon, PhoneIcon, GlobeAltIcon, MapPinIcon,
   UserGroupIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon,
-  LinkIcon, UserMinusIcon
+  LinkIcon, UserMinusIcon, PhotoIcon
 } from '@heroicons/react/24/outline';
 
 const COLOR_OPTIONS = [
@@ -82,6 +82,7 @@ export default function DespachosEmpresasPage() {
       setEditForm({
         nombre: selectedDespacho.nombre, color: selectedDespacho.color,
         initials: selectedDespacho.initials, logo: selectedDespacho.logo,
+        logoUrl: selectedDespacho.logoUrl,
         direccion: selectedDespacho.direccion, telefono: selectedDespacho.telefono,
         email: selectedDespacho.email, sitioWeb: selectedDespacho.sitioWeb,
         notas: selectedDespacho.notas,
@@ -140,7 +141,7 @@ export default function DespachosEmpresasPage() {
     setSaving(true);
     try {
       const initials = editForm.initials || generateInitials(editForm.nombre);
-      await createDespacho({ nombre: editForm.nombre, color: editForm.color, initials, logo: editForm.logo, direccion: editForm.direccion, telefono: editForm.telefono, email: editForm.email, sitioWeb: editForm.sitioWeb, notas: editForm.notas, colaboradores: [] });
+      await createDespacho({ nombre: editForm.nombre, color: editForm.color, initials, logo: editForm.logo, logoUrl: editForm.logoUrl, direccion: editForm.direccion, telefono: editForm.telefono, email: editForm.email, sitioWeb: editForm.sitioWeb, notas: editForm.notas, colaboradores: [] });
       setIsCreating(false);
       resetForm();
     } catch { alert('Error al crear despacho.'); }
@@ -152,7 +153,7 @@ export default function DespachosEmpresasPage() {
     setSaving(true);
     try {
       const initials = editForm.initials || generateInitials(editForm.nombre);
-      await updateDespacho(selectedDespacho.id, { nombre: editForm.nombre, color: editForm.color, initials, logo: editForm.logo, direccion: editForm.direccion, telefono: editForm.telefono, email: editForm.email, sitioWeb: editForm.sitioWeb, notas: editForm.notas });
+      await updateDespacho(selectedDespacho.id, { nombre: editForm.nombre, color: editForm.color, initials, logo: editForm.logo, logoUrl: editForm.logoUrl, direccion: editForm.direccion, telefono: editForm.telefono, email: editForm.email, sitioWeb: editForm.sitioWeb, notas: editForm.notas });
       setIsEditing(false);
     } catch { alert('Error al actualizar despacho.'); }
     setSaving(false);
@@ -168,7 +169,7 @@ export default function DespachosEmpresasPage() {
   };
 
   const resetForm = () => {
-    setEditForm({ nombre: '', color: '#6366f1', initials: '', logo: '', direccion: '', telefono: '', email: '', sitioWeb: '', notas: '' });
+    setEditForm({ nombre: '', color: '#6366f1', initials: '', logo: '', logoUrl: '', direccion: '', telefono: '', email: '', sitioWeb: '', notas: '' });
   };
 
   // Link a target to this despacho by setting its company field
@@ -246,7 +247,7 @@ export default function DespachosEmpresasPage() {
               return (
                 <div key={d.id} onClick={() => { setIsCreating(false); setSelectedDespacho(d); }}
                   style={{ padding: '0.85rem 1rem', marginBottom: '0.35rem', borderRadius: '0.6rem', cursor: 'pointer', backgroundColor: selectedDespacho?.id === d.id ? d.color + '12' : 'transparent', border: selectedDespacho?.id === d.id ? '1px solid ' + d.color + '30' : '1px solid transparent', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', backgroundColor: d.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0 }}>{d.initials}</div>
+                  <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', backgroundColor: d.logoUrl ? 'transparent' : d.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>{d.logoUrl ? <img src={d.logoUrl} alt={d.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = d.color; t.parentElement.textContent = d.initials; }}} /> : d.initials}</div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nombre}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -301,8 +302,8 @@ export default function DespachosEmpresasPage() {
 
               {/* Avatar + Name */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '2rem', padding: '1.5rem', backgroundColor: 'var(--surface)', borderRadius: '1rem', border: '1px solid var(--border)' }}>
-                <div style={{ width: '4.5rem', height: '4.5rem', borderRadius: '0.75rem', backgroundColor: editForm.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.5rem', fontWeight: '700', flexShrink: 0 }}>
-                  {editForm.initials || (editForm.nombre ? generateInitials(editForm.nombre) : '??')}
+                <div style={{ width: '4.5rem', height: '4.5rem', borderRadius: '0.75rem', backgroundColor: editForm.logoUrl ? 'transparent' : editForm.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.5rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>
+                  {editForm.logoUrl ? <img src={editForm.logoUrl} alt={editForm.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = editForm.color; t.parentElement.textContent = editForm.initials || '??'; }}} /> : (editForm.initials || (editForm.nombre ? generateInitials(editForm.nombre) : '??'))}
                 </div>
                 <div style={{ flex: 1 }}>
                   {isEditing || isCreating ? (
@@ -316,7 +317,16 @@ export default function DespachosEmpresasPage() {
                 </div>
               </div>
 
-              {/* Color Picker */}
+  
+            {/* Logo URL display (view mode) */}
+            {!isEditing && !isCreating && editForm.logoUrl && (
+              <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <PhotoIcon style={{ width: '0.9rem', height: '0.9rem', color: 'var(--secondary)' }} />
+                <a href={editForm.logoUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary)', textDecoration: 'none' }}>Ver logo original</a>
+              </div>
+            )}
+
+            {/* Color Picker */}
               {(isEditing || isCreating) && (
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={labelStyle}>Color del despacho</label>
@@ -329,7 +339,32 @@ export default function DespachosEmpresasPage() {
                 </div>
               )}
 
-              {/* Details Grid */}
+  
+            {/* Logo URL */}
+            {(isEditing || isCreating) && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={labelStyle}>Logo URL (imagen externa)</label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <PhotoIcon style={{ width: '1rem', height: '1rem', position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} />
+                    <input
+                      type="text"
+                      value={editForm.logoUrl}
+                      onChange={(e) => setEditForm({ ...editForm, logoUrl: e.target.value })}
+                      style={{ ...inputStyle, paddingLeft: '2rem' }}
+                      placeholder="https://ejemplo.com/logo.png"
+                    />
+                  </div>
+                  {editForm.logoUrl && (
+                    <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--background)' }}>
+                      <img src={editForm.logoUrl} alt="preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Details Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                 <FieldBlock icon={<EnvelopeIcon style={{ width: '1rem', height: '1rem' }} />} label="Email" value={editForm.email} editing={isEditing || isCreating} onChange={(v) => setEditForm({ ...editForm, email: v })} inputStyle={inputStyle} labelStyle={labelStyle} />
                 <FieldBlock icon={<PhoneIcon style={{ width: '1rem', height: '1rem' }} />} label="Teléfono" value={editForm.telefono} editing={isEditing || isCreating} onChange={(v) => setEditForm({ ...editForm, telefono: v })} inputStyle={inputStyle} labelStyle={labelStyle} />
