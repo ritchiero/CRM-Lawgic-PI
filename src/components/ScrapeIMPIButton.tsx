@@ -81,7 +81,7 @@ export default function ScrapeIMPIButton() {
                           }}
                         >
                   {loading ? 'Actualizando... ' + pct + '%' : 'Actualizar Marcas IMPI'}
-                </button>button>
+                </button>
           {loading && progress.total > 0 && (
                   <div style={{
                               width: '100%',
@@ -96,13 +96,13 @@ export default function ScrapeIMPIButton() {
                                 backgroundColor: '#3b82f6',
                                 transition: 'width 0.3s ease',
                   }} />
-                  </div>div>
+                  </div>
               )}
           {message && (
                   <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>
                     {message}
-                  </p>p>
+                  </p>
               )}
-        </div>div>
+        </div>
       );
-}</button>
+}
