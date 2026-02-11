@@ -5,11 +5,12 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToTargets, Target, updateTarget } from '@/services/targetService';
 import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
+import ScrapeIMPIButton from '@/components/ScrapeIMPIButton';
 import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, TagIcon, CalendarIcon, ChatBubbleLeftIcon, CameraIcon, DocumentTextIcon, InformationCircleIcon, FlagIcon, StarIcon, DocumentArrowDownIcon, PencilIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 const DESPACHOS = [
   { name: 'Tópica Media, S.A. de C.V', color: '#6366f1', initials: 'TM' },
-  { name: 'Baker McKenzie', color: '#ef4444', initials: 'BM' },
+  { name: 'Baker McKenzie', color: '#ef4444', initials: 'BM' }
   { name: 'Hogan Lovells', color: '#f59e0b', initials: 'HL' },
   { name: 'Olivares', color: '#22c55e', initials: 'OL' },
   { name: 'Uhthoff, Gómez Vega & Uhthoff', color: '#3b82f6', initials: 'UG' },
@@ -204,6 +205,7 @@ export default function TargetPage() {
             <button onClick={handleExportCSV} style={{ padding: '0.65rem 1.25rem', backgroundColor: '#6C5CE7', color: 'white', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap', height: '48px' }}>
               <DocumentArrowDownIcon style={{ width: '1.25rem', height: '1.25rem' }} /> Exportar CSV
             </button>
+                        <ScrapeIMPIButton />
           </div>
           {/* Client List Table */}
           <div style={{ backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
@@ -214,6 +216,20 @@ export default function TargetPage() {
               <div key={prospect.id} onClick={() => setSelectedProspect(prospect)} style={{ padding: '0.875rem 1.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.9375rem', color: 'var(--foreground)', cursor: 'pointer', transition: 'background-color 0.15s ease', display: 'flex', alignItems: 'center', gap: '0.75rem' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border)'; }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
                 <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0 }}>{getInitials(prospect.name)}</div>
                 {prospect.name}
+                              {prospect.brandCount !== undefined && prospect.brandCount > 0 && (
+                <div style={{
+                  marginLeft: 'auto',
+                  padding: '0.25rem 0.75rem',
+                  backgroundColor: '#f0f9ff',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.75rem',
+                  color: '#0369a1',
+                  fontWeight: '600',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {prospect.brandCount} marcas
+                </div>
+              )}
               </div>
             ))}
           </div>
