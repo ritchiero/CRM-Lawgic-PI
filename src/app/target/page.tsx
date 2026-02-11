@@ -4,22 +4,22 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { subscribeToProspects, Prospect } from '@/services/prospectService';
+import { subscribeToTargets, Target } from '@/services/targetService';
 import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, TagIcon, CalendarIcon, ChatBubbleLeftIcon, CameraIcon, DocumentTextIcon, InformationCircleIcon, FlagIcon, StarIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 
 export default function TargetPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [prospects, setProspects] = useState<Target[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
+  const [selectedProspect, setSelectedProspect] = useState<Target | null>(null);
   const [activeTab, setActiveTab] = useState('infos');
 
   useEffect(() => {
     if (!user) return;
 
-    const unsubscribe = subscribeToProspects((data) => {
+    const unsubscribe = subscribeToTargets((data) => {
       setProspects(data);
       setLoading(false);
     });
