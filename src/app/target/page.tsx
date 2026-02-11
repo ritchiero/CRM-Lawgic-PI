@@ -1,4 +1,4 @@
-"use client";
+undefined"use client";
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
@@ -205,8 +205,11 @@ export default function TargetPage() {
           {/* Search Bar */}
           <div style={{
             marginBottom: '1rem',
-            position: 'relative'
+            display: 'flex',
+            gap: '0.75rem',
+            alignItems: 'center'
           }}>
+            <div style={{ position: 'relative', flex: 1 }}>
             <MagnifyingGlassIcon style={{
               width: '1.25rem',
               height: '1.25rem',
@@ -257,29 +260,29 @@ export default function TargetPage() {
             }}>
               Nombre del Cliente
             </div>
-
-          {/* Export CSV Button */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
             <button
               onClick={handleExportCSV}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.65rem 1.25rem',
                 backgroundColor: '#6C5CE7',
                 color: 'white',
                 border: 'none',
-                borderRadius: '0.5rem',
+                borderRadius: '0.75rem',
                 fontSize: '0.875rem',
                 cursor: 'pointer',
                 fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem'
+                gap: '0.5rem',
+                whiteSpace: 'nowrap',
+                height: '48px'
               }}
             >
               <DocumentArrowDownIcon style={{ width: '1.25rem', height: '1.25rem' }} />
               Exportar CSV
             </button>
           </div>
+
 
             {/* Loading State */}
             {(loading || loadingReps) && (
