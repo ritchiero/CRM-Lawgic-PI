@@ -46,48 +46,54 @@ export default function TargetPage() {
 
   const getStageColor = (stage: string) => {
     const colors: Record<string, string> = {
-      'Deteccion de prospecto': '#6366f1',
-      'Contacto inicial': '#8b5cf6',
-      'Cita Demo': '#a855f7',
-      'Demo realizada': '#3b82f6',
-      'Propuesta enviada': '#f59e0b',
-      'Negociacion': '#ef4444',
-      'Cliente': '#22c55e',
-      'Perdido': '#6b7280',
+      'Detección de prospecto': '#6366f1',
+      '1er Contacto': '#8b5cf6',
+      'Contacto efectivo': '#a855f7',
+      'Muestra de interés': '#ec4899',
+      'Cita para demo': '#3b82f6',
+      'Demo realizada': '#0ea5e9',
+      'Venta': '#22c55e',
+      'En Pausa': '#f59e0b',
+      'Basura': '#6b7280',
+      'Cliente Perdido': '#ef4444',
     };
     return colors[stage] || '#6366f1';
   };
 
   const getStageProgress = (stage: string) => {
     const stages: Record<string, number> = {
-      'Deteccion de prospecto': 14,
-      'Contacto inicial': 28,
-      'Cita Demo': 42,
-      'Demo realizada': 57,
-      'Propuesta enviada': 71,
-      'Negociacion': 85,
-      'Cliente': 100,
-      'Perdido': 0,
+      'Detección de prospecto': 14,
+      '1er Contacto': 28,
+      'Contacto efectivo': 42,
+      'Muestra de interés': 50,
+      'Cita para demo': 64,
+      'Demo realizada': 78,
+      'Venta': 100,
+      'En Pausa': 0,
+      'Basura': 0,
+      'Cliente Perdido': 0,
     };
     return stages[stage] || 0;
   };
 
   const getStageRisk = (stage: string) => {
     const risk: Record<string, { label: string; color: string }> = {
-      'Deteccion de prospecto': { label: 'Early Stage', color: '#6366f1' },
-      'Contacto inicial': { label: 'In Progress', color: '#8b5cf6' },
-      'Cita Demo': { label: 'In Progress', color: '#a855f7' },
-      'Demo realizada': { label: 'On Track', color: '#3b82f6' },
-      'Propuesta enviada': { label: 'At Risk', color: '#f59e0b' },
-      'Negociacion': { label: 'At Risk', color: '#ef4444' },
-      'Cliente': { label: 'Won', color: '#22c55e' },
-      'Perdido': { label: 'Lost', color: '#6b7280' },
+      'Detección de prospecto': { label: 'Early Stage', color: '#6366f1' },
+      '1er Contacto': { label: 'In Progress', color: '#8b5cf6' },
+      'Contacto efectivo': { label: 'In Progress', color: '#a855f7' },
+      'Muestra de interés': { label: 'Engaged', color: '#ec4899' },
+      'Cita para demo': { label: 'On Track', color: '#3b82f6' },
+      'Demo realizada': { label: 'On Track', color: '#0ea5e9' },
+      'Venta': { label: 'Won', color: '#22c55e' },
+      'En Pausa': { label: 'Paused', color: '#f59e0b' },
+      'Basura': { label: 'Discarded', color: '#6b7280' },
+      'Cliente Perdido': { label: 'Lost', color: '#ef4444' },
     };
     return risk[stage] || { label: 'Unknown', color: '#6b7280' };
   };
 
   const getStageIndex = (stage: string) => {
-    const order = ['Deteccion de prospecto', 'Contacto inicial', 'Cita Demo', 'Demo realizada', 'Propuesta enviada', 'Negociacion', 'Cliente'];
+    const order = ['Detección de prospecto', '1er Contacto', 'Contacto efectivo', 'Muestra de interés', 'Cita para demo', 'Demo realizada', 'Venta'];
     const idx = order.indexOf(stage);
     return idx >= 0 ? idx + 1 : 0;
   };
