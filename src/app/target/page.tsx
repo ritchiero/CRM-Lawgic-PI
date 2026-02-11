@@ -65,6 +65,28 @@ export default function TargetPage() {
     );
   }, [prospects, representatives, searchTerm]);
 
+  const handleExportCSV = () => {
+    const withEmail = filteredProspects.filter(p => p.email && p.email.trim() !== '');
+    if (withEmail.length === 0) {
+      alert('No hay contactos con correo disponible.');
+      return;
+    }
+    const header = 'Nombre,Correo';
+    const rows = withEmail.map(p => {
+      const name = p.name.replace(/,/g, ' ');
+      const email = p.email.replace(/,/g, ' ');
+      return name + ',' + email;
+    });
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'contactos_target.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   };
@@ -235,6 +257,29 @@ export default function TargetPage() {
             }}>
               Nombre del Cliente
             </div>
+
+          {/* Export CSV Button */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+            <button
+              onClick={handleExportCSV}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#6C5CE7',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <DocumentArrowDownIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+              Exportar CSV
+            </button>
+          </div>
 
             {/* Loading State */}
             {(loading || loadingReps) && (
