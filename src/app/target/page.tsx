@@ -36,6 +36,8 @@ export default function TargetPage() {
   const [customDespacho, setCustomDespacho] = useState('');
   const despachoRef = useRef<HTMLDivElement>(null);
   const [firestoreDespachos, setFirestoreDespachos] = useState<Despacho[]>([]);
+  const [editingPhotoUrl, setEditingPhotoUrl] = useState(false);
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -65,6 +67,8 @@ export default function TargetPage() {
     if (selectedProspect) {
       setActiveTab('infos');
       setDespachoDropdownOpen(false);
+      setEditingPhotoUrl(false);
+      setPhotoUrlInput(selectedProspect.photoUrl || '');
     }
   }, [selectedProspect]);
 
@@ -326,10 +330,30 @@ export default function TargetPage() {
               {/* Profile Header */}
               <div style={{ padding: '1.5rem 2rem 1rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.75rem', fontWeight: '700', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>{getInitials(selectedProspect.name)}</div>
-                  <div style={{ position: 'absolute', bottom: '0', left: '0', width: '1.75rem', height: '1.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                  {selectedProspect.photoUrl ? (
+                    <img src={selectedProspect.photoUrl} alt={selectedProspect.name} style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }} onError={(e) => { e.currentTarget.style.display = 'none'; if (e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }} />
+                  ) : null}
+                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: selectedProspect.photoUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.75rem', fontWeight: '700', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>{getInitials(selectedProspect.name)}</div>
+                  <div onClick={() => { setEditingPhotoUrl(!editingPhotoUrl); setPhotoUrlInput(selectedProspect.photoUrl || ''); }} style={{ position: 'absolute', bottom: '0', left: '0', width: '1.75rem', height: '1.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
                     <CameraIcon style={{ width: '1rem', height: '1rem', color: '#fff' }} />
                   </div>
+                  {editingPhotoUrl && (
+                    <div style={{ position: 'absolute', top: 'calc(100% + 0.5rem)', left: 0, minWidth: '300px', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 1100, padding: '0.75rem' }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.35rem', display: 'block' }}>URL de la foto</label>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input type="text" value={photoUrlInput} onChange={(e) => setPhotoUrlInput(e.target.value)} placeholder="https://ejemplo.com/foto.jpg" style={{ flex: 1, padding: '0.5rem 0.65rem', fontSize: '0.8rem', border: '1px solid var(--border)', borderRadius: '0.5rem', backgroundColor: 'var(--background)', color: 'var(--foreground)', outline: 'none', fontFamily: 'inherit' }} />
+                        <button onClick={async () => { try { await updateTarget(selectedProspect.id, { photoUrl: photoUrlInput.trim() }); setSelectedProspect({ ...selectedProspect, photoUrl: photoUrlInput.trim() }); setEditingPhotoUrl(false); } catch (err) { console.error(err); alert('Error al guardar foto.'); } }} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#6366f1', color: '#fff', border: 'none', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' }}>Guardar</button>
+                      </div>
+                      {photoUrlInput && (
+                        <div style={{ marginTop: '0.5rem', width: '3rem', height: '3rem', borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                          <img src={photoUrlInput} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                        </div>
+                      )}
+                      {selectedProspect.photoUrl && (
+                        <button onClick={async () => { try { await updateTarget(selectedProspect.id, { photoUrl: '' }); setSelectedProspect({ ...selectedProspect, photoUrl: '' }); setPhotoUrlInput(''); setEditingPhotoUrl(false); } catch (err) { console.error(err); alert('Error al quitar foto.'); } }} style={{ marginTop: '0.5rem', padding: '0.35rem 0.65rem', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef444440', borderRadius: '0.375rem', fontSize: '0.7rem', cursor: 'pointer', fontFamily: 'inherit' }}>Quitar foto</button>
+                      )}
+                    </div>
+                  )}
                   {despachoInfo && (
                     <div title={despachoInfo.name} style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '2rem', height: '2rem', borderRadius: '50%', backgroundColor: despachoInfo.logo ? '#fff' : despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.5rem', fontWeight: '700', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', border: '2px solid var(--surface)', overflow: 'hidden' }}>
                       {despachoInfo.logo ? <img src={despachoInfo.logo} alt={despachoInfo.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despachoInfo.color; t.parentElement.textContent = despachoInfo.initials; }}} /> : despachoInfo.initials}
