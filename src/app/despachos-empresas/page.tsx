@@ -129,7 +129,7 @@ export default function DespachosEmpresasPage() {
 
   const handleDelete = async () => {
     if (!selectedDespacho) return;
-    if (!confirm('\u00bfEliminar este despacho? Esta acci\u00f3n no se puede deshacer.')) return;
+    if (!confirm('¿Eliminar este despacho? Esta acción no se puede deshacer.')) return;
     try {
       await deleteDespacho(selectedDespacho.id);
       setSelectedDespacho(null);
@@ -242,7 +242,7 @@ export default function DespachosEmpresasPage() {
               <div style={{ textAlign: 'center' }}>
                 <BuildingOfficeIcon style={{ width: '3rem', height: '3rem', color: 'var(--border)', margin: '0 auto 1rem' }} />
                 <p style={{ fontSize: '1rem', fontWeight: '500' }}>Selecciona un despacho</p>
-                <p style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>o crea uno nuevo con el bot\u00f3n +</p>
+                <p style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>o crea uno nuevo con el botón +</p>
               </div>
             </div>
           ) : (
@@ -307,9 +307,9 @@ export default function DespachosEmpresasPage() {
               {/* Details Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                 <FieldBlock icon={<EnvelopeIcon style={{ width: '1rem', height: '1rem' }} />} label="Email" value={editForm.email} editing={isEditing || isCreating} onChange={(v) => setEditForm({ ...editForm, email: v })} inputStyle={inputStyle} labelStyle={labelStyle} />
-                <FieldBlock icon={<PhoneIcon style={{ width: '1rem', height: '1rem' }} />} label="Tel\u00e9fono" value={editForm.telefono} editing={isEditing || isCreating} onChange={(v) => setEditForm({ ...editForm, telefono: v })} inputStyle={inputStyle} labelStyle={labelStyle} />
+                <FieldBlock icon={<PhoneIcon style={{ width: '1rem', height: '1rem' }} />} label="Teléfono" value={editForm.telefono} editing={isEditing || isCreating} onChange={(v) => setEditForm({ ...editForm, telefono: v })} inputStyle={inputStyle} labelStyle={labelStyle} />
                 <FieldBlock icon={<GlobeAltIcon style={{ width: '1rem', height: '1rem' }} />} label="Sitio Web" value={editForm.sitioWeb} editing={isEditing || isCreating} onChange={(v) => setEditForm({ ...editForm, sitioWeb: v })} inputStyle={inputStyle} labelStyle={labelStyle} />
-                <FieldBlock icon={<MapPinIcon style={{ width: '1rem', height: '1rem' }} />} label="Direcci\u00f3n" value={editForm.direccion} editing={isEditing || isCreating} onChange={(v) => setEditForm({ ...editForm, direccion: v })} inputStyle={inputStyle} labelStyle={labelStyle} />
+                <FieldBlock icon={<MapPinIcon style={{ width: '1rem', height: '1rem' }} />} label="Dirección" value={editForm.direccion} editing={isEditing || isCreating} onChange={(v) => setEditForm({ ...editForm, direccion: v })} inputStyle={inputStyle} labelStyle={labelStyle} />
               </div>
 
               {/* Notas */}
@@ -348,11 +348,11 @@ export default function DespachosEmpresasPage() {
                           <div><label style={labelStyle}>Nombre *</label><input type="text" value={newColab.nombre} onChange={(e) => setNewColab({ ...newColab, nombre: e.target.value })} style={inputStyle} placeholder="Nombre completo" /></div>
                           <div><label style={labelStyle}>Puesto</label><input type="text" value={newColab.puesto} onChange={(e) => setNewColab({ ...newColab, puesto: e.target.value })} style={inputStyle} placeholder="Ej: Socio, Asociado" /></div>
                           <div><label style={labelStyle}>Email</label><input type="email" value={newColab.email} onChange={(e) => setNewColab({ ...newColab, email: e.target.value })} style={inputStyle} placeholder="correo@ejemplo.com" /></div>
-                          <div><label style={labelStyle}>Tel\u00e9fono</label><input type="text" value={newColab.telefono} onChange={(e) => setNewColab({ ...newColab, telefono: e.target.value })} style={inputStyle} placeholder="+52 55 1234 5678" /></div>
+                          <div><label style={labelStyle}>Teléfono</label><input type="text" value={newColab.telefono} onChange={(e) => setNewColab({ ...newColab, telefono: e.target.value })} style={inputStyle} placeholder="+52 55 1234 5678" /></div>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                           <button onClick={() => { setShowNewColabForm(false); setNewColab({ nombre: '', email: '', telefono: '', puesto: '', notas: '' }); }} style={{ padding: '0.4rem 0.75rem', background: 'none', border: '1px solid var(--border)', borderRadius: '0.375rem', color: 'var(--secondary)', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' }}>Cancelar</button>
-                          <button onClick={addColaborador} disabled={!newColab.nombre.trim()} style={{ padding: '0.4rem 0.75rem', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '0.375rem', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', opacity: !newColab.nombre.trim() ? 0.5 : 1 }}>A\u00f1adir</button>
+                          <button onClick={addColaborador} disabled={!newColab.nombre.trim()} style={{ padding: '0.4rem 0.75rem', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '0.375rem', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', opacity: !newColab.nombre.trim() ? 0.5 : 1 }}>Añadir</button>
                         </div>
                       </div>
                     )}
@@ -371,7 +371,7 @@ export default function DespachosEmpresasPage() {
                               <input type="text" value={c.nombre} onChange={(e) => updateColaborador(c.id, { nombre: e.target.value })} style={inputStyle} placeholder="Nombre" />
                               <input type="text" value={c.puesto} onChange={(e) => updateColaborador(c.id, { puesto: e.target.value })} style={inputStyle} placeholder="Puesto" />
                               <input type="email" value={c.email} onChange={(e) => updateColaborador(c.id, { email: e.target.value })} style={inputStyle} placeholder="Email" />
-                              <input type="text" value={c.telefono} onChange={(e) => updateColaborador(c.id, { telefono: e.target.value })} style={inputStyle} placeholder="Tel\u00e9fono" />
+                              <input type="text" value={c.telefono} onChange={(e) => updateColaborador(c.id, { telefono: e.target.value })} style={inputStyle} placeholder="Teléfono" />
                               <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end' }}>
                                 <button onClick={() => setEditingColabId(null)} style={{ padding: '0.35rem 0.65rem', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '0.375rem', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit' }}>Listo</button>
                               </div>
