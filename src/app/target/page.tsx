@@ -330,6 +330,11 @@ export default function TargetPage() {
                   <div style={{ position: 'absolute', bottom: '0', left: '0', width: '1.75rem', height: '1.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
                     <CameraIcon style={{ width: '1rem', height: '1rem', color: '#fff' }} />
                   </div>
+                  {despachoInfo && (
+                    <div title={despachoInfo.name} style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '2rem', height: '2rem', borderRadius: '50%', backgroundColor: despachoInfo.logo ? '#fff' : despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.5rem', fontWeight: '700', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', border: '2px solid var(--surface)', overflow: 'hidden' }}>
+                      {despachoInfo.logo ? <img src={despachoInfo.logo} alt={despachoInfo.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despachoInfo.color; t.parentElement.textContent = despachoInfo.initials; }}} /> : despachoInfo.initials}
+                    </div>
+                  )}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--foreground)', margin: 0, lineHeight: 1.3 }}>{selectedProspect.name}</h2>
