@@ -232,9 +232,14 @@ export default function DespachosEmpresasPage() {
                 <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>Despachos</h1>
                 <p style={{ fontSize: '0.8rem', color: 'var(--secondary)', margin: '0.25rem 0 0' }}>Firmas y empresas</p>
               </div>
-              <button onClick={startCreating} style={{ padding: '0.5rem', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <PlusIcon style={{ width: '1.25rem', height: '1.25rem' }} />
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button onClick={() => router.push('/target')} title="Ir a Targets" style={{ padding: '0.5rem', backgroundColor: 'var(--surface)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '0.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface)'; e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
+                  <UserGroupIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                </button>
+                <button onClick={startCreating} style={{ padding: '0.5rem', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <PlusIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                </button>
+              </div>
             </div>
           </div>
           <div style={{ padding: '0.75rem 1.5rem' }}>
