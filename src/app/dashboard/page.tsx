@@ -199,6 +199,9 @@ export default function DashboardPage() {
                             <ActionButton label="Búsqueda Fonética" />
                             <ActionButton label="Gestionar Timelines" />
                             <Link href="/target" style={{ textDecoration: 'none' }}>
+                                                    <Link href="/duplicates" style={{ textDecoration: 'none' }}>
+                                                                                <ActionButton label="Gestión de Duplicados" />
+                                                    </Link>Link>
                                 <ActionButton label="Targets" />
                             </Link>
                             <Link href="/despachos-empresas" style={{ textDecoration: 'none' }}>
