@@ -25,6 +25,18 @@ function generateInitials(name: string): string {
   return name.trim().substring(0, 2).toUpperCase();
 }
 
+function LogoAvatar({ src, initials, color, size, fontSize, borderRadius }: { src?: string; initials: string; color: string; size?: string; fontSize?: string; borderRadius?: string }) {
+  const [imgError, setImgError] = useState(false);
+  const showImg = src && !imgError;
+  useEffect(() => { setImgError(false); }, [src]);
+  return (
+    <div style={{ width: size || '2.5rem', height: size || '2.5rem', borderRadius: borderRadius || '0.5rem', backgroundColor: showImg ? 'transparent' : color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: fontSize || '0.75rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
+      {showImg && <img src={src} alt={initials} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'absolute', inset: 0 }} onError={() => setImgError(true)} />}
+      {!showImg && initials}
+    </div>
+  );
+}
+
 type PersonItem = {
   id: string;
   name: string;
@@ -247,7 +259,7 @@ export default function DespachosEmpresasPage() {
               return (
                 <div key={d.id} onClick={() => { setIsCreating(false); setSelectedDespacho(d); }}
                   style={{ padding: '0.85rem 1rem', marginBottom: '0.35rem', borderRadius: '0.6rem', cursor: 'pointer', backgroundColor: selectedDespacho?.id === d.id ? d.color + '12' : 'transparent', border: selectedDespacho?.id === d.id ? '1px solid ' + d.color + '30' : '1px solid transparent', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', backgroundColor: d.logoUrl ? 'transparent' : d.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>{d.logoUrl ? <img src={d.logoUrl} alt={d.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = d.color; t.parentElement.textContent = d.initials; }}} /> : d.initials}</div>
+                  <LogoAvatar src={d.logoUrl} initials={d.initials} color={d.color} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nombre}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -302,9 +314,7 @@ export default function DespachosEmpresasPage() {
 
               {/* Avatar + Name */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '2rem', padding: '1.5rem', backgroundColor: 'var(--surface)', borderRadius: '1rem', border: '1px solid var(--border)' }}>
-                <div style={{ width: '4.5rem', height: '4.5rem', borderRadius: '0.75rem', backgroundColor: editForm.logoUrl ? 'transparent' : editForm.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.5rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>
-                  {editForm.logoUrl ? <img src={editForm.logoUrl} alt={editForm.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = editForm.color; t.parentElement.textContent = editForm.initials || '??'; }}} /> : (editForm.initials || (editForm.nombre ? generateInitials(editForm.nombre) : '??'))}
-                </div>
+                <LogoAvatar src={editForm.logoUrl} initials={editForm.initials || (editForm.nombre ? generateInitials(editForm.nombre) : '??')} color={editForm.color} size="4.5rem" fontSize="1.5rem" borderRadius="0.75rem" />
                 <div style={{ flex: 1 }}>
                   {isEditing || isCreating ? (
                     <input type="text" value={editForm.nombre} onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value, initials: generateInitials(e.target.value) })} placeholder="Nombre del despacho..." style={{ ...inputStyle, fontSize: '1.15rem', fontWeight: '700', border: 'none', backgroundColor: 'transparent', padding: '0.25rem 0' }} />
