@@ -208,8 +208,16 @@ export default function TargetPage() {
             <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', marginBottom: '1rem', fontSize: '0.875rem' }}>
               <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} /> Volver
             </button>
-            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>Targets</h1>
-            <p style={{ fontSize: '0.875rem', color: 'var(--secondary)', marginTop: '0.5rem' }}>Lista de clientes potenciales</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>Targets</h1>
+                <p style={{ fontSize: '0.875rem', color: 'var(--secondary)', marginTop: '0.5rem' }}>Lista de clientes potenciales</p>
+              </div>
+              <button onClick={() => router.push('/despachos-empresas')} style={{ padding: '0.6rem 1.25rem', backgroundColor: 'var(--surface)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap', fontFamily: 'inherit', transition: 'all 0.15s ease' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface)'; e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
+                <BuildingOfficeIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                Despachos
+              </button>
+            </div>
           </div>
           {/* Search Bar */}
           <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
