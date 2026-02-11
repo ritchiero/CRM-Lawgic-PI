@@ -484,42 +484,58 @@ export default function TargetPage() {
 
             {/* Summary Cards Row */}
             <div style={{
-              padding: '1.5rem 2rem',
+              padding: '1.25rem 2rem',
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
               gap: '1rem'
             }}>
               {/* Achievement Progress Card */}
               <div style={{
-                padding: '1.25rem',
+                padding: '1.25rem 1.5rem',
                 backgroundColor: 'var(--background)',
-                borderRadius: '0.75rem',
+                borderRadius: '1rem',
                 border: '1px solid var(--border)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
               }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)', marginBottom: '0.75rem' }}>
-                  Achievement Progress
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                  {/* Multicolor progress bar */}
-                  <div style={{
-                    flex: 1,
-                    height: '0.5rem',
-                    backgroundColor: 'var(--border)',
-                    borderRadius: '1rem',
-                    overflow: 'hidden',
-                    position: 'relative'
-                  }}>
-                    <div style={{
-                      width: progress + '%',
-                      height: '100%',
-                      borderRadius: '1rem',
-                      background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7, #3b82f6, #f59e0b, #ef4444)',
-                      transition: 'width 0.5s ease'
-                    }} />
-                  </div>
-                  <span style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--foreground)', minWidth: '2.5rem', textAlign: 'right' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)' }}>
+                    Achievement Progress
+                  </span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--foreground)' }}>
                     {progress} %
                   </span>
+                </div>
+                {/* Segmented progress bar with dots */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '1rem' }}>
+                  {(() => {
+                    const totalSegments = 10;
+                    const filledSegments = Math.round(progress / 10);
+                    const segmentColors = ['#ef4444', '#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#3b82f6', '#6366f1', '#8b5cf6', '#8b5cf6', '#22c55e'];
+                    const segments = [];
+                    for (let i = 0; i < totalSegments; i++) {
+                      segments.push(
+                        <div key={'s'+i} style={{
+                          flex: 1,
+                          height: '0.4rem',
+                          borderRadius: '1rem',
+                          backgroundColor: i < filledSegments ? segmentColors[i] : 'var(--border)',
+                          transition: 'background-color 0.3s ease'
+                        }} />
+                      );
+                    }
+                    for (let i = 0; i < 5; i++) {
+                      segments.push(
+                        <div key={'d'+i} style={{
+                          width: '5px',
+                          height: '5px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--border)',
+                          flexShrink: 0
+                        }} />
+                      );
+                    }
+                    return segments;
+                  })()}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--secondary)' }}>
@@ -529,8 +545,8 @@ export default function TargetPage() {
                     fontSize: '0.7rem',
                     fontWeight: '600',
                     color: risk.color,
-                    backgroundColor: risk.color + '15',
-                    padding: '0.15rem 0.5rem',
+                    background: 'linear-gradient(135deg, ' + risk.color + '18, ' + risk.color + '08)',
+                    padding: '0.2rem 0.6rem',
                     borderRadius: '1rem'
                   }}>
                     {risk.label}
@@ -538,36 +554,37 @@ export default function TargetPage() {
                 </div>
               </div>
 
-              {/* Bonus / Value Earned Card */}
+              {/* Bonus Earned Card */}
               <div style={{
-                padding: '1.25rem',
+                padding: '1.25rem 1.5rem',
                 backgroundColor: 'var(--background)',
-                borderRadius: '0.75rem',
+                borderRadius: '1rem',
                 border: '1px solid var(--border)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
               }}>
                 <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)', marginBottom: '0.75rem' }}>
-                  Valor Potencial
+                  Bonus Earned
                 </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginBottom: '0.75rem' }}>
-                  <span style={{ fontSize: '1.5rem', fontWeight: '800', color: '#6366f1' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '1.65rem', fontWeight: '800', color: '#6366f1', letterSpacing: '-0.02em' }}>
                     {'$' + (selectedProspect.potentialValue || 0).toLocaleString()}
                   </span>
                   {selectedProspect.accountValue != null && (
-                    <span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--secondary)', fontWeight: '400' }}>
                       / {selectedProspect.accountValue.toLocaleString()}
                     </span>
                   )}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--secondary)' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
                     Objectives
                   </span>
                   <span style={{
                     fontSize: '0.85rem',
                     fontWeight: '700',
                     color: '#6366f1',
-                    backgroundColor: '#6366f115',
-                    padding: '0.15rem 0.6rem',
+                    backgroundColor: '#6366f110',
+                    padding: '0.2rem 0.6rem',
                     borderRadius: '0.375rem'
                   }}>
                     {stageIdx}<span style={{ fontWeight: '400', color: 'var(--secondary)' }}> /7</span>
