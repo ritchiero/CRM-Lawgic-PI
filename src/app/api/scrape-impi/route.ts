@@ -5,6 +5,7 @@ import { collection, getDocs, doc, writeBatch, Timestamp, query, orderBy } from 
 import { getDbInstance } from '@/lib/firebase';
 
 const BATCH_SIZE = 15; // Procesar 15 representantes por request (~48s con 3s delay)
+export const maxDuration = 60; // Vercel Pro: maximo 300s, usamos 60s
 
 export async function POST(request: NextRequest) {
     try {
