@@ -554,7 +554,7 @@ export default function TargetPage() {
               <div style={{
                 padding: '1.25rem 2rem',
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
+                gridTemplateColumns: '1fr 1fr 1fr',
                 gap: '1rem'
               }}>
                 {/* Achievement Progress Card */}
@@ -663,7 +663,43 @@ export default function TargetPage() {
 
               {/* Tab Content */}
               {activeTab === 'infos' && (
-                <div style={{ padding: '0 2rem 2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+
+                {/* Marcas como Apoderado Card */}
+                <div style={{
+                  padding: '1.25rem 1.5rem',
+                  backgroundColor: 'var(--background)',
+                  borderRadius: '1rem',
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)', marginBottom: '0.75rem' }}>
+                    Marcas como Apoderado
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginBottom: '1rem' }}>
+                    <span style={{ fontSize: '1.65rem', fontWeight: '800', color: '#8b5cf6', letterSpacing: '-0.02em' }}>
+                      {selectedProspect.brandCount || 0}
+                    </span>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--secondary)', fontWeight: '400' }}>
+                      marcas
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
+                      Número de marcas
+                    </span>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      fontWeight: '600',
+                      color: (selectedProspect.brandCount || 0) > 0 ? '#22c55e' : '#6b7280',
+                      background: (selectedProspect.brandCount || 0) > 0 ? '#22c55e18' : '#6b728018',
+                      padding: '0.2rem 0.6rem',
+                      borderRadius: '1rem'
+                    }}>
+                      {(selectedProspect.brandCount || 0) > 0 ? 'Activo' : 'Sin marcas'}
+                    </span>
+                  </div>
+                </div>
+                                <div style={{ padding: '0 2rem 2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
 
                   {/* LEFT COLUMN */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
