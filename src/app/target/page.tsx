@@ -10,7 +10,7 @@ import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon,
 
 const DESPACHOS = [
   { name: 'Tópica Media, S.A. de C.V', color: '#6366f1', initials: 'TM' },
-  { name: 'Baker McKenzie', color: '#ef4444', initials: 'BM' }
+  { name: 'Baker McKenzie', color: '#ef4444', initials: 'BM' },
   { name: 'Hogan Lovells', color: '#f59e0b', initials: 'HL' },
   { name: 'Olivares', color: '#22c55e', initials: 'OL' },
   { name: 'Uhthoff, Gómez Vega & Uhthoff', color: '#3b82f6', initials: 'UG' },
