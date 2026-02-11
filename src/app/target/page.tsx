@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToTargets, Target, updateTarget } from '@/services/targetService';
 import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
 import ScrapeIMPIButton from '@/components/ScrapeIMPIButton';
+import { subscribeToDespachos, Despacho } from '@/services/despachoService';
 import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, TagIcon, CalendarIcon, ChatBubbleLeftIcon, CameraIcon, DocumentTextIcon, InformationCircleIcon, FlagIcon, StarIcon, DocumentArrowDownIcon, PencilIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 const DESPACHOS = [
@@ -34,6 +35,7 @@ export default function TargetPage() {
   const [despachoDropdownOpen, setDespachoDropdownOpen] = useState(false);
   const [customDespacho, setCustomDespacho] = useState('');
   const despachoRef = useRef<HTMLDivElement>(null);
+  const [firestoreDespachos, setFirestoreDespachos] = useState<Despacho[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -50,6 +52,13 @@ export default function TargetPage() {
       setLoadingReps(false);
     });
     return () => unsubReps();
+  }, []);
+
+  useEffect(() => {
+    const unsubDespachos = subscribeToDespachos((data) => {
+      setFirestoreDespachos(data);
+    });
+    return () => unsubDespachos();
   }, []);
 
   useEffect(() => {
@@ -111,7 +120,13 @@ export default function TargetPage() {
 
   const getDespachoInfo = (companyName: string) => {
     const found = DESPACHOS.find(d => d.name.toLowerCase() === companyName?.toLowerCase());
-    if (found) return found;
+    const fsDespacho = firestoreDespachos.find(d => d.nombre.toLowerCase() === companyName?.toLowerCase());
+    if (found) {
+      return { ...found, logo: fsDespacho?.logoUrl || found.logo };
+    }
+    if (fsDespacho) {
+      return { name: fsDespacho.nombre, color: fsDespacho.color, initials: fsDespacho.initials, logo: fsDespacho.logoUrl || '' };
+    }
     if (companyName && companyName.trim()) {
       const words = companyName.trim().split(' ').filter(Boolean);
       const initials = words.length >= 2
