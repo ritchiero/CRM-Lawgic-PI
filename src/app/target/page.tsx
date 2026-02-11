@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToTargets, Target } from '@/services/targetService';
+import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
 import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, TagIcon, CalendarIcon, ChatBubbleLeftIcon, CameraIcon, DocumentTextIcon, InformationCircleIcon, FlagIcon, StarIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 
 export default function TargetPage() {
@@ -12,6 +13,8 @@ export default function TargetPage() {
   const { user } = useAuth();
   const [prospects, setProspects] = useState<Target[]>([]);
   const [loading, setLoading] = useState(true);
+  const [representatives, setRepresentatives] = useState<Representative[]>([]);
+  const [loadingReps, setLoadingReps] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProspect, setSelectedProspect] = useState<Target | null>(null);
   const [activeTab, setActiveTab] = useState('infos');
@@ -27,18 +30,40 @@ export default function TargetPage() {
     return () => unsubscribe();
   }, [user]);
 
+  useEffect(() => {
+    const unsubReps = subscribeToRepresentatives((data) => {
+      setRepresentatives(data);
+      setLoadingReps(false);
+    });
+    return () => unsubReps();
+  }, []);
+
   // Reset tab when selecting a new prospect
   useEffect(() => {
     if (selectedProspect) setActiveTab('infos');
   }, [selectedProspect]);
 
   const filteredProspects = useMemo(() => {
-    if (!searchTerm.trim()) return prospects;
-    const term = searchTerm.toLowerCase().trim();
-    return prospects.filter((p) =>
+    const repsAsTargets: Target[] = representatives.map(rep => ({
+      id: rep.id,
+      name: rep.name,
+      company: '',
+      email: '',
+      phone: '',
+      notes: '',
+      stage: '',
+      createdAt: rep.createdAt || new Date(),
+      createdBy: 'representative',
+      history: [],
+      brandCount: rep.brandCount,
+    }));
+    const allItems = [...prospects, ...repsAsTargets];
+    if (!searchTerm.trim()) return allItems;
+    const term = searchTerm.toLowerCase();
+    return allItems.filter((p) =>
       p.name.toLowerCase().includes(term)
     );
-  }, [prospects, searchTerm]);
+  }, [prospects, representatives, searchTerm]);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -212,7 +237,7 @@ export default function TargetPage() {
             </div>
 
             {/* Loading State */}
-            {loading && (
+            {(loading || loadingReps) && (
               <div style={{
                 padding: '3rem',
                 textAlign: 'center',
@@ -224,7 +249,7 @@ export default function TargetPage() {
             )}
 
             {/* Empty State */}
-            {!loading && filteredProspects.length === 0 && (
+            {!(loading || loadingReps) && filteredProspects.length === 0 && (
               <div style={{
                 padding: '3rem',
                 textAlign: 'center',
