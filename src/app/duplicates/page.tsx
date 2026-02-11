@@ -201,14 +201,14 @@ export default function DuplicatesPage() {
                                   <div style={{ marginBottom: '2rem' }}>
                                               <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', marginBottom: '1rem', fontSize: '0.875rem' }}>
                                                             <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} /> Volver
-                                              </button>button>
+                                              </button>
                                               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>
                                                   {"Gesti\u00f3n de Duplicados"}
-                                              </h1>h1>
+                                              </h1>
                                               <p style={{ fontSize: '0.875rem', color: 'var(--secondary)', marginTop: '0.5rem' }}>
                                                   {"Detecta y fusiona prospectos duplicados de forma segura. Los targets se actualizan autom\u00e1ticamente."}
-                                              </p>p>
-                                  </div>div>
+                                              </p>
+                                  </div>
                         
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
                                       {[
@@ -218,37 +218,37 @@ export default function DuplicatesPage() {
               { label: 'Fusiones realizadas', value: mergeResults.filter(r => r.success).length, color: '#22c55e' },
                           ].map((stat, i) => (
                                             <div key={i} style={{ padding: '1rem 1.25rem', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)' }}>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>{stat.label}</div>div>
-                                                            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: stat.color }}>{stat.value}</div>div>
-                                            </div>div>
+                                                            <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>{stat.label}</div>
+                                                            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: stat.color }}>{stat.value}</div>
+                                            </div>
                                           ))}
-                                  </div>div>
+                                  </div>
                         
                                   <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1.5rem' }}>
                                               <div style={{ position: 'relative', flex: 1 }}>
                                                             <MagnifyingGlassIcon style={{ width: '1.25rem', height: '1.25rem', position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)', pointerEvents: 'none' }} />
                                                             <input type="text" placeholder="Buscar por nombre, email o empresa..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                                                                                 style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 3rem', fontSize: '0.9375rem', border: '1px solid var(--border)', borderRadius: '0.75rem', backgroundColor: 'var(--surface)', color: 'var(--foreground)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-                                              </div>div>
+                                              </div>
                                               <div style={{ display: 'flex', gap: '0.25rem', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', padding: '0.25rem' }}>
                                                   {(['strict', 'moderate', 'aggressive'] as const).map(level => (
                               <button key={level} onClick={() => setSensitivityLevel(level)}
                                                     style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', fontWeight: sensitivityLevel === level ? '600' : '400', color: sensitivityLevel === level ? '#fff' : 'var(--secondary)', backgroundColor: sensitivityLevel === level ? '#6366f1' : 'transparent', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontFamily: 'inherit' }}>
                                   {level === 'strict' ? 'Estricto' : level === 'moderate' ? 'Moderado' : 'Agresivo'}
-                              </button>button>
+                              </button>
                             ))}
-                                              </div>div>
-                                  </div>div>
+                                              </div>
+                                  </div>
                         
-                            {loading && <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--secondary)' }}>Cargando prospectos...</div>div>}
+                            {loading && <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--secondary)' }}>Cargando prospectos...</div>}
                         
                             {!loading && filteredGroups.length === 0 && (
                           <div style={{ padding: '3rem', textAlign: 'center', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)' }}>
                                         <CheckCircleIcon style={{ width: '3rem', height: '3rem', color: '#22c55e', margin: '0 auto 1rem' }} />
                                         <p style={{ fontWeight: '600', color: 'var(--foreground)', fontSize: '1.1rem' }}>
                                             {searchTerm ? 'No se encontraron duplicados con ese filtro' : '\u00a1No se encontraron duplicados!'}
-                                        </p>p>
-                          </div>div>
+                                        </p>
+                          </div>
                                   )}
                         
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -262,39 +262,39 @@ export default function DuplicatesPage() {
                                                                   <div style={{ padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', backgroundColor: badge.bg }}>
                                                                                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                                                                             <ExclamationTriangleIcon style={{ width: '1.25rem', height: '1.25rem', color: badge.color }} />
-                                                                                                            <span style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--foreground)' }}>{group.prospects.length} registros similares</span>span>
-                                                                                                            <span style={{ padding: '0.15rem 0.5rem', borderRadius: '1rem', fontSize: '0.7rem', fontWeight: '600', color: badge.color, backgroundColor: badge.bg, border: '1px solid ' + badge.color + '40' }}>{badge.label}</span>span>
-                                                                                          {group.matchType === 'fuzzy' && <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>({Math.round(group.similarity * 100)}% similar)</span>span>}
-                                                                                          </div>div>
+                                                                                                            <span style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--foreground)' }}>{group.prospects.length} registros similares</span>
+                                                                                                            <span style={{ padding: '0.15rem 0.5rem', borderRadius: '1rem', fontSize: '0.7rem', fontWeight: '600', color: badge.color, backgroundColor: badge.bg, border: '1px solid ' + badge.color + '40' }}>{badge.label}</span>
+                                                                                          {group.matchType === 'fuzzy' && <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>({Math.round(group.similarity * 100)}% similar)</span>}
+                                                                                          </div>
                                                                                       <button onClick={() => { const deleteIds = group.prospects.filter(p => p.id !== suggestedKeep).map(p => p.id); setConfirmDelete({ groupKey: group.key, keepId: suggestedKeep, deleteIds }); }} disabled={merging === group.key}
                                                                                                                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: '600', color: '#fff', backgroundColor: merging === group.key ? '#9ca3af' : '#6366f1', border: 'none', borderRadius: '0.5rem', cursor: merging === group.key ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                                                                                             <ArrowsRightLeftIcon style={{ width: '0.9rem', height: '0.9rem' }} />
                                                                                           {merging === group.key ? 'Fusionando...' : 'Fusionar'}
-                                                                                          </button>button>
-                                                                  </div>div>
+                                                                                          </button>
+                                                                  </div>
                                                     {group.prospects.map((prospect) => {
                                                                         const isKeeper = prospect.id === suggestedKeep;
                                                                         return (
                                                                                                   <div key={prospect.id} style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '2fr 1.5fr 2fr 1fr 0.5fr', gap: '0.75rem', alignItems: 'center', backgroundColor: isKeeper ? '#f0fdf4' : 'transparent' }}>
                                                                                                                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                                                                                               {isKeeper && <CheckCircleIcon style={{ width: '1rem', height: '1rem', color: '#22c55e', flexShrink: 0 }} />}
-                                                                                                                                                    <span style={{ fontSize: '0.875rem', fontWeight: isKeeper ? '600' : '400', color: 'var(--foreground)' }}>{prospect.name}</span>span>
-                                                                                                                              {isKeeper && <span style={{ fontSize: '0.65rem', fontWeight: '600', color: '#22c55e', padding: '0.1rem 0.4rem', backgroundColor: '#dcfce7', borderRadius: '0.25rem' }}>CONSERVAR</span>span>}
-                                                                                                                              </div>div>
-                                                                                                                          <div style={{ fontSize: '0.8rem', color: 'var(--secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prospect.company || 'Sin empresa'}</div>div>
-                                                                                                                          <div style={{ fontSize: '0.8rem', color: 'var(--secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prospect.email || 'Sin email'}</div>div>
-                                                                                                                          <div><span style={{ padding: '0.15rem 0.45rem', borderRadius: '0.25rem', fontSize: '0.7rem', fontWeight: '500', color: '#6366f1', backgroundColor: '#6366f110' }}>{getStageLabel(prospect.stage)}</span>span></div>div>
-                                                                                                                          <div style={{ textAlign: 'right' }}>{!isKeeper && <TrashIcon style={{ width: '0.9rem', height: '0.9rem', color: '#ef4444', opacity: 0.6 }} />}</div>div>
-                                                                                                      </div>div>
+                                                                                                                                                    <span style={{ fontSize: '0.875rem', fontWeight: isKeeper ? '600' : '400', color: 'var(--foreground)' }}>{prospect.name}</span>
+                                                                                                                              {isKeeper && <span style={{ fontSize: '0.65rem', fontWeight: '600', color: '#22c55e', padding: '0.1rem 0.4rem', backgroundColor: '#dcfce7', borderRadius: '0.25rem' }}>CONSERVAR</span>}
+                                                                                                                              </div>
+                                                                                                                          <div style={{ fontSize: '0.8rem', color: 'var(--secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prospect.company || 'Sin empresa'}</div>
+                                                                                                                          <div style={{ fontSize: '0.8rem', color: 'var(--secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prospect.email || 'Sin email'}</div>
+                                                                                                                          <div><span style={{ padding: '0.15rem 0.45rem', borderRadius: '0.25rem', fontSize: '0.7rem', fontWeight: '500', color: '#6366f1', backgroundColor: '#6366f110' }}>{getStageLabel(prospect.stage)}</span></div>
+                                                                                                                          <div style={{ textAlign: 'right' }}>{!isKeeper && <TrashIcon style={{ width: '0.9rem', height: '0.9rem', color: '#ef4444', opacity: 0.6 }} />}</div>
+                                                                                                      </div>
                                                                                                 );
                                                 })}
-                                                    {lastResult && !lastResult.success && <div style={{ padding: '0.5rem 1.25rem', backgroundColor: '#fef2f2', fontSize: '0.8rem', color: '#ef4444' }}>{lastResult.message}</div>div>}
-                                                </div>div>
+                                                    {lastResult && !lastResult.success && <div style={{ padding: '0.5rem 1.25rem', backgroundColor: '#fef2f2', fontSize: '0.8rem', color: '#ef4444' }}>{lastResult.message}</div>}
+                                                </div>
                                               );
           })}
-                                  </div>div>
-                        </div>div>
-                </div>div>
+                                  </div>
+                        </div>
+                </div>
           
               {confirmDelete && (
                       <>
@@ -303,32 +303,32 @@ export default function DuplicatesPage() {
                                             <ExclamationTriangleIcon style={{ width: '2.5rem', height: '2.5rem', color: '#f59e0b', margin: '0 auto 1rem', display: 'block' }} />
                                             <h3 style={{ textAlign: 'center', fontSize: '1.1rem', fontWeight: '700', color: 'var(--foreground)', marginBottom: '0.5rem' }}>
                                                 {"Confirmar fusi\u00f3n de duplicados"}
-                                            </h3>h3>
+                                            </h3>
                                             <p style={{ textAlign: 'center', fontSize: '0.875rem', color: 'var(--secondary)', marginBottom: '1.5rem' }}>
                                                 {"Se conservar\u00e1 el registro principal y se eliminar\u00e1n "}{confirmDelete.deleteIds.length}{" duplicado(s). Los datos faltantes se copiar\u00e1n al registro principal y los targets se actualizar\u00e1n autom\u00e1ticamente."}
-                                            </p>p>
+                                            </p>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem', padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem' }}>
                                                           <div style={{ fontSize: '0.8rem', color: '#22c55e', fontWeight: '600' }}>
                                                               {"Conservar: "}{prospects.find(p => p.id === confirmDelete.keepId)?.name}
-                                                          </div>div>
+                                                          </div>
                                                 {confirmDelete.deleteIds.map(id => (
                                           <div key={id} style={{ fontSize: '0.8rem', color: '#ef4444' }}>
                                               {"Eliminar: "}{prospects.find(p => p.id === id)?.name}
-                                          </div>div>
+                                          </div>
                                         ))}
-                                            </div>div>
+                                            </div>
                                             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
                                                           <button onClick={() => setConfirmDelete(null)} style={{ padding: '0.6rem 1.5rem', fontSize: '0.875rem', border: '1px solid var(--border)', borderRadius: '0.5rem', backgroundColor: 'var(--surface)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
                                                                           Cancelar
-                                                          </button>button>
+                                                          </button>
                                                           <button onClick={() => handleMerge(confirmDelete.groupKey, confirmDelete.keepId, confirmDelete.deleteIds)}
                                                                               style={{ padding: '0.6rem 1.5rem', fontSize: '0.875rem', border: 'none', borderRadius: '0.5rem', backgroundColor: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit' }}>
                                                               {"Confirmar fusi\u00f3n"}
-                                                          </button>button>
-                                            </div>div>
-                                </div>div>
+                                                          </button>
+                                            </div>
+                                </div>
                       </>>
                     )}
-          </ProtectedRoute>ProtectedRoute>
+          </ProtectedRoute>
         );
 }</></ProtectedRoute>
