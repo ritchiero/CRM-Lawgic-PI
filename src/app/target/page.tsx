@@ -9,16 +9,16 @@ import ScrapeIMPIButton from '@/components/ScrapeIMPIButton';
 import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, TagIcon, CalendarIcon, ChatBubbleLeftIcon, CameraIcon, DocumentTextIcon, InformationCircleIcon, FlagIcon, StarIcon, DocumentArrowDownIcon, PencilIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 const DESPACHOS = [
-  { name: 'Tópica Media, S.A. de C.V', color: '#6366f1', initials: 'TM' },
-  { name: 'Baker McKenzie', color: '#ef4444', initials: 'BM' },
-  { name: 'Hogan Lovells', color: '#f59e0b', initials: 'HL' },
-  { name: 'Olivares', color: '#22c55e', initials: 'OL' },
-  { name: 'Uhthoff, Gómez Vega & Uhthoff', color: '#3b82f6', initials: 'UG' },
-  { name: 'Arochi & Lindner', color: '#ec4899', initials: 'AL' },
-  { name: 'Basham, Ringe y Correa', color: '#8b5cf6', initials: 'BR' },
-  { name: 'Goodrich Riquelme', color: '#14b8a6', initials: 'GR' },
-  { name: 'Becerril, Coca & Becerril', color: '#f97316', initials: 'BC' },
-  { name: 'Dumont Bergman Bider', color: '#06b6d4', initials: 'DB' },
+  { name: 'Tópica Media, S.A. de C.V', color: '#6366f1', initials: 'TM', logo: '/logos/topica-media.png' },
+  { name: 'Baker McKenzie', color: '#ef4444', initials: 'BM', logo: '/logos/baker-mckenzie.png' },
+  { name: 'Hogan Lovells', color: '#f59e0b', initials: 'HL', logo: '/logos/hogan-lovells.png' },
+  { name: 'Olivares', color: '#22c55e', initials: 'OL', logo: '/logos/olivares.png' },
+  { name: 'Uhthoff, Gómez Vega & Uhthoff', color: '#3b82f6', initials: 'UG', logo: '/logos/uhthoff.png' },
+  { name: 'Arochi & Lindner', color: '#ec4899', initials: 'AL', logo: '/logos/arochi-lindner.png' },
+  { name: 'Basham, Ringe y Correa', color: '#8b5cf6', initials: 'BR', logo: '/logos/basham.png' },
+  { name: 'Goodrich Riquelme', color: '#14b8a6', initials: 'GR', logo: '/logos/goodrich.png' },
+  { name: 'Becerril, Coca & Becerril', color: '#f97316', initials: 'BC', logo: '/logos/becerril.png' },
+  { name: 'Dumont Bergman Bider', color: '#06b6d4', initials: 'DB', logo: '/logos/dumont.png' },
 ];
 
 export default function TargetPage() {
@@ -117,7 +117,7 @@ export default function TargetPage() {
       const initials = words.length >= 2
         ? (words[0][0] + words[1][0]).toUpperCase()
         : companyName.trim().substring(0, 2).toUpperCase();
-      return { name: companyName, color: '#6b7280', initials };
+      return { name: companyName, color: '#6b7280', initials, logo: '' };
     }
     return null;
   };
@@ -273,7 +273,7 @@ export default function TargetPage() {
                       <button onClick={() => setDespachoDropdownOpen(!despachoDropdownOpen)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.2rem 0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: despachoInfo ? despachoInfo.color + '12' : 'var(--background)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--foreground)', fontFamily: 'inherit', transition: 'all 0.15s ease' }}>
                         {despachoInfo ? (
                           <>
-                            <span style={{ width: '1.35rem', height: '1.35rem', borderRadius: '0.3rem', backgroundColor: despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.55rem', fontWeight: '700', flexShrink: 0 }}>{despachoInfo.initials}</span>
+                            <span style={{ width: '1.35rem', height: '1.35rem', borderRadius: '0.3rem', backgroundColor: despachoInfo.logo ? 'transparent' : despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.55rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>{despachoInfo.logo ? <img src={despachoInfo.logo} alt={despachoInfo.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despachoInfo.color; t.parentElement.textContent = despachoInfo.initials; }}} /> : despachoInfo.initials}</span>
                             <span style={{ fontSize: '0.8rem', color: 'var(--foreground)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{despachoInfo.name}</span>
                           </>
                         ) : (
@@ -296,7 +296,7 @@ export default function TargetPage() {
                           <div style={{ maxHeight: '220px', overflowY: 'auto', padding: '0.35rem' }}>
                             {DESPACHOS.filter(d => !customDespacho.trim() || d.name.toLowerCase().includes(customDespacho.toLowerCase())).map((d) => (
                               <button key={d.name} onClick={() => handleDespachoSelect(d.name)} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: selectedProspect.company === d.name ? d.color + '15' : 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.1s' }} onMouseEnter={(e) => { if (selectedProspect.company !== d.name) e.currentTarget.style.background = 'var(--background)'; }} onMouseLeave={(e) => { if (selectedProspect.company !== d.name) e.currentTarget.style.background = 'transparent'; }}>
-                                <span style={{ width: '1.6rem', height: '1.6rem', borderRadius: '0.35rem', backgroundColor: d.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.6rem', fontWeight: '700', flexShrink: 0 }}>{d.initials}</span>
+                                <span style={{ width: '1.6rem', height: '1.6rem', borderRadius: '0.35rem', backgroundColor: d.logo ? 'transparent' : d.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.6rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>{d.logo ? <img src={d.logo} alt={d.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = d.color; t.parentElement.textContent = d.initials; }}} /> : d.initials}</span>
                                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
                                 {selectedProspect.company === d.name && <CheckIcon style={{ width: '0.9rem', height: '0.9rem', color: d.color, flexShrink: 0 }} />}
                               </button>
@@ -395,7 +395,7 @@ export default function TargetPage() {
                         {selectedProspect.phone && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><PhoneIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} /><span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.phone}</span></div>)}
                         {selectedProspect.company && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                           {despachoInfo ? (
-                            <span style={{ width: '1.1rem', height: '1.1rem', borderRadius: '0.2rem', backgroundColor: despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.45rem', fontWeight: '700', flexShrink: 0 }}>{despachoInfo.initials}</span>
+                            <span style={{ width: '1.1rem', height: '1.1rem', borderRadius: '0.2rem', backgroundColor: despachoInfo.logo ? 'transparent' : despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.45rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>{despachoInfo.logo ? <img src={despachoInfo.logo} alt={despachoInfo.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despachoInfo.color; t.parentElement.textContent = despachoInfo.initials; }}} /> : despachoInfo.initials}</span>
                           ) : (
                             <BuildingOfficeIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
                           )}
