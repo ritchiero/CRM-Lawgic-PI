@@ -659,10 +659,6 @@ export default function TargetPage() {
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {/* Tab Content */}
-              {activeTab === 'infos' && (
 
                 {/* Marcas como Apoderado Card */}
                 <div style={{
@@ -699,6 +695,10 @@ export default function TargetPage() {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* Tab Content */}
+              {activeTab === 'infos' && (
                                 <div style={{ padding: '0 2rem 2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
 
                   {/* LEFT COLUMN */}
