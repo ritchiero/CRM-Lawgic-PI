@@ -7,7 +7,7 @@ import { subscribeToTargets, Target, updateTarget, createTarget } from '@/servic
 import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
 import ScrapeIMPIButton from '@/components/ScrapeIMPIButton';
 import { subscribeToDespachos, Despacho } from '@/services/despachoService';
-import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, TagIcon, CalendarIcon, ChatBubbleLeftIcon, CameraIcon, DocumentTextIcon, InformationCircleIcon, FlagIcon, StarIcon, DocumentArrowDownIcon, PencilIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, TagIcon, CalendarIcon, ChatBubbleLeftIcon, CameraIcon, DocumentTextIcon, InformationCircleIcon, FlagIcon, StarIcon, DocumentArrowDownIcon, PencilIcon, CheckIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 const DESPACHOS = [
   { name: 'Tópica Media, S.A. de C.V', color: '#6366f1', initials: 'TM', logo: '/logos/topica-media.png' },
@@ -21,6 +21,9 @@ const DESPACHOS = [
   { name: 'Becerril, Coca & Becerril', color: '#f97316', initials: 'BC', logo: '/logos/becerril.png' },
   { name: 'Dumont Bergman Bider', color: '#06b6d4', initials: 'DB', logo: '/logos/dumont.png' },
 ];
+
+type SortField = 'name' | 'brandCount' | 'none';
+type SortDirection = 'asc' | 'desc';
 
 export default function TargetPage() {
   const router = useRouter();
@@ -36,9 +39,22 @@ export default function TargetPage() {
   const [customDespacho, setCustomDespacho] = useState('');
   const despachoRef = useRef<HTMLDivElement>(null);
   const [firestoreDespachos, setFirestoreDespachos] = useState<Despacho[]>([]);
-  const [editingPhotoUrl, setEditingPhotoUrl] = useState(false);
-  const [photoUrlInput, setPhotoUrlInput] = useState('');
-  const [photoLoaded, setPhotoLoaded] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('none');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortField('none');
+        setSortDirection('asc');
+      }
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -68,9 +84,6 @@ export default function TargetPage() {
     if (selectedProspect) {
       setActiveTab('infos');
       setDespachoDropdownOpen(false);
-      setEditingPhotoUrl(false);
-      setPhotoLoaded(false);
-      setPhotoUrlInput(selectedProspect.photoUrl || '');
     }
   }, [selectedProspect]);
 
@@ -85,16 +98,34 @@ export default function TargetPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const getDespachoForProspect = (prospect: Target) => {
+    const despachoName = prospect.company;
+    if (!despachoName || !despachoName.trim()) return null;
+    const found = DESPACHOS.find(d => d.name.toLowerCase() === despachoName.toLowerCase());
+    const fsDespacho = firestoreDespachos.find(d => d.nombre.toLowerCase() === despachoName.toLowerCase());
+    if (found) {
+      return { ...found, logo: fsDespacho?.logoUrl || found.logo };
+    }
+    if (fsDespacho) {
+      return { name: fsDespacho.nombre, color: fsDespacho.color, initials: fsDespacho.initials, logo: fsDespacho.logoUrl || '' };
+    }
+    const words = despachoName.trim().split(' ').filter(Boolean);
+    const initials = words.length >= 2
+      ? (words[0][0] + words[1][0]).toUpperCase()
+      : despachoName.trim().substring(0, 2).toUpperCase();
+    return { name: despachoName, color: '#6b7280', initials, logo: '' };
+  };
+
   const filteredProspects = useMemo(() => {
     // Merge representatives into targets, deduplicating by name
     const targetsByName = new Map<string, Target>();
-    
+
     // First, add all real targets
     for (const target of prospects) {
       const key = target.name.toLowerCase().trim();
       targetsByName.set(key, target);
     }
-    
+
     // Then, for each representative:
     // - If a target with the same name exists, merge brandCount into it
     // - If not, add as a virtual target entry
@@ -102,13 +133,11 @@ export default function TargetPage() {
       const key = rep.name.toLowerCase().trim();
       const existingTarget = targetsByName.get(key);
       if (existingTarget) {
-        // Merge brandCount from representative into the existing target
         targetsByName.set(key, {
           ...existingTarget,
           brandCount: rep.brandCount || existingTarget.brandCount,
         });
       } else {
-        // No matching target, add as virtual entry
         targetsByName.set(key, {
           id: rep.id,
           name: rep.name,
@@ -124,19 +153,44 @@ export default function TargetPage() {
         });
       }
     }
-    
-    const allItems = Array.from(targetsByName.values());
 
-    if (!searchTerm.trim()) return allItems;
-    const term = searchTerm.toLowerCase();
-    return allItems.filter((p) =>
-      p.name.toLowerCase().includes(term)
-    );
-  }, [prospects, representatives, searchTerm]);
+    let allItems = Array.from(targetsByName.values());
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      allItems = allItems.filter((p) =>
+        p.name.toLowerCase().includes(term)
+      );
+    }
+
+    // Apply sorting
+    if (sortField !== 'none') {
+      allItems.sort((a, b) => {
+        if (sortField === 'name') {
+          const nameA = a.name.toLowerCase();
+          const nameB = b.name.toLowerCase();
+          if (nameA < nameB) return sortDirection === 'asc' ? -1 : 1;
+          if (nameA > nameB) return sortDirection === 'asc' ? 1 : -1;
+          return 0;
+        }
+        if (sortField === 'brandCount') {
+          const countA = a.brandCount || 0;
+          const countB = b.brandCount || 0;
+          return sortDirection === 'asc' ? countA - countB : countB - countA;
+        }
+        return 0;
+      });
+    }
+
+    return allItems;
+  }, [prospects, representatives, searchTerm, sortField, sortDirection]);
 
   const handleExportCSV = () => {
     const withEmail = filteredProspects.filter(p => p.email && p.email.trim() !== '');
-    if (withEmail.length === 0) { alert('No hay contactos con correo disponible.'); return; }
+    if (withEmail.length === 0) {
+      alert('No hay contactos con correo disponible.');
+      return;
+    }
     const header = 'Nombre,Correo';
     const rows = withEmail.map(p => {
       const name = p.name.replace(/,/g, ' ');
@@ -202,22 +256,39 @@ export default function TargetPage() {
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   };
+
   const getStageColor = (stage: string) => {
     const colors: Record<string, string> = {
-      'Detección de prospecto': '#6366f1', '1er Contacto': '#8b5cf6', 'Contacto efectivo': '#a855f7',
-      'Muestra de interés': '#ec4899', 'Cita para demo': '#3b82f6', 'Demo realizada': '#0ea5e9',
-      'Venta': '#22c55e', 'En Pausa': '#f59e0b', 'Basura': '#6b7280', 'Cliente Perdido': '#ef4444',
+      'Detección de prospecto': '#6366f1',
+      '1er Contacto': '#8b5cf6',
+      'Contacto efectivo': '#a855f7',
+      'Muestra de interés': '#ec4899',
+      'Cita para demo': '#3b82f6',
+      'Demo realizada': '#0ea5e9',
+      'Venta': '#22c55e',
+      'En Pausa': '#f59e0b',
+      'Basura': '#6b7280',
+      'Cliente Perdido': '#ef4444',
     };
     return colors[stage] || '#6366f1';
   };
+
   const getStageProgress = (stage: string) => {
     const stages: Record<string, number> = {
-      'Detección de prospecto': 14, '1er Contacto': 28, 'Contacto efectivo': 42,
-      'Muestra de interés': 50, 'Cita para demo': 64, 'Demo realizada': 78,
-      'Venta': 100, 'En Pausa': 0, 'Basura': 0, 'Cliente Perdido': 0,
+      'Detección de prospecto': 14,
+      '1er Contacto': 28,
+      'Contacto efectivo': 42,
+      'Muestra de interés': 50,
+      'Cita para demo': 64,
+      'Demo realizada': 78,
+      'Venta': 100,
+      'En Pausa': 0,
+      'Basura': 0,
+      'Cliente Perdido': 0,
     };
     return stages[stage] || 0;
   };
+
   const getStageRisk = (stage: string) => {
     const risk: Record<string, { label: string; color: string }> = {
       'Detección de prospecto': { label: 'Early Stage', color: '#6366f1' },
@@ -233,21 +304,39 @@ export default function TargetPage() {
     };
     return risk[stage] || { label: 'Unknown', color: '#6b7280' };
   };
+
   const getStageIndex = (stage: string) => {
     const order = ['Detección de prospecto', '1er Contacto', 'Contacto efectivo', 'Muestra de interés', 'Cita para demo', 'Demo realizada', 'Venta'];
     const idx = order.indexOf(stage);
     return idx >= 0 ? idx + 1 : 0;
   };
+
   const formatDate = (date: Date | undefined) => {
     if (!date) return null;
     return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
   };
+
   const tabs = [
     { id: 'infos', label: 'Infos', icon: 'info' },
     { id: 'objectives', label: 'Objectives', icon: 'flag' },
     { id: 'documents', label: 'Documents', icon: 'doc' },
     { id: 'reviews', label: 'Reviews', icon: 'star' },
   ];
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    const isActive = sortField === field;
+    if (!isActive) {
+      return (
+        <span style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: '0.35rem', opacity: 0.35 }}>
+          <ChevronUpIcon style={{ width: '0.65rem', height: '0.65rem', marginBottom: '-2px' }} />
+          <ChevronDownIcon style={{ width: '0.65rem', height: '0.65rem', marginTop: '-2px' }} />
+        </span>
+      );
+    }
+    return sortDirection === 'asc'
+      ? <ChevronUpIcon style={{ width: '0.8rem', height: '0.8rem', marginLeft: '0.35rem', color: '#6366f1' }} />
+      : <ChevronDownIcon style={{ width: '0.8rem', height: '0.8rem', marginLeft: '0.35rem', color: '#6366f1' }} />;
+  };
 
   return (
     <ProtectedRoute>
@@ -256,19 +345,23 @@ export default function TargetPage() {
           {/* Header */}
           <div style={{ marginBottom: '2rem' }}>
             <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', marginBottom: '1rem', fontSize: '0.875rem' }}>
-              <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} /> Volver
+              <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} />
+              Volver
             </button>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>Targets</h1>
                 <p style={{ fontSize: '0.875rem', color: 'var(--secondary)', marginTop: '0.5rem' }}>Lista de clientes potenciales</p>
               </div>
-              <button onClick={() => router.push('/despachos-empresas')} style={{ padding: '0.6rem 1.25rem', backgroundColor: 'var(--surface)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap', fontFamily: 'inherit', transition: 'all 0.15s ease' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface)'; e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
+              <button onClick={() => router.push('/despachos-empresas')} style={{ padding: '0.6rem 1.25rem', backgroundColor: 'var(--surface)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap', fontFamily: 'inherit', transition: 'all 0.15s ease' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface)'; e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
                 <BuildingOfficeIcon style={{ width: '1.25rem', height: '1.25rem' }} />
                 Despachos
               </button>
             </div>
           </div>
+
           {/* Search Bar */}
           <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: 1 }}>
@@ -276,41 +369,69 @@ export default function TargetPage() {
               <input type="text" placeholder="Buscar cliente por nombre..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 3rem', fontSize: '0.9375rem', border: '1px solid var(--border)', borderRadius: '0.75rem', backgroundColor: 'var(--surface)', color: 'var(--foreground)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
             </div>
             <button onClick={handleExportCSV} style={{ padding: '0.65rem 1.25rem', backgroundColor: '#6C5CE7', color: 'white', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap', height: '48px' }}>
-              <DocumentArrowDownIcon style={{ width: '1.25rem', height: '1.25rem' }} /> Exportar CSV
+              <DocumentArrowDownIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+              Exportar CSV
             </button>
-                        <ScrapeIMPIButton />
+            <ScrapeIMPIButton />
           </div>
+
           {/* Client List Table */}
           <div style={{ backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ padding: '0.75rem 1.5rem', backgroundColor: 'var(--surface)', borderBottom: '2px solid var(--border)', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Nombre del Cliente</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 0.75fr', padding: '0.75rem 1.5rem', backgroundColor: 'var(--surface)', borderBottom: '2px solid var(--border)', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+              <button onClick={() => handleSort('name')} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem', color: sortField === 'name' ? '#6366f1' : 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'inherit' }}>
+                Nombre del Cliente
+                <SortIcon field="name" />
+              </button>
+              <span style={{ display: 'flex', alignItems: 'center' }}>Despacho / Empresa</span>
+              <button onClick={() => handleSort('brandCount')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem', color: sortField === 'brandCount' ? '#6366f1' : 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'inherit' }}>
+                Marcas
+                <SortIcon field="brandCount" />
+              </button>
+            </div>
             {(loading || loadingReps) && (<div style={{ padding: '3rem', textAlign: 'center', color: 'var(--secondary)', fontSize: '0.875rem' }}>Cargando clientes...</div>)}
             {!(loading || loadingReps) && filteredProspects.length === 0 && (<div style={{ padding: '3rem', textAlign: 'center', color: 'var(--secondary)', fontSize: '0.875rem' }}>{searchTerm.trim() ? 'No se encontraron clientes con ese nombre' : 'No hay clientes registrados'}</div>)}
-            {!loading && filteredProspects.map((prospect) => (
-              <div key={prospect.id} onClick={() => setSelectedProspect(prospect)} style={{ padding: '0.875rem 1.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.9375rem', color: 'var(--foreground)', cursor: 'pointer', transition: 'background-color 0.15s ease', display: 'flex', alignItems: 'center', gap: '0.75rem' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border)'; }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0 }}>{prospect.photoUrl ? <img src={prospect.photoUrl} alt={prospect.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : getInitials(prospect.name)}</div>
-                {prospect.name}
-                              {prospect.brandCount !== undefined && prospect.brandCount > 0 && (
-                <div style={{
-                  marginLeft: 'auto',
-                  padding: '0.25rem 0.75rem',
-                  backgroundColor: '#f0f9ff',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.75rem',
-                  color: '#0369a1',
-                  fontWeight: '600',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {prospect.brandCount} marcas
+            {!loading && filteredProspects.map((prospect) => {
+              const despacho = getDespachoForProspect(prospect);
+              return (
+              <div key={prospect.id} onClick={() => setSelectedProspect(prospect)} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 0.75fr', padding: '0.875rem 1.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.9375rem', color: 'var(--foreground)', cursor: 'pointer', transition: 'background-color 0.15s ease', alignItems: 'center' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                  <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0 }}>{getInitials(prospect.name)}</div>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prospect.name}</span>
                 </div>
-              )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                  {despacho ? (
+                    <>
+                      <span style={{ width: '1.5rem', height: '1.5rem', borderRadius: '0.3rem', backgroundColor: despacho.logo ? 'transparent' : despacho.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.5rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>
+                        {despacho.logo ? <img src={despacho.logo} alt={despacho.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despacho.color; t.parentElement.textContent = despacho.initials; }}} /> : despacho.initials}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{despacho.name}</span>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: '0.8rem', color: 'var(--secondary)', fontStyle: 'italic' }}>—</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  {prospect.brandCount !== undefined && prospect.brandCount > 0 ? (
+                    <div style={{ padding: '0.25rem 0.75rem', backgroundColor: '#f0f9ff', borderRadius: '0.375rem', fontSize: '0.75rem', color: '#0369a1', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                      {prospect.brandCount} marcas
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>0</span>
+                  )}
+                </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           {!loading && (<div style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'var(--secondary)', textAlign: 'right' }}>{filteredProspects.length}{searchTerm.trim() ? ` de ${prospects.length}` : ''} cliente{filteredProspects.length !== 1 ? 's' : ''} en total</div>)}
         </div>
       </div>
+
       {/* OVERLAY */}
       {selectedProspect && (<div onClick={() => setSelectedProspect(null)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 1000, animation: 'fadeIn 0.2s ease' }} />)}
+
       {/* SIDEBAR MODAL */}
       <div style={{ position: 'fixed', top: 0, right: selectedProspect ? '0' : '-76vw', width: '75vw', height: '100vh', backgroundColor: 'var(--surface)', boxShadow: selectedProspect ? '-8px 0 30px rgba(0,0,0,0.15)' : 'none', zIndex: 1001, transition: 'right 0.3s cubic-bezier(0.4, 0, 0.2, 1)', overflowY: 'auto', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-sans)' }}>
         {selectedProspect && (() => {
@@ -323,39 +444,22 @@ export default function TargetPage() {
               {/* Top bar */}
               <div style={{ padding: '1.25rem 2rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button onClick={() => setSelectedProspect(null)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', fontSize: '0.875rem', padding: 0 }}>
-                  <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} /> Back
+                  <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} />
+                  Back
                 </button>
                 <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', backgroundColor: 'var(--foreground)', color: 'var(--surface)', border: 'none', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <DocumentArrowDownIcon style={{ width: '1rem', height: '1rem' }} /> Download PDF
+                  <DocumentArrowDownIcon style={{ width: '1rem', height: '1rem' }} />
+                  Download PDF
                 </button>
               </div>
+
               {/* Profile Header */}
               <div style={{ padding: '1.5rem 2rem 1rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                  {selectedProspect.photoUrl ? (
-                    <img src={selectedProspect.photoUrl} alt={selectedProspect.name} style={{ display: photoLoaded ? 'block' : 'none', width: '5.5rem', height: '5.5rem', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }} onLoad={() => setPhotoLoaded(true)} onError={() => setPhotoLoaded(false)} />
-                  ) : null}
-                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: (selectedProspect.photoUrl && photoLoaded) ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.75rem', fontWeight: '700', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>{getInitials(selectedProspect.name)}</div>
-                  <div onClick={() => { setEditingPhotoUrl(!editingPhotoUrl); setPhotoUrlInput(selectedProspect.photoUrl || ''); }} style={{ position: 'absolute', bottom: '0', left: '0', width: '1.75rem', height: '1.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.75rem', fontWeight: '700', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>{getInitials(selectedProspect.name)}</div>
+                  <div style={{ position: 'absolute', bottom: '0', left: '0', width: '1.75rem', height: '1.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
                     <CameraIcon style={{ width: '1rem', height: '1rem', color: '#fff' }} />
                   </div>
-                  {editingPhotoUrl && (
-                    <div style={{ position: 'absolute', top: 'calc(100% + 0.5rem)', left: 0, minWidth: '300px', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 1100, padding: '0.75rem' }}>
-                      <label style={{ fontSize: '0.7rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.35rem', display: 'block' }}>URL de la foto</label>
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <input type="text" value={photoUrlInput} onChange={(e) => setPhotoUrlInput(e.target.value)} placeholder="https://ejemplo.com/foto.jpg" style={{ flex: 1, padding: '0.5rem 0.65rem', fontSize: '0.8rem', border: '1px solid var(--border)', borderRadius: '0.5rem', backgroundColor: 'var(--background)', color: 'var(--foreground)', outline: 'none', fontFamily: 'inherit' }} />
-                        <button onClick={async () => { try { await updateTarget(selectedProspect.id, { photoUrl: photoUrlInput.trim() }); setSelectedProspect({ ...selectedProspect, photoUrl: photoUrlInput.trim() }); setEditingPhotoUrl(false); } catch (err) { console.error(err); alert('Error al guardar foto.'); } }} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#6366f1', color: '#fff', border: 'none', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' }}>Guardar</button>
-                      </div>
-                      {photoUrlInput && (
-                        <div style={{ marginTop: '0.5rem', width: '3rem', height: '3rem', borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                          <img src={photoUrlInput} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                        </div>
-                      )}
-                      {selectedProspect.photoUrl && (
-                        <button onClick={async () => { try { await updateTarget(selectedProspect.id, { photoUrl: '' }); setSelectedProspect({ ...selectedProspect, photoUrl: '' }); setPhotoUrlInput(''); setEditingPhotoUrl(false); } catch (err) { console.error(err); alert('Error al quitar foto.'); } }} style={{ marginTop: '0.5rem', padding: '0.35rem 0.65rem', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef444440', borderRadius: '0.375rem', fontSize: '0.7rem', cursor: 'pointer', fontFamily: 'inherit' }}>Quitar foto</button>
-                      )}
-                    </div>
-                  )}
                   {despachoInfo && (
                     <div title={despachoInfo.name} style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '2rem', height: '2rem', borderRadius: '50%', backgroundColor: despachoInfo.logo ? '#fff' : despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.5rem', fontWeight: '700', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', border: '2px solid var(--surface)', overflow: 'hidden' }}>
                       {despachoInfo.logo ? <img src={despachoInfo.logo} alt={despachoInfo.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despachoInfo.color; t.parentElement.textContent = despachoInfo.initials; }}} /> : despachoInfo.initials}
@@ -366,6 +470,7 @@ export default function TargetPage() {
                   <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--foreground)', margin: 0, lineHeight: 1.3 }}>{selectedProspect.name}</h2>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                     <span style={{ display: 'inline-block', padding: '0.2rem 0.65rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '600', color: getStageColor(selectedProspect.stage), border: '1.5px solid ' + getStageColor(selectedProspect.stage), backgroundColor: getStageColor(selectedProspect.stage) + '12' }}>{selectedProspect.stage}</span>
+
                     {/* Editable Despacho / Filiación */}
                     <div ref={despachoRef} style={{ position: 'relative' }}>
                       <button onClick={() => setDespachoDropdownOpen(!despachoDropdownOpen)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.2rem 0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: despachoInfo ? despachoInfo.color + '12' : 'var(--background)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--foreground)', fontFamily: 'inherit', transition: 'all 0.15s ease' }}>
@@ -382,6 +487,7 @@ export default function TargetPage() {
                         )}
                         <PencilIcon style={{ width: '0.7rem', height: '0.7rem', color: 'var(--secondary)', marginLeft: '0.2rem' }} />
                       </button>
+
                       {/* Despacho Dropdown */}
                       {despachoDropdownOpen && (
                         <div style={{ position: 'absolute', top: 'calc(100% + 0.35rem)', left: 0, minWidth: '280px', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 1100, overflow: 'hidden' }}>
@@ -393,14 +499,18 @@ export default function TargetPage() {
                           </div>
                           <div style={{ maxHeight: '220px', overflowY: 'auto', padding: '0.35rem' }}>
                             {DESPACHOS.filter(d => !customDespacho.trim() || d.name.toLowerCase().includes(customDespacho.toLowerCase())).map((d) => (
-                              <button key={d.name} onClick={() => handleDespachoSelect(d.name)} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: selectedProspect.company === d.name ? d.color + '15' : 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.1s' }} onMouseEnter={(e) => { if (selectedProspect.company !== d.name) e.currentTarget.style.background = 'var(--background)'; }} onMouseLeave={(e) => { if (selectedProspect.company !== d.name) e.currentTarget.style.background = 'transparent'; }}>
+                              <button key={d.name} onClick={() => handleDespachoSelect(d.name)} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: selectedProspect.company === d.name ? d.color + '15' : 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.1s' }}
+                                onMouseEnter={(e) => { if (selectedProspect.company !== d.name) e.currentTarget.style.background = 'var(--background)'; }}
+                                onMouseLeave={(e) => { if (selectedProspect.company !== d.name) e.currentTarget.style.background = 'transparent'; }}>
                                 <span style={{ width: '1.6rem', height: '1.6rem', borderRadius: '0.35rem', backgroundColor: d.logo ? 'transparent' : d.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.6rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>{d.logo ? <img src={d.logo} alt={d.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = d.color; t.parentElement.textContent = d.initials; }}} /> : d.initials}</span>
                                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
                                 {selectedProspect.company === d.name && <CheckIcon style={{ width: '0.9rem', height: '0.9rem', color: d.color, flexShrink: 0 }} />}
                               </button>
                             ))}
                             {customDespacho.trim() && !DESPACHOS.some(d => d.name.toLowerCase() === customDespacho.toLowerCase()) && (
-                              <button onClick={() => handleDespachoSelect(customDespacho.trim())} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: '#6366f1', fontFamily: 'inherit', textAlign: 'left', fontWeight: '500' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--background)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                              <button onClick={() => handleDespachoSelect(customDespacho.trim())} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: '#6366f1', fontFamily: 'inherit', textAlign: 'left', fontWeight: '500' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--background)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                                 <span style={{ width: '1.6rem', height: '1.6rem', borderRadius: '0.35rem', backgroundColor: '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.6rem', fontWeight: '700', flexShrink: 0 }}>+</span>
                                 Crear &quot;{customDespacho.trim()}&quot;
                               </button>
@@ -408,8 +518,11 @@ export default function TargetPage() {
                           </div>
                           {selectedProspect.company && (
                             <div style={{ borderTop: '1px solid var(--border)', padding: '0.35rem' }}>
-                              <button onClick={() => handleDespachoSelect('')} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: '#ef4444', fontFamily: 'inherit', textAlign: 'left' }} onMouseEnter={(e) => { e.currentTarget.style.background = '#ef444410'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                                <XMarkIcon style={{ width: '0.9rem', height: '0.9rem' }} /> Quitar despacho
+                              <button onClick={() => handleDespachoSelect('')} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: '#ef4444', fontFamily: 'inherit', textAlign: 'left' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = '#ef444410'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                                <XMarkIcon style={{ width: '0.9rem', height: '0.9rem' }} />
+                                Quitar despacho
                               </button>
                             </div>
                           )}
@@ -419,6 +532,7 @@ export default function TargetPage() {
                   </div>
                 </div>
               </div>
+
               {/* Tabs Navigation */}
               <div style={{ padding: '0 2rem', display: 'flex', alignItems: 'center', gap: '0.25rem', borderBottom: '1px solid var(--border)', marginTop: '0.5rem' }}>
                 {tabs.map((tab) => (
@@ -431,6 +545,7 @@ export default function TargetPage() {
                   </button>
                 ))}
               </div>
+
               {/* Summary Cards Row */}
               <div style={{ padding: '1.25rem 2rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                 {/* Achievement Progress Card */}
@@ -445,8 +560,12 @@ export default function TargetPage() {
                       const filledSegments = Math.round(progress / 10);
                       const segmentColors = ['#ef4444', '#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#3b82f6', '#6366f1', '#8b5cf6', '#8b5cf6', '#22c55e'];
                       const segments: React.ReactNode[] = [];
-                      for (let i = 0; i < totalSegments; i++) { segments.push(<div key={'s'+i} style={{ flex: 1, height: '0.4rem', borderRadius: '1rem', backgroundColor: i < filledSegments ? segmentColors[i] : 'var(--border)', transition: 'background-color 0.3s ease' }} />); }
-                      for (let i = 0; i < 5; i++) { segments.push(<div key={'d'+i} style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--border)', flexShrink: 0 }} />); }
+                      for (let i = 0; i < totalSegments; i++) {
+                        segments.push(<div key={'s'+i} style={{ flex: 1, height: '0.4rem', borderRadius: '1rem', backgroundColor: i < filledSegments ? segmentColors[i] : 'var(--border)', transition: 'background-color 0.3s ease' }} />);
+                      }
+                      for (let i = 0; i < 5; i++) {
+                        segments.push(<div key={'d'+i} style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--border)', flexShrink: 0 }} />);
+                      }
                       return segments;
                     })()}
                   </div>
@@ -455,6 +574,7 @@ export default function TargetPage() {
                     <span style={{ fontSize: '0.7rem', fontWeight: '600', color: risk.color, background: 'linear-gradient(135deg, ' + risk.color + '18, ' + risk.color + '08)', padding: '0.2rem 0.6rem', borderRadius: '1rem' }}>{risk.label}</span>
                   </div>
                 </div>
+
                 {/* Bonus Earned Card */}
                 <div style={{ padding: '1.25rem 1.5rem', backgroundColor: 'var(--background)', borderRadius: '1rem', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)', marginBottom: '0.75rem' }}>Bonus Earned</div>
@@ -467,6 +587,7 @@ export default function TargetPage() {
                     <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#6366f1', backgroundColor: '#6366f110', padding: '0.2rem 0.6rem', borderRadius: '0.375rem' }}>{stageIdx}<span style={{ fontWeight: '400', color: 'var(--secondary)' }}> /7</span></span>
                   </div>
                 </div>
+
                 {/* Marcas como Apoderado Card */}
                 <div style={{ padding: '1.25rem 1.5rem', backgroundColor: 'var(--background)', borderRadius: '1rem', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)', marginBottom: '0.75rem' }}>Marcas como Apoderado</div>
@@ -480,6 +601,7 @@ export default function TargetPage() {
                   </div>
                 </div>
               </div>
+
               {/* Tab Content */}
               {activeTab === 'infos' && (
                 <div style={{ padding: '0 2rem 2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
@@ -503,6 +625,7 @@ export default function TargetPage() {
                         {!selectedProspect.email && !selectedProspect.phone && !selectedProspect.company && (<span style={{ fontSize: '0.85rem', color: 'var(--secondary)', fontStyle: 'italic' }}>Sin datos de contacto registrados</span>)}
                       </div>
                     </div>
+
                     {/* Lead Source */}
                     {selectedProspect.leadSource && (
                       <div>
@@ -510,6 +633,7 @@ export default function TargetPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><TagIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} /><span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.leadSource}</span></div>
                       </div>
                     )}
+
                     {/* Notes */}
                     {selectedProspect.notes && (
                       <div>
@@ -521,6 +645,7 @@ export default function TargetPage() {
                       </div>
                     )}
                   </div>
+
                   {/* RIGHT COLUMN */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
                     {/* Key Dates */}
@@ -532,6 +657,7 @@ export default function TargetPage() {
                         {selectedProspect.scheduledDemoDate && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: '#3b82f6', flexShrink: 0 }} /><span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Demo programada:</span><span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.scheduledDemoDate)}</span></div>)}
                       </div>
                     </div>
+
                     {/* Financial */}
                     {(selectedProspect.potentialValue || selectedProspect.accountValue || selectedProspect.brandCount) && (
                       <div>
@@ -543,6 +669,7 @@ export default function TargetPage() {
                         </div>
                       </div>
                     )}
+
                     {/* History Timeline */}
                     {selectedProspect.history && selectedProspect.history.length > 0 && (
                       <div>
@@ -561,10 +688,13 @@ export default function TargetPage() {
                   </div>
                 </div>
               )}
+
               {/* Objectives Tab */}
               {activeTab === 'objectives' && (<div style={{ padding: '2rem', color: 'var(--secondary)', fontSize: '0.9rem' }}><div style={{ textAlign: 'center', padding: '3rem 0' }}><FlagIcon style={{ width: '2.5rem', height: '2.5rem', color: 'var(--border)', margin: '0 auto 1rem' }} /><p style={{ fontWeight: '500' }}>Objectives coming soon</p><p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>This section will track prospect-specific goals and milestones.</p></div></div>)}
+
               {/* Documents Tab */}
               {activeTab === 'documents' && (<div style={{ padding: '2rem', color: 'var(--secondary)', fontSize: '0.9rem' }}><div style={{ textAlign: 'center', padding: '3rem 0' }}><DocumentTextIcon style={{ width: '2.5rem', height: '2.5rem', color: 'var(--border)', margin: '0 auto 1rem' }} /><p style={{ fontWeight: '500' }}>Documents coming soon</p><p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Proposals, contracts and files will appear here.</p></div></div>)}
+
               {/* Reviews Tab */}
               {activeTab === 'reviews' && (<div style={{ padding: '2rem', color: 'var(--secondary)', fontSize: '0.9rem' }}><div style={{ textAlign: 'center', padding: '3rem 0' }}><StarIcon style={{ width: '2.5rem', height: '2.5rem', color: 'var(--border)', margin: '0 auto 1rem' }} /><p style={{ fontWeight: '500' }}>Reviews coming soon</p><p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Notes and reviews about this prospect will be shown here.</p></div></div>)}
             </>
