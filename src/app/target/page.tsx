@@ -38,6 +38,7 @@ export default function TargetPage() {
   const [firestoreDespachos, setFirestoreDespachos] = useState<Despacho[]>([]);
   const [editingPhotoUrl, setEditingPhotoUrl] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
+  const [photoLoaded, setPhotoLoaded] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -68,6 +69,7 @@ export default function TargetPage() {
       setActiveTab('infos');
       setDespachoDropdownOpen(false);
       setEditingPhotoUrl(false);
+      setPhotoLoaded(false);
       setPhotoUrlInput(selectedProspect.photoUrl || '');
     }
   }, [selectedProspect]);
@@ -331,9 +333,9 @@ export default function TargetPage() {
               <div style={{ padding: '1.5rem 2rem 1rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
                   {selectedProspect.photoUrl ? (
-                    <img src={selectedProspect.photoUrl} alt={selectedProspect.name} style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }} onError={(e) => { e.currentTarget.style.display = 'none'; if (e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }} />
+                    <img src={selectedProspect.photoUrl} alt={selectedProspect.name} style={{ display: photoLoaded ? 'block' : 'none', width: '5.5rem', height: '5.5rem', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }} onLoad={() => setPhotoLoaded(true)} onError={() => setPhotoLoaded(false)} />
                   ) : null}
-                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: selectedProspect.photoUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.75rem', fontWeight: '700', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>{getInitials(selectedProspect.name)}</div>
+                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: (selectedProspect.photoUrl && photoLoaded) ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.75rem', fontWeight: '700', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>{getInitials(selectedProspect.name)}</div>
                   <div onClick={() => { setEditingPhotoUrl(!editingPhotoUrl); setPhotoUrlInput(selectedProspect.photoUrl || ''); }} style={{ position: 'absolute', bottom: '0', left: '0', width: '1.75rem', height: '1.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
                     <CameraIcon style={{ width: '1rem', height: '1rem', color: '#fff' }} />
                   </div>
