@@ -65,6 +65,9 @@ export default function TargetPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [hideDiscarded, setHideDiscarded] = useState(true);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [photoLoaded, setPhotoLoaded] = useState(false);
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
+  const [showPhotoInput, setShowPhotoInput] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   const handleSort = (field: SortField) => {
@@ -141,6 +144,11 @@ export default function TargetPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    setPhotoLoaded(false);
+    setShowPhotoInput(false);
+  }, [selectedProspect?.id]);
 
   const getDespachoForProspect = (prospect: Target) => {
     const despachoName = prospect.company;
@@ -515,7 +523,12 @@ export default function TargetPage() {
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                  <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', flexShrink: 0 }}>{getInitials(prospect.name)}</div>
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', overflow: 'hidden' }}>
+                      {prospect.photoUrl ? <img src={prospect.photoUrl} alt={prospect.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : getInitials(prospect.name)}
+                    </div>
+                    {(() => { const d = getDespachoInfo(prospect.company); return d ? <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '1.1rem', height: '1.1rem', borderRadius: '50%', backgroundColor: 'white', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>{d.logo ? <img src={d.logo} alt={d.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '0.45rem', fontWeight: 600, color: d.color }}>{d.initials}</span>}</div> : null; })()}
+                  </div>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prospect.name}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
@@ -614,8 +627,8 @@ export default function TargetPage() {
               {/* Profile Header */}
               <div style={{ padding: '1.5rem 2rem 1rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.75rem', fontWeight: '700', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>{getInitials(selectedProspect.name)}</div>
-                  <div style={{ position: 'absolute', bottom: '0', left: '0', width: '1.75rem', height: '1.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', background: selectedProspect.photoUrl && photoLoaded ? 'transparent' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.5rem', fontWeight: '700', overflow: 'hidden' }}>{selectedProspect.photoUrl ? <img src={selectedProspect.photoUrl} alt={selectedProspect.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: photoLoaded ? 'block' : 'none' }} onLoad={() => setPhotoLoaded(true)} onError={() => setPhotoLoaded(false)} /> : null}{(!selectedProspect.photoUrl || !photoLoaded) && getInitials(selectedProspect.name)}</div>
+                  <div onClick={() => { setShowPhotoInput(!showPhotoInput); setPhotoUrlInput(selectedProspect.photoUrl || ''); }} style={{ position: 'absolute', bottom: '0', left: '0', width: '1.75rem', height: '1.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
                     <CameraIcon style={{ width: '1rem', height: '1rem', color: '#fff' }} />
                   </div>
                   {despachoInfo && (
@@ -624,6 +637,19 @@ export default function TargetPage() {
                     </div>
                   )}
                 </div>
+                  {showPhotoInput && (
+                    <div style={{ position: 'absolute', top: '6rem', left: '1.5rem', zIndex: 50, background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', width: '20rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted-foreground)' }}>URL de la foto</label>
+                        <input type="text" value={photoUrlInput} onChange={(e) => setPhotoUrlInput(e.target.value)} placeholder="https://ejemplo.com/foto.jpg" style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--border)', fontSize: '0.85rem', backgroundColor: 'var(--background)', color: 'var(--foreground)' }} />
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          {selectedProspect.photoUrl && <button onClick={async () => { await updateTarget(selectedProspect.id, { photoUrl: '' }); setSelectedProspect({...selectedProspect, photoUrl: ''}); setPhotoLoaded(false); setShowPhotoInput(false); }} style={{ padding: '0.4rem 0.8rem', borderRadius: '0.5rem', border: '1px solid #ef4444', background: 'transparent', color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer' }}>Quitar foto</button>}
+                          <button onClick={() => setShowPhotoInput(false)} style={{ padding: '0.4rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: 'transparent', color: 'var(--foreground)', fontSize: '0.8rem', cursor: 'pointer' }}>Cancelar</button>
+                          <button onClick={async () => { if (photoUrlInput.trim()) { await updateTarget(selectedProspect.id, { photoUrl: photoUrlInput.trim() }); setSelectedProspect({...selectedProspect, photoUrl: photoUrlInput.trim()}); setPhotoLoaded(false); } setShowPhotoInput(false); }} style={{ padding: '0.4rem 0.8rem', borderRadius: '0.5rem', border: 'none', background: '#6366f1', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}>Guardar</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--foreground)', margin: 0, lineHeight: 1.3 }}>{selectedProspect.name}</h2>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
