@@ -41,6 +41,9 @@ export default function TargetPage() {
   const [firestoreDespachos, setFirestoreDespachos] = useState<Despacho[]>([]);
   const [sortField, setSortField] = useState<SortField>('none');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [editingContact, setEditingContact] = useState(false);
+  const [editContactForm, setEditContactForm] = useState({ email: '', phone: '', linkedinUrl: '', leadSource: '' });
+  const [savingContact, setSavingContact] = useState(false);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -84,6 +87,13 @@ export default function TargetPage() {
     if (selectedProspect) {
       setActiveTab('infos');
       setDespachoDropdownOpen(false);
+      setEditingContact(false);
+      setEditContactForm({
+        email: selectedProspect.email || '',
+        phone: selectedProspect.phone || '',
+        linkedinUrl: selectedProspect.linkedinUrl || '',
+        leadSource: selectedProspect.leadSource || ''
+      });
     }
   }, [selectedProspect]);
 
@@ -447,10 +457,33 @@ export default function TargetPage() {
                   <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} />
                   Back
                 </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', backgroundColor: 'var(--foreground)', color: 'var(--surface)', border: 'none', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
                   <DocumentArrowDownIcon style={{ width: '1rem', height: '1rem' }} />
                   Download PDF
                 </button>
+                <button
+                  onClick={() => {
+                    setEditingContact(true);
+                    setEditContactForm({
+                      email: selectedProspect.email || '',
+                      phone: selectedProspect.phone || '',
+                      linkedinUrl: selectedProspect.linkedinUrl || '',
+                      leadSource: selectedProspect.leadSource || ''
+                    });
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#6366f1', color: '#fff',
+                    border: 'none', borderRadius: '0.5rem',
+                    fontSize: '0.8rem', fontWeight: '600',
+                    cursor: 'pointer', fontFamily: 'inherit'
+                  }}>
+                  <PencilIcon style={{ width: '1rem', height: '1rem' }} />
+                  Editar Contacto
+                </button>
+                </div>
               </div>
 
               {/* Profile Header */}
@@ -697,6 +730,164 @@ export default function TargetPage() {
 
               {/* Reviews Tab */}
               {activeTab === 'reviews' && (<div style={{ padding: '2rem', color: 'var(--secondary)', fontSize: '0.9rem' }}><div style={{ textAlign: 'center', padding: '3rem 0' }}><StarIcon style={{ width: '2.5rem', height: '2.5rem', color: 'var(--border)', margin: '0 auto 1rem' }} /><p style={{ fontWeight: '500' }}>Reviews coming soon</p><p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Notes and reviews about this prospect will be shown here.</p></div></div>)}
+
+            {/* Edit Contact Modal */}
+            {editingContact && (
+              <>
+                <div onClick={() => setEditingContact(false)} style={{
+                  position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1200
+                }} />
+                <div style={{
+                  position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                  backgroundColor: 'var(--surface)', borderRadius: '1rem',
+                  border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+                  zIndex: 1300, width: '480px', maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto',
+                  fontFamily: 'var(--font-sans)'
+                }}>
+                  <div style={{
+                    padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                  }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: 'var(--foreground)' }}>
+                      Editar Contacto
+                    </h3>
+                    <button onClick={() => setEditingContact(false)} style={{
+                      background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem',
+                      color: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <XMarkIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                    </button>
+                  </div>
+                  <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
+                        <EnvelopeIcon style={{ width: '1rem', height: '1rem' }} /> Correo electr\u00f3nico
+                      </label>
+                      <input type="email" value={editContactForm.email}
+                        onChange={(e) => setEditContactForm({ ...editContactForm, email: e.target.value })}
+                        placeholder="correo@ejemplo.com"
+                        style={{
+                          width: '100%', padding: '0.65rem 0.85rem', fontSize: '0.9rem',
+                          border: '1px solid var(--border)', borderRadius: '0.5rem',
+                          backgroundColor: 'var(--background)', color: 'var(--foreground)',
+                          outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'
+                        }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
+                        <PhoneIcon style={{ width: '1rem', height: '1rem' }} /> Tel\u00e9fono
+                      </label>
+                      <input type="tel" value={editContactForm.phone}
+                        onChange={(e) => setEditContactForm({ ...editContactForm, phone: e.target.value })}
+                        placeholder="+52 55 1234 5678"
+                        style={{
+                          width: '100%', padding: '0.65rem 0.85rem', fontSize: '0.9rem',
+                          border: '1px solid var(--border)', borderRadius: '0.5rem',
+                          backgroundColor: 'var(--background)', color: 'var(--foreground)',
+                          outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'
+                        }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
+                        <svg style={{ width: '1rem', height: '1rem' }} viewBox="0 0 24 24" fill="var(--secondary)"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                        URL de LinkedIn
+                      </label>
+                      <input type="url" value={editContactForm.linkedinUrl}
+                        onChange={(e) => setEditContactForm({ ...editContactForm, linkedinUrl: e.target.value })}
+                        placeholder="https://linkedin.com/in/usuario"
+                        style={{
+                          width: '100%', padding: '0.65rem 0.85rem', fontSize: '0.9rem',
+                          border: '1px solid var(--border)', borderRadius: '0.5rem',
+                          backgroundColor: 'var(--background)', color: 'var(--foreground)',
+                          outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'
+                        }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
+                        <TagIcon style={{ width: '1rem', height: '1rem' }} /> Origen del Lead
+                      </label>
+                      <input type="text" value={editContactForm.leadSource}
+                        onChange={(e) => setEditContactForm({ ...editContactForm, leadSource: e.target.value })}
+                        placeholder="LinkedIn, Referido, Web, etc."
+                        style={{
+                          width: '100%', padding: '0.65rem 0.85rem', fontSize: '0.9rem',
+                          border: '1px solid var(--border)', borderRadius: '0.5rem',
+                          backgroundColor: 'var(--background)', color: 'var(--foreground)',
+                          outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'
+                        }} />
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: '1rem 2rem 1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem',
+                    borderTop: '1px solid var(--border)'
+                  }}>
+                    <button onClick={() => setEditingContact(false)} style={{
+                      padding: '0.6rem 1.25rem', backgroundColor: 'transparent',
+                      color: 'var(--secondary)', border: '1px solid var(--border)',
+                      borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: '500',
+                      cursor: 'pointer', fontFamily: 'inherit'
+                    }}>Cancelar</button>
+                    <button
+                      disabled={savingContact}
+                      onClick={async () => {
+                        if (!selectedProspect) return;
+                        setSavingContact(true);
+                        try {
+                          const updates: Partial<Target> = {
+                            email: editContactForm.email.trim(),
+                            phone: editContactForm.phone.trim(),
+                            linkedinUrl: editContactForm.linkedinUrl.trim() || undefined,
+                            leadSource: editContactForm.leadSource.trim() || undefined
+                          };
+                          if (selectedProspect.createdBy === 'representative') {
+                            const newId = await createTarget({
+                              name: selectedProspect.name,
+                              company: selectedProspect.company || '',
+                              email: updates.email || '',
+                              phone: updates.phone || '',
+                              notes: '',
+                              brandCount: selectedProspect.brandCount,
+                              linkedinUrl: updates.linkedinUrl,
+                              leadSource: updates.leadSource
+                            });
+                            setSelectedProspect({
+                              ...selectedProspect,
+                              id: newId,
+                              email: updates.email || '',
+                              phone: updates.phone || '',
+                              linkedinUrl: updates.linkedinUrl,
+                              leadSource: updates.leadSource,
+                              createdBy: 'system'
+                            });
+                          } else {
+                            await updateTarget(selectedProspect.id, updates);
+                            setSelectedProspect({
+                              ...selectedProspect,
+                              email: updates.email || '',
+                              phone: updates.phone || '',
+                              linkedinUrl: updates.linkedinUrl,
+                              leadSource: updates.leadSource
+                            });
+                          }
+                          setEditingContact(false);
+                        } catch (err) {
+                          console.error('Error updating contact:', err);
+                          alert('Error al guardar. Intenta de nuevo.');
+                        } finally {
+                          setSavingContact(false);
+                        }
+                      }}
+                      style={{
+                        padding: '0.6rem 1.5rem', backgroundColor: '#6366f1',
+                        color: '#fff', border: 'none', borderRadius: '0.5rem',
+                        fontSize: '0.85rem', fontWeight: '600',
+                        cursor: savingContact ? 'not-allowed' : 'pointer',
+                        fontFamily: 'inherit', opacity: savingContact ? 0.7 : 1
+                      }}>{savingContact ? 'Guardando...' : 'Guardar Cambios'}</button>
+                  </div>
+                </div>
+              </>
+            )}
             </>
           );
         })()}
