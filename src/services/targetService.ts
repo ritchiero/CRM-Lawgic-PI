@@ -31,6 +31,7 @@ export interface Target {
     city?: string;
     state?: string;
   // Field to track origin
+  clientStatus?: string;
   copiedFromProspectId?: string;
 }
 
