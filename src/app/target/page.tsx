@@ -22,6 +22,24 @@ const DESPACHOS = [
   { name: 'Dumont Bergman Bider', color: '#06b6d4', initials: 'DB', logo: '/logos/dumont.png' },
 ];
 
+const CLIENT_STATUSES = [
+  { value: 'Potencial', label: 'Potencial', color: '#6366f1', emoji: '🟣', description: 'Prospecto nuevo, sin contacto aún' },
+  { value: 'Contactado', label: 'Contactado', color: '#8b5cf6', emoji: '📞', description: 'Ya se hizo primer contacto' },
+  { value: 'Interesado', label: 'Interesado', color: '#3b82f6', emoji: '👍', description: 'Mostró interés en el servicio' },
+  { value: 'En negociación', label: 'En negociación', color: '#f59e0b', emoji: '🤝', description: 'Negociación activa, cerca de cerrar' },
+  { value: 'Cliente activo', label: 'Cliente activo', color: '#22c55e', emoji: '✅', description: 'Cliente que ya contrató' },
+  { value: 'No interesado', label: 'No interesado', color: '#6b7280', emoji: '🚫', description: 'Dijo que no, pero sin mala actitud' },
+  { value: 'Grosero/Hostil', label: 'Grosero/Hostil', color: '#ef4444', emoji: '⚠️', description: 'Mala experiencia, evitar contacto' },
+  { value: 'Ex-cliente', label: 'Ex-cliente', color: '#f97316', emoji: '🔄', description: 'Fue cliente pero se bajó' },
+  { value: 'Descartado', label: 'Descartado', color: '#94a3b8', emoji: '❌', description: 'No vale la pena seguir' },
+];
+
+const HIDDEN_STATUSES = ['No interesado', 'Grosero/Hostil', 'Descartado'];
+
+const getClientStatusInfo = (status: string | undefined) => {
+  return CLIENT_STATUSES.find(s => s.value === status) || null;
+};
+
 type SortField = 'name' | 'brandCount' | 'none';
 type SortDirection = 'asc' | 'desc';
 
@@ -44,6 +62,10 @@ export default function TargetPage() {
   const [editingContact, setEditingContact] = useState(false);
   const [editContactForm, setEditContactForm] = useState({ email: '', phone: '', linkedinUrl: '', leadSource: '' });
   const [savingContact, setSavingContact] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [hideDiscarded, setHideDiscarded] = useState(true);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -87,6 +109,7 @@ export default function TargetPage() {
     if (selectedProspect) {
       setActiveTab('infos');
       setDespachoDropdownOpen(false);
+      setStatusDropdownOpen(false);
       setEditingContact(false);
       setEditContactForm({
         email: selectedProspect.email || '',
@@ -102,6 +125,17 @@ export default function TargetPage() {
     const handleClickOutside = (event: MouseEvent) => {
       if (despachoRef.current && !despachoRef.current.contains(event.target as Node)) {
         setDespachoDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Close status dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+        setStatusDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -173,6 +207,17 @@ export default function TargetPage() {
       );
     }
 
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      allItems = allItems.filter(p => (p.clientStatus || '') === statusFilter);
+    }
+
+    // Hide discarded/unwanted statuses
+    if (hideDiscarded) {
+      allItems = allItems.filter(p => !HIDDEN_STATUSES.includes(p.clientStatus || ''));
+    
+    }
+
     // Apply sorting
     if (sortField !== 'none') {
       allItems.sort((a, b) => {
@@ -193,7 +238,7 @@ export default function TargetPage() {
     }
 
     return allItems;
-  }, [prospects, representatives, searchTerm, sortField, sortDirection]);
+  }, [prospects, representatives, searchTerm, sortField, sortDirection, statusFilter, hideDiscarded]);
 
   const handleExportCSV = () => {
     const withEmail = filteredProspects.filter(p => p.email && p.email.trim() !== '');
@@ -260,6 +305,31 @@ export default function TargetPage() {
     } catch (error) {
       console.error('Error updating despacho:', error);
       alert('Error al asignar despacho. Intenta de nuevo.');
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!selectedProspect) return;
+    try {
+      if (selectedProspect.createdBy === 'representative') {
+        const newId = await createTarget({
+          name: selectedProspect.name,
+          company: selectedProspect.company || '',
+          email: selectedProspect.email || '',
+          phone: selectedProspect.phone || '',
+          notes: '',
+          brandCount: selectedProspect.brandCount,
+          clientStatus: newStatus || undefined,
+        });
+        setSelectedProspect({ ...selectedProspect, id: newId, clientStatus: newStatus, createdBy: 'system' });
+      } else {
+        await updateTarget(selectedProspect.id, { clientStatus: newStatus || undefined });
+        setSelectedProspect({ ...selectedProspect, clientStatus: newStatus });
+      }
+      setStatusDropdownOpen(false);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Error al cambiar estatus. Intenta de nuevo.');
     }
   };
 
@@ -385,14 +455,52 @@ export default function TargetPage() {
             <ScrapeIMPIButton />
           </div>
 
+          {/* Status Filter Bar */}
+          <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--secondary)', marginRight: '0.25rem' }}>Estatus:</span>
+            <button
+              onClick={() => { setStatusFilter('all'); setHideDiscarded(false); }}
+              style={{
+                padding: '0.3rem 0.75rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '500',
+                border: statusFilter === 'all' && !hideDiscarded ? '1.5px solid #6366f1' : '1px solid var(--border)',
+                backgroundColor: statusFilter === 'all' && !hideDiscarded ? '#6366f110' : 'var(--surface)',
+                color: statusFilter === 'all' && !hideDiscarded ? '#6366f1' : 'var(--secondary)',
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease'
+              }}>Todos</button>
+            <button
+              onClick={() => { setStatusFilter('all'); setHideDiscarded(true); }}
+              style={{
+                padding: '0.3rem 0.75rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '500',
+                border: statusFilter === 'all' && hideDiscarded ? '1.5px solid #6366f1' : '1px solid var(--border)',
+                backgroundColor: statusFilter === 'all' && hideDiscarded ? '#6366f110' : 'var(--surface)',
+                color: statusFilter === 'all' && hideDiscarded ? '#6366f1' : 'var(--secondary)',
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease'
+              }}>Activos</button>
+            {CLIENT_STATUSES.map(s => (
+              <button key={s.value}
+                onClick={() => { setStatusFilter(s.value); setHideDiscarded(false); }}
+                style={{
+                  padding: '0.3rem 0.75rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '500',
+                  border: statusFilter === s.value ? '1.5px solid ' + s.color : '1px solid var(--border)',
+                  backgroundColor: statusFilter === s.value ? s.color + '12' : 'var(--surface)',
+                  color: statusFilter === s.value ? s.color : 'var(--secondary)',
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease',
+                  display: 'flex', alignItems: 'center', gap: '0.3rem'
+                }}>
+                <span style={{ fontSize: '0.7rem' }}>{s.emoji}</span> {s.label}
+              </button>
+            ))}
+          </div>
+
           {/* Client List Table */}
           <div style={{ backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 0.75fr', padding: '0.75rem 1.5rem', backgroundColor: 'var(--surface)', borderBottom: '2px solid var(--border)', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.75fr 0.75fr', padding: '0.75rem 1.5rem', backgroundColor: 'var(--surface)', borderBottom: '2px solid var(--border)', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
               <button onClick={() => handleSort('name')} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem', color: sortField === 'name' ? '#6366f1' : 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'inherit' }}>
                 Nombre del Cliente
                 <SortIcon field="name" />
               </button>
               <span style={{ display: 'flex', alignItems: 'center' }}>Despacho / Empresa</span>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Estatus</span>
               <button onClick={() => handleSort('brandCount')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem', color: sortField === 'brandCount' ? '#6366f1' : 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'inherit' }}>
                 Marcas
                 <SortIcon field="brandCount" />
@@ -403,7 +511,7 @@ export default function TargetPage() {
             {!loading && filteredProspects.map((prospect) => {
               const despacho = getDespachoForProspect(prospect);
               return (
-              <div key={prospect.id} onClick={() => setSelectedProspect(prospect)} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 0.75fr', padding: '0.875rem 1.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.9375rem', color: 'var(--foreground)', cursor: 'pointer', transition: 'background-color 0.15s ease', alignItems: 'center' }}
+              <div key={prospect.id} onClick={() => setSelectedProspect(prospect)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.75fr 0.75fr', padding: '0.875rem 1.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.9375rem', color: 'var(--foreground)', cursor: 'pointer', transition: 'background-color 0.15s ease', alignItems: 'center' }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
@@ -421,6 +529,23 @@ export default function TargetPage() {
                   ) : (
                     <span style={{ fontSize: '0.8rem', color: 'var(--secondary)', fontStyle: 'italic' }}>—</span>
                   )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  {(() => {
+                    const statusInfo = getClientStatusInfo(prospect.clientStatus);
+                    if (!statusInfo) return <span style={{ fontSize: '0.7rem', color: 'var(--secondary)' }}>—</span>;
+                    return (
+                      <span style={{
+                        padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.7rem', fontWeight: '600',
+                        color: statusInfo.color, backgroundColor: statusInfo.color + '12',
+                        border: '1px solid ' + statusInfo.color + '30',
+                        display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap'
+                      }}>
+                        <span style={{ fontSize: '0.65rem' }}>{statusInfo.emoji}</span>
+                        {statusInfo.label}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   {prospect.brandCount !== undefined && prospect.brandCount > 0 ? (
@@ -503,6 +628,79 @@ export default function TargetPage() {
                   <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--foreground)', margin: 0, lineHeight: 1.3 }}>{selectedProspect.name}</h2>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                     <span style={{ display: 'inline-block', padding: '0.2rem 0.65rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '600', color: getStageColor(selectedProspect.stage), border: '1.5px solid ' + getStageColor(selectedProspect.stage), backgroundColor: getStageColor(selectedProspect.stage) + '12' }}>{selectedProspect.stage}</span>
+                {/* Client Status Badge */}
+                <div ref={statusDropdownRef} style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.35rem',
+                      padding: '0.2rem 0.6rem', borderRadius: '0.5rem',
+                      border: '1px solid var(--border)',
+                      background: (() => { const s = getClientStatusInfo(selectedProspect.clientStatus); return s ? s.color + '12' : 'var(--background)'; })(),
+                      cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit', transition: 'all 0.15s ease'
+                    }}>
+                    {(() => {
+                      const s = getClientStatusInfo(selectedProspect.clientStatus);
+                      if (s) {
+                        return <>
+                          <span style={{ fontSize: '0.75rem' }}>{s.emoji}</span>
+                          <span style={{ fontSize: '0.75rem', fontWeight: '600', color: s.color }}>{s.label}</span>
+                        </>;
+                      }
+                      return <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>Asignar estatus</span>;
+                    })()}
+                    <PencilIcon style={{ width: '0.65rem', height: '0.65rem', color: 'var(--secondary)', marginLeft: '0.15rem' }} />
+                  </button>
+                  {statusDropdownOpen && (
+                    <div style={{
+                      position: 'absolute', top: 'calc(100% + 0.35rem)', left: 0, minWidth: '280px',
+                      backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 1100, overflow: 'hidden'
+                    }}>
+                      <div style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--border)', fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Estatus del Cliente
+                      </div>
+                      <div style={{ maxHeight: '300px', overflowY: 'auto', padding: '0.35rem' }}>
+                        {CLIENT_STATUSES.map(s => (
+                          <button key={s.value}
+                            onClick={() => handleStatusChange(s.value)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%',
+                              padding: '0.5rem 0.6rem', border: 'none',
+                              background: selectedProspect.clientStatus === s.value ? s.color + '15' : 'transparent',
+                              borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem',
+                              color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left',
+                              transition: 'background 0.1s'
+                            }}
+                            onMouseEnter={(e) => { if (selectedProspect.clientStatus !== s.value) e.currentTarget.style.background = 'var(--background)'; }}
+                            onMouseLeave={(e) => { if (selectedProspect.clientStatus !== s.value) e.currentTarget.style.background = 'transparent'; }}>
+                            <span style={{ fontSize: '1rem', width: '1.5rem', textAlign: 'center' }}>{s.emoji}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: '600', fontSize: '0.8rem' }}>{s.label}</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginTop: '0.1rem' }}>{s.description}</div>
+                            </div>
+                            {selectedProspect.clientStatus === s.value && <CheckIcon style={{ width: '0.9rem', height: '0.9rem', color: s.color, flexShrink: 0 }} />}
+                          </button>
+                        ))}
+                      </div>
+                      {selectedProspect.clientStatus && (
+                        <div style={{ borderTop: '1px solid var(--border)', padding: '0.35rem' }}>
+                          <button onClick={() => handleStatusChange('')}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%',
+                              padding: '0.5rem 0.6rem', border: 'none', background: 'transparent',
+                              borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem',
+                              color: '#ef4444', fontFamily: 'inherit', textAlign: 'left'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = '#ef444410'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                            <XMarkIcon style={{ width: '0.9rem', height: '0.9rem' }} /> Quitar estatus
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                     {/* Editable Despacho / Filiación */}
                     <div ref={despachoRef} style={{ position: 'relative' }}>
