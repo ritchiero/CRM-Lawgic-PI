@@ -761,7 +761,7 @@ export default function TargetPage() {
                   <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     <div>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
-                        <EnvelopeIcon style={{ width: '1rem', height: '1rem' }} /> Correo electr\u00f3nico
+                        <EnvelopeIcon style={{ width: '1rem', height: '1rem' }} /> Correo electrónico
                       </label>
                       <input type="email" value={editContactForm.email}
                         onChange={(e) => setEditContactForm({ ...editContactForm, email: e.target.value })}
@@ -775,7 +775,7 @@ export default function TargetPage() {
                     </div>
                     <div>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
-                        <PhoneIcon style={{ width: '1rem', height: '1rem' }} /> Tel\u00e9fono
+                        <PhoneIcon style={{ width: '1rem', height: '1rem' }} /> Teléfono
                       </label>
                       <input type="tel" value={editContactForm.phone}
                         onChange={(e) => setEditContactForm({ ...editContactForm, phone: e.target.value })}
