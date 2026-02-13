@@ -1,10 +1,10 @@
 // /src/components/ScrapeIMPIButton.tsx
-// MT-P3: Enhanced with progress polling, proxy health check, and target-based scraping
+// MT-P4: Handles Firestore updates on client side after receiving API results
 
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, Timestamp, query, orderBy } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
 
 interface ScrapeResult {
@@ -88,12 +88,32 @@ export default function ScrapeIMPIButton() {
         return;
       }
 
+      // Save results to Firestore from the client side
+      setMessage('Guardando resultados en Firestore...');
+      const apiResults: ScrapeResult[] = data.results || [];
+      let savedCount = 0;
+
+      for (const result of apiResults) {
+        if (result.success && result.id) {
+          try {
+            const targetRef = doc(db, 'targets', result.id);
+            await updateDoc(targetRef, {
+              brandCount: result.brandCount,
+              lastScraped: Timestamp.now(),
+            });
+            savedCount++;
+          } catch (fbErr) {
+            console.error('Error saving to Firestore for ' + result.id + ':', fbErr);
+          }
+        }
+        setProgress({ current: savedCount, total: apiResults.filter(r => r.success).length });
+      }
+
       const summary = data.summary;
-      setProgress({ current: summary.successful + summary.failed, total: summary.total });
       setMessage(
-        'Completado: ' + summary.successful + ' exitosos, ' + summary.failed + ' con error de ' + summary.total + ' targets.'
+        'Completado: ' + summary.successful + ' exitosos, ' + summary.failed + ' con error de ' + summary.total + ' targets. ' + savedCount + ' guardados en Firestore.'
       );
-      setResults(data.results || []);
+      setResults(apiResults);
       checkProxy();
 
     } catch (error) {
