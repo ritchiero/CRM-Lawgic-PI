@@ -166,12 +166,12 @@ export default function ExpedientesPage() {
         consecutiveErrors = 0;
         if (result && result.status === 'found') {
           found++;
-          const apoName = result.apoderado?.Nombre || 'N/A';
+          const apoName = result.apoderado?.nombre || 'N/A';
           await setDoc(doc(db, 'expedientes', exp.toString()), {
             ...result, savedAt: Timestamp.now(), expediente_number: exp,
           });
           setState(prev => ({ ...prev, totalProcessed: processed, totalFound: found, lastSaved: `${exp} - ${apoName}` }));
-          addLog(`${exp}: ${result.datos_generales?.['Denominaci\u00f3n'] || 'N/A'} | Apo: ${apoName}`);
+          addLog(`${exp}: ${result.datos_generales?.denominacion || 'N/A'} | Apo: ${apoName}`);
         } else {
           notFound++;
           setState(prev => ({ ...prev, totalProcessed: processed, totalNotFound: notFound, lastSaved: `${exp} - no encontrado` }));
