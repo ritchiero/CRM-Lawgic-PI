@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { getFirestore, collection, doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
-import { app } from '../../lib/firebase';
+import { collection, doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { getDbInstance } from '../../lib/firebase';
 
-const db = getFirestore(app);
+const db = getDbInstance();
 
 interface ExpedienteData {
   status: string;
