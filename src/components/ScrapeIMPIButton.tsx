@@ -1,11 +1,11 @@
 // /src/components/ScrapeIMPIButton.tsx
-// MT-P4: Handles Firestore updates on client side after receiving API results
-
+// MT-P4: Handles Firestore updates on client side, with BATCHING support
 'use client';
-
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc, Timestamp, query, orderBy } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
+
+const BATCH_SIZE = 50;
 
 interface ScrapeResult {
   id: string;
@@ -52,11 +52,11 @@ export default function ScrapeIMPIButton() {
 
     try {
       const db = getDbInstance();
+
       setMessage('Leyendo targets...');
       const targetsSnapshot = await getDocs(
         query(collection(db, 'targets'), orderBy('name', 'asc'))
       );
-
       const allTargets = targetsSnapshot.docs.map(d => ({
         id: d.id,
         name: d.data().name,
@@ -70,50 +70,83 @@ export default function ScrapeIMPIButton() {
 
       const total = allTargets.length;
       setProgress({ current: 0, total });
-      setMessage('Enviando ' + total + ' targets al proxy MARCIA...');
 
-      const response = await fetch('/api/scrape-impi', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ representatives: allTargets }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        setMessage('Error: ' + data.error);
-        if (data.proxyStatus) {
-          setProxyStatus(data.proxyStatus.status);
-        }
-        return;
+      // Split into batches
+      const batches: Array<Array<{ id: string; name: string }>> = [];
+      for (let i = 0; i < allTargets.length; i += BATCH_SIZE) {
+        batches.push(allTargets.slice(i, i + BATCH_SIZE));
       }
 
-      // Save results to Firestore from the client side
-      setMessage('Guardando resultados en Firestore...');
-      const apiResults: ScrapeResult[] = data.results || [];
-      let savedCount = 0;
+      const allResults: ScrapeResult[] = [];
+      let totalProcessed = 0;
+      let totalSaved = 0;
+      let totalSuccessful = 0;
+      let totalFailed = 0;
 
-      for (const result of apiResults) {
-        if (result.success && result.id) {
-          try {
-            const targetRef = doc(db, 'targets', result.id);
-            await updateDoc(targetRef, {
-              brandCount: result.brandCount,
-              lastScraped: Timestamp.now(),
-            });
-            savedCount++;
-          } catch (fbErr) {
-            console.error('Error saving to Firestore for ' + result.id + ':', fbErr);
+      for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+        const batch = batches[batchIdx];
+        const batchNum = batchIdx + 1;
+        setMessage('Lote ' + batchNum + '/' + batches.length + ': Enviando ' + batch.length + ' targets al proxy (' + totalProcessed + '/' + total + ' procesados)...');
+
+        try {
+          const response = await fetch('/api/scrape-impi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ representatives: batch }),
+          });
+
+          const data = await response.json();
+
+          if (!data.success) {
+            setMessage('Error en lote ' + batchNum + ': ' + data.error);
+            if (data.proxyStatus) {
+              setProxyStatus(data.proxyStatus.status);
+            }
+            totalFailed += batch.length;
+            totalProcessed += batch.length;
+            setProgress({ current: totalProcessed, total });
+            continue;
           }
+
+          const batchResults: ScrapeResult[] = data.results || [];
+          totalSuccessful += data.summary.successful;
+          totalFailed += data.summary.failed;
+
+          // Save results to Firestore from client side
+          setMessage('Lote ' + batchNum + '/' + batches.length + ': Guardando en Firestore...');
+          for (const result of batchResults) {
+            if (result.success && result.id) {
+              try {
+                const targetRef = doc(db, 'targets', result.id);
+                await updateDoc(targetRef, {
+                  brandCount: result.brandCount,
+                  lastScraped: Timestamp.now(),
+                });
+                totalSaved++;
+              } catch (fbErr) {
+                console.error('Error saving to Firestore for ' + result.id + ':', fbErr);
+              }
+            }
+          }
+
+          allResults.push(...batchResults);
+          totalProcessed += batch.length;
+          setProgress({ current: totalProcessed, total });
+          setResults([...allResults]);
+
+        } catch (batchError) {
+          console.error('Error en lote ' + batchNum + ':', batchError);
+          totalFailed += batch.length;
+          totalProcessed += batch.length;
+          setProgress({ current: totalProcessed, total });
+          setMessage('Error en lote ' + batchNum + ': ' + (batchError instanceof Error ? batchError.message : 'desconocido') + '. Continuando...');
         }
-        setProgress({ current: savedCount, total: apiResults.filter(r => r.success).length });
       }
 
-      const summary = data.summary;
       setMessage(
-        'Completado: ' + summary.successful + ' exitosos, ' + summary.failed + ' con error de ' + summary.total + ' targets. ' + savedCount + ' guardados en Firestore.'
+        'Completado: ' + totalSuccessful + ' exitosos, ' + totalFailed + ' con error de ' + total + ' targets. ' + totalSaved + ' guardados en Firestore. (' + batches.length + ' lotes)'
       );
-      setResults(apiResults);
+      setResults(allResults);
       checkProxy();
 
     } catch (error) {
@@ -125,7 +158,6 @@ export default function ScrapeIMPIButton() {
   };
 
   const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
-
   const proxyBadgeBg = proxyStatus === 'ok' ? '#dcfce7' : '#fef2f2';
   const proxyBadgeColor = proxyStatus === 'ok' ? '#166534' : '#991b1b';
   const proxyLabel = proxyStatus === 'ok' ? 'Proxy: Conectado' : 'Proxy: Desconectado';
@@ -156,16 +188,14 @@ export default function ScrapeIMPIButton() {
           {loading ? 'Actualizando... ' + pct + '%' : 'Actualizar Marcas IMPI'}
         </button>
         {proxyStatus && (
-          <span
-            style={{
-              fontSize: '0.7rem',
-              padding: '0.25rem 0.5rem',
-              borderRadius: '9999px',
-              backgroundColor: proxyBadgeBg,
-              color: proxyBadgeColor,
-              fontWeight: '500',
-            }}
-          >
+          <span style={{
+            fontSize: '0.7rem',
+            padding: '0.25rem 0.5rem',
+            borderRadius: '9999px',
+            backgroundColor: proxyBadgeBg,
+            color: proxyBadgeColor,
+            fontWeight: '500',
+          }}>
             {proxyLabel}
           </span>
         )}
