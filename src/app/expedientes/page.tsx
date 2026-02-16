@@ -181,7 +181,7 @@ export default function ExpedientesPage() {
           await saveCheckpoint(jobId, { ultimoProcesado: exp, totalProcesados: processed, totalExitosos: found, totalNoEncontrados: notFound, totalFallidos: errors });
           addLog(`Checkpoint guardado en expediente ${exp}`);
         }
-        const delay = 5000 + Math.random() * 7000;
+        const delay = 1000 + Math.random() * 2000;
         await sleep(delay);
       } catch (e) {
         errors++;
