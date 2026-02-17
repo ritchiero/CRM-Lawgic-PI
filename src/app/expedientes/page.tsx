@@ -167,7 +167,7 @@ export default function ExpedientesPage() {
         if (result && result.status === 'found') {
           found++;
           const apoName = result.apoderado?.nombre || 'N/A';
-          await setDoc(doc(db, 'expedientes', exp.toString()), {
+          await setDoc(doc(db, 'expedientes_acervo', exp.toString()), {
             ...result, savedAt: Timestamp.now(), expediente_number: exp,
           });
           setState(prev => ({ ...prev, totalProcessed: processed, totalFound: found, lastSaved: `${exp} - ${apoName}` }));
