@@ -9,6 +9,7 @@ const db = getDbInstance();
 interface ExpedienteData {
   status: string;
   expediente_query: string;
+  source?: string;
   datos_generales?: Record<string, string>;
   titular?: Record<string, string>;
   apoderado?: Record<string, string>;
@@ -115,6 +116,39 @@ export default function ExpedientesPage() {
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   const scrapeOne = async (expediente: number): Promise<ExpedienteData | null> => {
+    // 1. Check Firebase 'expedientes' collection first (populated by EC2 Python scraper)
+    try {
+      const fbDoc = await getDoc(doc(db, 'expedientes', expediente.toString()));
+      if (fbDoc.exists()) {
+        const d = fbDoc.data();
+        const dg = d.datos_generales || {};
+        return {
+          status: 'found',
+          expediente_query: expediente.toString(),
+          source: 'firebase',
+          datos_generales: {
+            numero_expediente: dg.numero_expediente || expediente.toString(),
+            denominacion: dg.denominacion || '',
+            tipo_solicitud: dg.tipo_solicitud || '',
+            tipo_marca: dg.tipo_marca || '',
+            fecha_presentacion: dg.fecha_presentacion || '',
+            fecha_concesion: dg.fecha_concesion || '',
+            fecha_vigencia: dg.fecha_vigencia || '',
+            fecha_publicacion: dg.fecha_publicacion || '',
+            numero_registro: dg.numero_registro || '',
+            descripcion_marca: dg.descripcion_marca || '',
+          },
+          titular: d.titular || {},
+          apoderado: d.apoderado || {},
+          establecimiento: d.establecimiento || {},
+          productos_servicios: d.productos_servicios || '',
+          tramite: d.tramite || {},
+        } as ExpedienteData;
+      }
+    } catch (fbErr) {
+      addLog('Firebase lookup failed for ' + expediente + ': ' + String(fbErr));
+    }
+    // 2. Fallback to IMPI direct scraping via API route
     const res = await fetch('/api/acervo-expedientes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
