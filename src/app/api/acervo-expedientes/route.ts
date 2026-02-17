@@ -11,7 +11,7 @@ interface Session {
 
 let cachedSession: Session | null = null;
 let sessionTimestamp = 0;
-const SESSION_TTL = 60000; // 1 minute - shorter TTL to keep cookies fresh
+const SESSION_TTL = 60000;
 
 async function getSession(): Promise<Session | null> {
   const now = Date.now();
@@ -31,7 +31,6 @@ async function getSession(): Promise<Session | null> {
     const match = html.match(/javax\.faces\.ViewState.*?value="([^"]+)"/);
     if (!match) return null;
     
-    // Extract cookies from response
     const setCookieHeaders = res.headers.getSetCookie ? res.headers.getSetCookie() : [];
     const cookies = setCookieHeaders.map((c: string) => c.split(';')[0]).join('; ');
     
@@ -43,65 +42,89 @@ async function getSession(): Promise<Session | null> {
   }
 }
 
-function parseExpedienteHtml(html: string): Record<string, string> | null {
-  // Check if we got results
-  if (html.includes('No se encontraron registros') || html.includes('sin resultados')) {
-    return null;
-  }
-  
-  const fields: Record<string, string> = {};
-  
-  // Parse table rows with label-value pairs
-  const rowRegex = /<td[^>]*class="[^"]*(?:label|etiqueta)[^"]*"[^>]*>([^<]*)<\/td>\s*<td[^>]*>([^<]*)<\/td>/gi;
+function parseExpedienteHtml(html: string): Record<string, unknown> | null {
+  const data: Record<string, unknown> = {
+    datos_generales: {} as Record<string, string>,
+    titular: {} as Record<string, string>,
+    apoderado: {} as Record<string, string>,
+    establecimiento: {} as Record<string, string>,
+    productos_servicios: '',
+    tramite: {} as Record<string, string>,
+  };
+  const dg = data.datos_generales as Record<string, string>;
+  const tit = data.titular as Record<string, string>;
+  const apo = data.apoderado as Record<string, string>;
+  const est = data.establecimiento as Record<string, string>;
+  const tra = data.tramite as Record<string, string>;
+
+  const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>(.*?)<\/td>/gis;
   let m;
   while ((m = rowRegex.exec(html)) !== null) {
-    const key = m[1].trim().replace(/:$/, '');
-    const value = m[2].trim();
-    if (key && value) fields[key] = value;
-  }
-  
-  // Also try output/span elements with IDs
-  const outputRegex = /<(?:span|output)[^>]*id="[^"]*(?:expediente|marca|titular|clase|fecha|tipo|situacion|vigencia)[^"]*"[^>]*>([^<]+)<\/(?:span|output)>/gi;
-  while ((m = outputRegex.exec(html)) !== null) {
-    const id = m[0].match(/id="([^"]*)"/)?.[1] || '';
-    const value = m[1].trim();
-    if (value) fields[id] = value;
-  }
-  
-  // Try generic table parsing - look for data table rows
-  const trRegex = /<tr[^>]*>\s*<td[^>]*>([^<]*)<\/td>\s*<td[^>]*>([^<]*)<\/td>/gi;
-  while ((m = trRegex.exec(html)) !== null) {
-    const key = m[1].trim();
-    const value = m[2].trim();
-    if (key && value && key.length < 50) fields[key] = value;
+    const k = m[1].replace(/<[^>]*>/g, '').trim().replace(/:$/, '').trim();
+    const v = m[2].replace(/<[^>]*>/g, '').trim();
+    if (!k || !v) continue;
+    const ku = k.toUpperCase();
+    
+    if (['EXPEDIENTE', 'NO. DE EXPEDIENTE', 'NUMERO DE EXPEDIENTE'].includes(ku)) {
+      dg.expediente = v;
+    } else if (['DENOMINACION', 'SIGNO DISTINTIVO', 'MARCA'].includes(ku)) {
+      dg.denominacion = v;
+    } else if (['CLASE', 'CLASE NIZA'].includes(ku)) {
+      dg.clase = v;
+    } else if (['TIPO DE SIGNO', 'TIPO SIGNO', 'TIPO'].includes(ku)) {
+      dg.tipo_signo = v;
+    } else if (['FECHA DE PRESENTACION', 'FECHA PRESENTACION'].includes(ku)) {
+      dg.fecha_presentacion = v;
+    } else if (['FECHA DE REGISTRO', 'FECHA REGISTRO', 'FECHA DE CONCESION'].includes(ku)) {
+      dg.fecha_registro = v;
+    } else if (['SITUACION', 'SITUACION DEL EXPEDIENTE', 'STATUS'].includes(ku)) {
+      dg.situacion = v;
+    } else if (['VIGENCIA', 'FECHA DE VIGENCIA'].includes(ku)) {
+      dg.vigencia = v;
+    } else if (ku.includes('TITULAR') || ku === 'NOMBRE DEL TITULAR') {
+      if (!tit.nombre) tit.nombre = v;
+    } else if (ku === 'NACIONALIDAD') {
+      tit.nacionalidad = v;
+    } else if (ku.includes('APODERADO')) {
+      if (!apo.nombre) apo.nombre = v;
+    } else if (ku.includes('ESTABLECIMIENTO')) {
+      est.nombre = v;
+    } else if (ku.includes('UBICACION')) {
+      est.ubicacion = v;
+    } else if (['PRODUCTOS', 'SERVICIOS', 'PRODUCTOS O SERVICIOS'].includes(ku)) {
+      data.productos_servicios = v;
+    } else if (['TRAMITE', 'TIPO DE TRAMITE'].includes(ku)) {
+      tra.tipo = v;
+    } else if (['NUMERO DE TRAMITE', 'NO. TRAMITE'].includes(ku)) {
+      tra.numero = v;
+    }
   }
 
-  return Object.keys(fields).length > 0 ? fields : null;
+  const hasData = !!(dg.expediente || dg.denominacion || tit.nombre);
+  return hasData ? data : null;
 }
 
-async function queryExpediente(expediente: string, session: Session): Promise<Record<string, string> | null> {
+async function queryExpediente(
+  expediente: string,
+  session: Session
+): Promise<Record<string, unknown> | null> {
   try {
+    // Use exact same form fields as working Python scraper
     const formData = new URLSearchParams();
-    formData.append('javax.faces.partial.ajax', 'true');
-    formData.append('javax.faces.source', 'busquedaForm:btnBuscar');
-    formData.append('javax.faces.partial.execute', '@all');
-    formData.append('javax.faces.partial.render', 'busquedaForm:pnlResultados');
-    formData.append('busquedaForm:btnBuscar', 'busquedaForm:btnBuscar');
-    formData.append('busquedaForm', 'busquedaForm');
-    formData.append('busquedaForm:expediente', expediente);
+    formData.append('frmBsqExp', 'frmBsqExp');
+    formData.append('frmBsqExp:expedienteId', expediente);
+    formData.append('frmBsqExp:busquedaId2', '');
     formData.append('javax.faces.ViewState', session.viewState);
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/x-www-form-urlencoded',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Accept': 'application/xml, text/xml, */*; q=0.01',
-      'Faces-Request': 'partial/ajax',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Referer': 'https://acervomarcas.impi.gob.mx:8181/marcanet/vistas/common/datos/bsqExpedienteCompleto.pgi',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'es-MX,es;q=0.9',
+      'Referer': SEARCH_URL,
       'Origin': 'https://acervomarcas.impi.gob.mx:8181',
     };
     
-    // Add session cookies if available
     if (session.cookies) {
       headers['Cookie'] = session.cookies;
     }
@@ -110,11 +133,11 @@ async function queryExpediente(expediente: string, session: Session): Promise<Re
       method: 'POST',
       headers,
       body: formData.toString(),
+      redirect: 'follow',
     });
     
     const text = await res.text();
     
-    // Check for ViewState error (session expired)
     if (text.includes('ViewExpiredException') || text.includes('view could not be restored')) {
       cachedSession = null;
       return null;
@@ -132,10 +155,11 @@ export async function GET() {
     const session = await getSession();
     return NextResponse.json({
       status: session ? 'ok' : 'error',
-      service: 'direct-http',
+      service: 'direct-http-v4',
       mode: 'direct-impi',
       viewStateAvailable: !!session,
       hasCookies: !!(session && session.cookies),
+      formFields: 'frmBsqExp (matching python scraper)',
       timestamp: new Date().toISOString(),
     });
   } catch (error: unknown) {
@@ -152,7 +176,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { expediente, expedientes } = body;
-    // Get fresh session for each POST to ensure cookies work
+    // Fresh session for each POST
     cachedSession = null;
     const session = await getSession();
     if (!session) {
@@ -167,7 +191,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ results: [] });
     }
     if (expedientes && Array.isArray(expedientes)) {
-      const results = [];
+      const results: Record<string, unknown>[] = [];
       for (const exp of expedientes) {
         const result = await queryExpediente(String(exp), session);
         if (result) results.push(result);
