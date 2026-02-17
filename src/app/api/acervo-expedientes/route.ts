@@ -57,7 +57,7 @@ function parseExpedienteHtml(html: string): Record<string, unknown> | null {
   const est = data.establecimiento as Record<string, string>;
   const tra = data.tramite as Record<string, string>;
 
-  const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>(.*?)<\/td>/gis;
+  const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>(.*?)<\/td>/gi;
   let m;
   while ((m = rowRegex.exec(html)) !== null) {
     const k = m[1].replace(/<[^>]*>/g, '').trim().replace(/:$/, '').trim();
