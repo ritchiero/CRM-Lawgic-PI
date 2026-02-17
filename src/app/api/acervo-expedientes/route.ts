@@ -143,7 +143,7 @@ async function queryExpediente(
       return null;
     }
     
-    return parseExpedienteHtml(text);
+    const parsed = parseExpedienteHtml(text); return parsed ? { ...parsed, _debugHtmlLen: text.length, _debugHtmlSnippet: text.substring(0, 500) } : { _notParsed: true, _debugHtmlLen: text.length, _debugHtmlSnippet: text.substring(0, 500) };
   } catch {
     return null;
   }
