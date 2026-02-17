@@ -28,7 +28,7 @@ async function getSession(): Promise<Session | null> {
       },
     });
     const html = await res.text();
-    const match = html.match(/javax\.faces\.ViewState.*?value="([^"]+)"/);
+    const match = html.match(/javax\\.faces\\.ViewState.*?value="([^"]+)"/);
     if (!match) return null;
     
     const setCookieHeaders = res.headers.getSetCookie ? res.headers.getSetCookie() : [];
@@ -42,24 +42,51 @@ async function getSession(): Promise<Session | null> {
   }
 }
 
-function parseExpedienteHtml(html: string): Record<string, unknown> | null {
+function parseExpedienteHtml(html: string, expediente: string): Record<string, unknown> | null {
+  // Debug: check what the HTML contains
+  const debug: Record<string, unknown> = {
+    _htmlLen: html.length,
+    _hasTable: html.includes('<table'),
+    _hasForm: html.includes('frmBsqExp'),
+    _hasExpNum: html.includes(expediente),
+    _hasTr: html.includes('<tr'),
+    _hasTd: html.includes('<td'),
+    _hasExpediente: html.includes('expediente'),
+    _hasDenominacion: html.includes('denominaci'),
+    _hasTitular: html.includes('titular'),
+  };
+  
+  // Find the position of the expediente number in the HTML
+  const expIdx = html.indexOf(expediente);
+  if (expIdx > 0) {
+    debug._expContext = html.substring(Math.max(0, expIdx - 100), Math.min(html.length, expIdx + 200));
+  }
+  
+  // Find first <table and get context
+  const tableIdx = html.indexOf('<table');
+  if (tableIdx > 0) {
+    debug._firstTableContext = html.substring(tableIdx, Math.min(html.length, tableIdx + 300));
+  }
+  
+  // Find <td tags to see the structure
+  const tdIdx = html.indexOf('<td');
+  if (tdIdx > 0) {
+    debug._firstTdContext = html.substring(tdIdx, Math.min(html.length, tdIdx + 500));
+  }
+
+  // Try to parse data using Python scraper structure  
   const data: Record<string, unknown> = {
     datos_generales: {} as Record<string, string>,
     titular: {} as Record<string, string>,
-    apoderado: {} as Record<string, string>,
-    establecimiento: {} as Record<string, string>,
-    productos_servicios: '',
-    tramite: {} as Record<string, string>,
   };
   const dg = data.datos_generales as Record<string, string>;
   const tit = data.titular as Record<string, string>;
-  const apo = data.apoderado as Record<string, string>;
-  const est = data.establecimiento as Record<string, string>;
-  const tra = data.tramite as Record<string, string>;
 
   const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>(.*?)<\/td>/gi;
   let m;
+  let matchCount = 0;
   while ((m = rowRegex.exec(html)) !== null) {
+    matchCount++;
     const k = m[1].replace(/<[^>]*>/g, '').trim().replace(/:$/, '').trim();
     const v = m[2].replace(/<[^>]*>/g, '').trim();
     if (!k || !v) continue;
@@ -69,39 +96,20 @@ function parseExpedienteHtml(html: string): Record<string, unknown> | null {
       dg.expediente = v;
     } else if (['DENOMINACION', 'SIGNO DISTINTIVO', 'MARCA'].includes(ku)) {
       dg.denominacion = v;
-    } else if (['CLASE', 'CLASE NIZA'].includes(ku)) {
-      dg.clase = v;
-    } else if (['TIPO DE SIGNO', 'TIPO SIGNO', 'TIPO'].includes(ku)) {
-      dg.tipo_signo = v;
-    } else if (['FECHA DE PRESENTACION', 'FECHA PRESENTACION'].includes(ku)) {
-      dg.fecha_presentacion = v;
-    } else if (['FECHA DE REGISTRO', 'FECHA REGISTRO', 'FECHA DE CONCESION'].includes(ku)) {
-      dg.fecha_registro = v;
-    } else if (['SITUACION', 'SITUACION DEL EXPEDIENTE', 'STATUS'].includes(ku)) {
-      dg.situacion = v;
-    } else if (['VIGENCIA', 'FECHA DE VIGENCIA'].includes(ku)) {
-      dg.vigencia = v;
     } else if (ku.includes('TITULAR') || ku === 'NOMBRE DEL TITULAR') {
       if (!tit.nombre) tit.nombre = v;
-    } else if (ku === 'NACIONALIDAD') {
-      tit.nacionalidad = v;
-    } else if (ku.includes('APODERADO')) {
-      if (!apo.nombre) apo.nombre = v;
-    } else if (ku.includes('ESTABLECIMIENTO')) {
-      est.nombre = v;
-    } else if (ku.includes('UBICACION')) {
-      est.ubicacion = v;
-    } else if (['PRODUCTOS', 'SERVICIOS', 'PRODUCTOS O SERVICIOS'].includes(ku)) {
-      data.productos_servicios = v;
-    } else if (['TRAMITE', 'TIPO DE TRAMITE'].includes(ku)) {
-      tra.tipo = v;
-    } else if (['NUMERO DE TRAMITE', 'NO. TRAMITE'].includes(ku)) {
-      tra.numero = v;
+    } else if (['SITUACION', 'SITUACION DEL EXPEDIENTE', 'STATUS'].includes(ku)) {
+      dg.situacion = v;
     }
   }
-
+  
+  debug._regexMatches = matchCount;
   const hasData = !!(dg.expediente || dg.denominacion || tit.nombre);
-  return hasData ? data : null;
+  
+  if (hasData) {
+    return { ...data, _debug: debug };
+  }
+  return { _notParsed: true, _debug: debug };
 }
 
 async function queryExpediente(
@@ -109,7 +117,6 @@ async function queryExpediente(
   session: Session
 ): Promise<Record<string, unknown> | null> {
   try {
-    // Use exact same form fields as working Python scraper
     const formData = new URLSearchParams();
     formData.append('frmBsqExp', 'frmBsqExp');
     formData.append('frmBsqExp:expedienteId', expediente);
@@ -143,7 +150,7 @@ async function queryExpediente(
       return null;
     }
     
-    const parsed = parseExpedienteHtml(text); return parsed ? { ...parsed, _debugHtmlLen: text.length, _debugHtmlSnippet: text.substring(0, 500) } : { _notParsed: true, _debugHtmlLen: text.length, _debugHtmlSnippet: text.substring(0, 500) };
+    return parseExpedienteHtml(text, expediente);
   } catch {
     return null;
   }
@@ -155,7 +162,7 @@ export async function GET() {
     const session = await getSession();
     return NextResponse.json({
       status: session ? 'ok' : 'error',
-      service: 'direct-http-v4',
+      service: 'direct-http-v4-debug',
       mode: 'direct-impi',
       viewStateAvailable: !!session,
       hasCookies: !!(session && session.cookies),
@@ -176,7 +183,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { expediente, expedientes } = body;
-    // Fresh session for each POST
     cachedSession = null;
     const session = await getSession();
     if (!session) {
