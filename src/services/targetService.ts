@@ -28,6 +28,7 @@ export interface Target {
   linkedinUrl?: string;
     companyLogo?: string;
     photoUrl?: string;
+    logoUrl?: string;
     city?: string;
     state?: string;
   // Field to track origin

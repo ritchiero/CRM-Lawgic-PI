@@ -156,16 +156,16 @@ export default function TargetPage() {
     const found = DESPACHOS.find(d => d.name.toLowerCase() === despachoName.toLowerCase());
     const fsDespacho = firestoreDespachos.find(d => d.nombre.toLowerCase() === despachoName.toLowerCase());
     if (found) {
-      return { ...found, logo: fsDespacho?.logoUrl || found.logo };
+      return { ...found, logo: fsDespacho?.logoUrl || found.logo || prospect.logoUrl || '' };
     }
     if (fsDespacho) {
-      return { name: fsDespacho.nombre, color: fsDespacho.color, initials: fsDespacho.initials, logo: fsDespacho.logoUrl || '' };
+      return { name: fsDespacho.nombre, color: fsDespacho.color, initials: fsDespacho.initials, logo: fsDespacho.logoUrl || prospect.logoUrl || '' };
     }
     const words = despachoName.trim().split(' ').filter(Boolean);
     const initials = words.length >= 2
       ? (words[0][0] + words[1][0]).toUpperCase()
       : despachoName.trim().substring(0, 2).toUpperCase();
-    return { name: despachoName, color: '#6b7280', initials, logo: '' };
+    return { name: despachoName, color: '#6b7280', initials, logo: prospect.logoUrl || '' };
   };
 
   const filteredProspects = useMemo(() => {
@@ -270,22 +270,23 @@ export default function TargetPage() {
     URL.revokeObjectURL(url);
   };
 
-  const getDespachoInfo = (companyName: string) => {
+  const getDespachoInfo = (companyName: string, ownLogoUrl?: string) => {
     const found = DESPACHOS.find(d => d.name.toLowerCase() === companyName?.toLowerCase());
     const fsDespacho = firestoreDespachos.find(d => d.nombre.toLowerCase() === companyName?.toLowerCase());
     if (found) {
-      return { ...found, logo: fsDespacho?.logoUrl || found.logo };
+      return { ...found, logo: fsDespacho?.logoUrl || found.logo || ownLogoUrl || '' };
     }
     if (fsDespacho) {
-      return { name: fsDespacho.nombre, color: fsDespacho.color, initials: fsDespacho.initials, logo: fsDespacho.logoUrl || '' };
+      return { name: fsDespacho.nombre, color: fsDespacho.color, initials: fsDespacho.initials, logo: fsDespacho.logoUrl || ownLogoUrl || '' };
     }
     if (companyName && companyName.trim()) {
       const words = companyName.trim().split(' ').filter(Boolean);
       const initials = words.length >= 2
         ? (words[0][0] + words[1][0]).toUpperCase()
         : companyName.trim().substring(0, 2).toUpperCase();
-      return { name: companyName, color: '#6b7280', initials, logo: '' };
+      return { name: companyName, color: '#6b7280', initials, logo: ownLogoUrl || '' };
     }
+    if (ownLogoUrl) return { name: companyName || '', color: '#6b7280', initials: '', logo: ownLogoUrl };
     return null;
   };
 
@@ -527,7 +528,7 @@ export default function TargetPage() {
                     <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', overflow: 'hidden' }}>
                       {prospect.photoUrl ? <img src={prospect.photoUrl} alt={prospect.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : getInitials(prospect.name)}
                     </div>
-                    {(() => { const d = getDespachoInfo(prospect.company); return d ? <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '1.1rem', height: '1.1rem', borderRadius: '50%', backgroundColor: 'white', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>{d.logo ? <img src={d.logo} alt={d.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '0.45rem', fontWeight: 600, color: d.color }}>{d.initials}</span>}</div> : null; })()}
+                    {(() => { const d = getDespachoInfo(prospect.company, prospect.logoUrl); return d ? <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '1.1rem', height: '1.1rem', borderRadius: '50%', backgroundColor: 'white', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>{d.logo ? <img src={d.logo} alt={d.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '0.45rem', fontWeight: 600, color: d.color }}>{d.initials}</span>}</div> : null; })()}
                   </div>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prospect.name}</span>
                 </div>
@@ -586,7 +587,7 @@ export default function TargetPage() {
           const progress = getStageProgress(selectedProspect.stage);
           const risk = getStageRisk(selectedProspect.stage);
           const stageIdx = getStageIndex(selectedProspect.stage);
-          const despachoInfo = getDespachoInfo(selectedProspect.company);
+          const despachoInfo = getDespachoInfo(selectedProspect.company, selectedProspect.logoUrl);
           return (
             <>
               {/* Top bar */}
