@@ -526,7 +526,7 @@ export default function TargetPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: '700', overflow: 'hidden' }}>
-                      {prospect.photoUrl ? <img src={prospect.photoUrl} alt={prospect.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : getInitials(prospect.name)}
+                      {prospect.photoUrl ? <img src={prospect.photoUrl} alt={prospect.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { const t = e.currentTarget; t.style.display = 'none'; if (t.parentElement) t.parentElement.textContent = getInitials(prospect.name); }} /> : getInitials(prospect.name)}
                     </div>
                     {(() => { const d = getDespachoInfo(prospect.company, prospect.logoUrl); return d ? <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '1.1rem', height: '1.1rem', borderRadius: '50%', backgroundColor: 'white', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>{d.logo ? <img src={d.logo} alt={d.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '0.45rem', fontWeight: 600, color: d.color }}>{d.initials}</span>}</div> : null; })()}
                   </div>
