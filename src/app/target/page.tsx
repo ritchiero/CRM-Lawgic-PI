@@ -387,12 +387,13 @@ export default function TargetPage() {
   };
 
   const handleExportCSV = () => {
-    const rows = filteredTargets.filter((target) => target.email?.trim());
+    const rows = filteredTargets;
     if (rows.length === 0) {
-      alert('No hay contactos con correo disponible.');
+      alert('No hay targets para exportar.');
       return;
     }
-    const csv = ['Nombre,Correo', ...rows.map((target) => `${target.name.replace(/,/g, ' ')},${target.email.replace(/,/g, ' ')}`)].join('\n');
+    const csvCell = (value: string) => `"${value.replace(/"/g, '""').replace(/[\r\n]+/g, ' ')}"`;
+    const csv = ['Nombre,Correo', ...rows.map((target) => `${csvCell(target.name)},${csvCell(target.email || '')}`)].join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
     link.href = url;

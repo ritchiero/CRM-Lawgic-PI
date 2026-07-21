@@ -1,5 +1,6 @@
 import { collection, addDoc, updateDoc, deleteDoc, deleteField, doc, query, where, orderBy, onSnapshot, Timestamp, serverTimestamp, getDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { getDbInstance, getAuthInstance } from '@/lib/firebase';
+import { getRepresentativeActivityOverride } from '@/data/representativeActivityOverrides';
 import type { RepresentativeActivityLevel, RepresentativeActivityVerificationStatus } from '@/lib/representativeActivity';
 
 // Re-use the same Prospect interface
@@ -181,9 +182,22 @@ export const subscribeToTargets = (callback: (targets: Target[]) => void) => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const targets: Target[] = snapshot.docs.map(doc => {
         const data = doc.data();
+        const override = getRepresentativeActivityOverride(data.name);
         return {
           id: doc.id,
           ...data,
+          representativeActivityVerified: override?.representativeActivityVerified ?? data.representativeActivityVerified,
+          representativeActivityLevel: override?.representativeActivityLevel ?? data.representativeActivityLevel,
+          representativeActivityVerificationStatus: override?.representativeActivityVerificationStatus ?? data.representativeActivityVerificationStatus,
+          representativeActivityCount: override?.representativeActivityCount ?? data.representativeActivityCount,
+          activityClassificationBasis: override?.activityClassificationBasis ?? data.activityClassificationBasis,
+          impiProfileCount: override?.impiProfileCount ?? data.impiProfileCount,
+          impiProfilesProcessed: override?.impiProfilesProcessed ?? data.impiProfilesProcessed,
+          impiRawExpedientCount: override?.impiRawExpedientCount ?? data.impiRawExpedientCount,
+          impiUniqueExpedientCount: override?.impiUniqueExpedientCount ?? data.impiUniqueExpedientCount,
+          impiVerificationSource: override?.impiVerificationSource ?? data.impiVerificationSource,
+          impiSourceIndexedAt: override?.impiSourceIndexedAt ?? data.impiSourceIndexedAt,
+          impiExactAgentQuery: override?.impiExactAgentQuery ?? data.impiExactAgentQuery,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate(),
           history: data.history?.map((h: Record<string, unknown> & { date?: Timestamp }) => ({
@@ -193,7 +207,7 @@ export const subscribeToTargets = (callback: (targets: Target[]) => void) => {
           subscriptionStartDate: data.subscriptionStartDate?.toDate(),
           nextContactDate: data.nextContactDate?.toDate(),
           scheduledDemoDate: data.scheduledDemoDate?.toDate(),
-          representativeActivityVerifiedAt: data.representativeActivityVerifiedAt?.toDate(),
+          representativeActivityVerifiedAt: override?.representativeActivityVerifiedAt || data.representativeActivityVerifiedAt?.toDate(),
           impiCooldownUntil: data.impiCooldownUntil?.toDate()
         } as Target;
       });

@@ -6,32 +6,24 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import re
 import subprocess
 import sys
 import time
-import unicodedata
 from pathlib import Path
+
+from activity_target_source import load_activity_targets, normalize_target_name
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[3]
 SCRAPER = SCRIPT_DIR / "marcia_activity_scraper.py"
 RESULTS = SCRIPT_DIR / "runtime" / "representative_activity_results.jsonl"
-REPRESENTATIVES = REPO_ROOT / "src" / "data" / "representativesData.ts"
 PUBLISHER = REPO_ROOT / "scripts" / "publish-representative-activity.cjs"
 
 
-def normalize_name(value: str) -> str:
-    decomposed = unicodedata.normalize("NFD", value)
-    value = "".join(char for char in decomposed if unicodedata.category(char) != "Mn")
-    return " ".join(value.split()).lower()
-
-
 def representative_names() -> set[str]:
-    source = REPRESENTATIVES.read_text(encoding="utf-8")
     return {
-        normalize_name(name)
-        for name in re.findall(r'\{\s*rank:\s*\d+,\s*name:\s*"([^"]+)"', source)
+        normalize_target_name(record["name"])
+        for record in load_activity_targets()
     }
 
 
@@ -47,7 +39,7 @@ def verified_names() -> set[str]:
             result.get("representativeActivityVerified") is True
             and result.get("representativeActivityVerificationStatus") == "verified"
         ):
-            verified.add(normalize_name(str(result.get("name", ""))))
+            verified.add(normalize_target_name(str(result.get("name", ""))))
     return verified
 
 

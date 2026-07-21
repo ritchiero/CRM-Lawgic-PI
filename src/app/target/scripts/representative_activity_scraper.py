@@ -30,6 +30,7 @@ import requests
 import urllib3
 from PyPDF2 import PdfReader
 
+from activity_target_source import load_activity_targets
 from webshare_proxy_pool import ProxyPool
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -41,8 +42,6 @@ SEARCH_TABLE = "frmResulApo:resultadoPromovente"
 EXPEDIENT_TABLE = "frmResulApo:resultadoExpediente"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]
-REPRESENTATIVES_FILE = REPO_ROOT / "src" / "data" / "representativesData.ts"
 RUNTIME_DIR = SCRIPT_DIR / "runtime"
 CHECKPOINT_FILE = RUNTIME_DIR / "representative_activity_checkpoint.json"
 RESULTS_FILE = RUNTIME_DIR / "representative_activity_results.jsonl"
@@ -160,20 +159,6 @@ def extract_visible_expedients(body: str) -> set[str]:
         r'id="frmResulApo:resultadoExpediente:\d+:[^"]+"[^>]*href="#"[^>]*>\s*(\d+)\s*</a>',
         body,
     ))
-
-
-def parse_representatives(path: Path) -> list[dict[str, Any]]:
-    source = path.read_text(encoding="utf-8")
-    pattern = re.compile(
-        r'\{\s*rank:\s*(\d+),\s*name:\s*"([^"]+)",\s*brandCount:\s*(\d+)\s*\}'
-    )
-    records = [
-        {"rank": int(rank), "name": name, "brandCount": int(count)}
-        for rank, name, count in pattern.findall(source)
-    ]
-    if not records:
-        raise VerificationError(f"No se encontraron representantes en {path}")
-    return records
 
 
 class ImpiClient:
@@ -910,7 +895,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Guardar checkpoint y salir en vez de esperar el cooldown",
     )
-    parser.add_argument("--input", type=Path, default=REPRESENTATIVES_FILE)
+    parser.add_argument("--input", type=Path)
     parser.add_argument("--output", type=Path, default=RESULTS_FILE)
     return parser.parse_args()
 
@@ -923,7 +908,7 @@ def main() -> int:
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
-    representatives = parse_representatives(args.input)
+    representatives = load_activity_targets(args.input)
     if args.name:
         matching = [
             representative for representative in representatives

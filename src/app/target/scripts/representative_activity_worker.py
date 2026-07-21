@@ -11,6 +11,8 @@ import sys
 import time
 from pathlib import Path
 
+from activity_target_source import load_activity_targets
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[3]
 SCRAPER = SCRIPT_DIR / "representative_activity_scraper.py"
@@ -42,8 +44,7 @@ def is_complete() -> bool:
     if not CHECKPOINT.exists():
         return False
     checkpoint = json.loads(CHECKPOINT.read_text(encoding="utf-8"))
-    source = (REPO_ROOT / "src/data/representativesData.ts").read_text(encoding="utf-8")
-    total = source.count("{ rank:")
+    total = len(load_activity_targets())
     return int(checkpoint.get("next_representative_index", 0)) >= total
 
 

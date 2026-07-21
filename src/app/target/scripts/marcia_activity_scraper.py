@@ -22,6 +22,7 @@ from typing import Any
 
 import requests
 
+from activity_target_source import load_activity_targets
 from webshare_proxy_pool import ProxyPool
 
 BASE_URL = "https://marcia.impi.gob.mx/marcas"
@@ -33,7 +34,6 @@ MAX_PROXY_ATTEMPTS = 8
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[3]
-REPRESENTATIVES_FILE = REPO_ROOT / "src" / "data" / "representativesData.ts"
 RUNTIME_DIR = SCRIPT_DIR / "runtime"
 RESULTS_FILE = RUNTIME_DIR / "representative_activity_results.jsonl"
 
@@ -89,20 +89,6 @@ def activity_level(count: int) -> str:
     if count >= 25:
         return "Baja"
     return "Incipiente"
-
-
-def parse_representatives(path: Path) -> list[dict[str, Any]]:
-    source = path.read_text(encoding="utf-8")
-    pattern = re.compile(
-        r'\{\s*rank:\s*(\d+),\s*name:\s*"([^"]+)",\s*brandCount:\s*(\d+)\s*\}'
-    )
-    representatives = [
-        {"rank": int(rank), "name": name, "brandCount": int(count)}
-        for rank, name, count in pattern.findall(source)
-    ]
-    if not representatives:
-        raise MarciaError(f"No se encontraron representantes en {path}")
-    return representatives
 
 
 def load_verified_names(path: Path) -> set[str]:
@@ -298,7 +284,7 @@ def main() -> int:
     if args.limit is not None and args.limit < 1:
         raise ValueError("--limit debe ser positivo")
 
-    representatives = parse_representatives(REPRESENTATIVES_FILE)
+    representatives = load_activity_targets()
     verified = load_verified_names(RESULTS_FILE)
     if args.name:
         selected = [
