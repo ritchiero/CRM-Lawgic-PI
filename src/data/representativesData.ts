@@ -18,7 +18,7 @@ export const representativesData: { name: string; brandCount: number; rank: numb
   { rank: 17, name: "Luis Encina Delgado", brandCount: 2120 },
   { rank: 18, name: "Marcela Bolland Gonzalez", brandCount: 42821 },
   { rank: 19, name: "Gerardo Ramirez Villanueva", brandCount: 5956 },
-  { rank: 20, name: "Jose Juan Mendez Cortes", brandCount: 15628 },
+  { rank: 20, name: "Jose Juan Mendez Cortes", brandCount: 15850 },
   { rank: 21, name: "Christian Thomae Maloney", brandCount: 8180 },
   { rank: 22, name: "Carlos Perez De La Sierra", brandCount: 19835 },
   { rank: 23, name: "Claudia Margarita Rodriguez Soto", brandCount: 3734 },
