@@ -997,6 +997,6 @@ export const representativesData: { name: string; brandCount: number; rank: numb
   { rank: 996, name: "Diana Casandra Malpica Avendaño", brandCount: 46 },
   { rank: 997, name: "Irma Cabrera Soto", brandCount: 53 },
   { rank: 998, name: "Esteban Andujo Zapata", brandCount: 94 },
-  { rank: 999, name: "Ariadna Valeria Reyes Perez", brandCount: 24 },
-  { rank: 1000, name: "Carlos Emmanuel Cordova Hidalgo", brandCount: 24 },
+  { rank: 999, name: "Ariadna Valeria Reyes Perez", brandCount: 53 },
+  { rank: 1000, name: "Carlos Emmanuel Cordova Hidalgo", brandCount: 25 },
 ];
