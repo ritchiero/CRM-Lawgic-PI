@@ -250,6 +250,9 @@ export default function TargetPage() {
           impiProfilesProcessed: representative.impiProfilesProcessed,
           impiRawExpedientCount: representative.impiRawExpedientCount,
           impiUniqueExpedientCount: representative.impiUniqueExpedientCount,
+          impiVerificationSource: representative.impiVerificationSource,
+          impiSourceIndexedAt: representative.impiSourceIndexedAt,
+          impiExactAgentQuery: representative.impiExactAgentQuery,
           representativeActivityVerifiedAt: representative.representativeActivityVerifiedAt,
           impiCooldownUntil: representative.impiCooldownUntil,
         });
@@ -275,6 +278,9 @@ export default function TargetPage() {
           impiProfilesProcessed: representative.impiProfilesProcessed,
           impiRawExpedientCount: representative.impiRawExpedientCount,
           impiUniqueExpedientCount: representative.impiUniqueExpedientCount,
+          impiVerificationSource: representative.impiVerificationSource,
+          impiSourceIndexedAt: representative.impiSourceIndexedAt,
+          impiExactAgentQuery: representative.impiExactAgentQuery,
           representativeActivityVerifiedAt: representative.representativeActivityVerifiedAt,
           impiCooldownUntil: representative.impiCooldownUntil,
         });
@@ -413,6 +419,9 @@ export default function TargetPage() {
       impiProfilesProcessed: selectedTarget.impiProfilesProcessed,
       impiRawExpedientCount: selectedTarget.impiRawExpedientCount,
       impiUniqueExpedientCount: selectedTarget.impiUniqueExpedientCount,
+      impiVerificationSource: selectedTarget.impiVerificationSource,
+      impiSourceIndexedAt: selectedTarget.impiSourceIndexedAt,
+      impiExactAgentQuery: selectedTarget.impiExactAgentQuery,
       representativeActivityVerifiedAt: selectedTarget.representativeActivityVerifiedAt,
       impiCooldownUntil: selectedTarget.impiCooldownUntil,
       ...updates,
@@ -717,12 +726,17 @@ export default function TargetPage() {
                       </div>
                       <div className={styles.impiActivityMetrics}>
                         <div><span>Expedientes</span><strong>{selectedActivityCount.toLocaleString('es-MX')}</strong></div>
-                        <div><span>Fichas IMPI</span><strong>{selectedTarget.impiProfileCount?.toLocaleString('es-MX') || '—'}</strong></div>
+                        <div>
+                          <span>{selectedTarget.activityClassificationBasis === 'verified_marcia_exact_agent_records' ? 'Consulta exacta' : 'Fichas IMPI'}</span>
+                          <strong>{selectedTarget.impiProfileCount?.toLocaleString('es-MX') || '—'}</strong>
+                        </div>
                         <div><span>Revisadas</span><strong>{selectedTarget.impiProfilesProcessed !== undefined && selectedTarget.impiProfileCount ? `${selectedTarget.impiProfilesProcessed}/${selectedTarget.impiProfileCount}` : '—'}</strong></div>
                       </div>
                       <p>
                         {selectedTarget.representativeActivityVerified
-                          ? `Comprobación completa en Marcanet${selectedTarget.representativeActivityVerifiedAt ? ` · ${formatDate(selectedTarget.representativeActivityVerifiedAt)}` : ''}.`
+                          ? selectedTarget.activityClassificationBasis === 'verified_marcia_exact_agent_records'
+                            ? `Comprobación por frase exacta en MARCia · corte ${selectedTarget.impiSourceIndexedAt || 'no informado'}${selectedTarget.representativeActivityVerifiedAt ? ` · consultado ${formatDate(selectedTarget.representativeActivityVerifiedAt)}` : ''}.`
+                            : `Comprobación completa en Marcanet${selectedTarget.representativeActivityVerifiedAt ? ` · ${formatDate(selectedTarget.representativeActivityVerifiedAt)}` : ''}.`
                           : selectedTarget.representativeActivityVerificationStatus === 'cooldown'
                             ? `IMPI solicitó una pausa. El proceso continuará automáticamente${selectedTarget.impiCooldownUntil ? ` después de ${formatDate(selectedTarget.impiCooldownUntil)}` : ''}.`
                             : 'Nivel calculado con el conteo histórico; la comprobación ficha por ficha está pendiente.'}

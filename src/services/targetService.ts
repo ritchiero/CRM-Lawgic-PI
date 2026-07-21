@@ -25,11 +25,14 @@ export interface Target {
   representativeActivityLevel?: RepresentativeActivityLevel;
   representativeActivityVerificationStatus?: RepresentativeActivityVerificationStatus;
   representativeActivityCount?: number;
-  activityClassificationBasis?: 'verified_unique_expedients' | 'historical_brand_count';
+  activityClassificationBasis?: 'verified_unique_expedients' | 'verified_marcia_exact_agent_records' | 'historical_brand_count';
   impiProfileCount?: number;
   impiProfilesProcessed?: number;
   impiRawExpedientCount?: number;
   impiUniqueExpedientCount?: number;
+  impiVerificationSource?: string;
+  impiSourceIndexedAt?: string;
+  impiExactAgentQuery?: string;
   representativeActivityVerifiedAt?: Date;
   impiCooldownUntil?: Date;
   subscriptionStartDate?: Date;

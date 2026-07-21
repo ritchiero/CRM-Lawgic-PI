@@ -214,6 +214,8 @@ async function main() {
             impiUniqueExpedientCount: result.impiUniqueExpedientCount,
             representativeActivityVerifiedAt: result.representativeActivityVerifiedAt,
             impiVerificationSource: result.source,
+            impiSourceIndexedAt: result.impiSourceIndexedAt,
+            impiExactAgentQuery: result.exactAgentQuery,
             impiVerificationError: result.verificationError,
           },
         });

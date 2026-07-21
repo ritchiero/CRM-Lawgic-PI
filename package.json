@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "verify:representatives": "python3 -u src/app/target/scripts/representative_activity_scraper.py --all --resume",
-    "verify:representatives:continuous": "python3 -u src/app/target/scripts/representative_activity_worker.py --publish-every 10",
+    "verify:representatives:continuous": "python3 -u src/app/target/scripts/marcia_activity_worker.py --publish-every 10",
+    "verify:representatives:marcia": "python3 -u src/app/target/scripts/marcia_activity_scraper.py",
     "publish:representative-activity": "node scripts/publish-representative-activity.cjs --push",
     "sync:representative-activity": "node scripts/sync-representative-activity.cjs"
   },

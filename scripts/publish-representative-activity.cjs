@@ -74,16 +74,25 @@ function quote(value) {
 function renderOverrides(results) {
   const entries = results.map((result) => {
     const verifiedAt = new Date(result.representativeActivityVerifiedAt).toISOString();
+    const basis = result.activityClassificationBasis === 'verified_marcia_exact_agent_records'
+      ? 'verified_marcia_exact_agent_records'
+      : 'verified_unique_expedients';
+    const sourceFields = [
+      result.source ? `    impiVerificationSource: ${quote(result.source)},\n` : '',
+      result.impiSourceIndexedAt ? `    impiSourceIndexedAt: ${quote(result.impiSourceIndexedAt)},\n` : '',
+      result.exactAgentQuery ? `    impiExactAgentQuery: ${quote(result.exactAgentQuery)},\n` : '',
+    ].join('');
     return `  ${quote(normalizeName(result.name))}: {\n`
       + `    representativeActivityVerified: true,\n`
       + `    representativeActivityLevel: ${quote(result.representativeActivityLevel)},\n`
       + `    representativeActivityVerificationStatus: 'verified',\n`
       + `    representativeActivityCount: ${Number(result.representativeActivityCount).toLocaleString('en-US').replace(/,/g, '_')},\n`
-      + `    activityClassificationBasis: 'verified_unique_expedients',\n`
+      + `    activityClassificationBasis: ${quote(basis)},\n`
       + `    impiProfileCount: ${Number(result.impiProfileCount)},\n`
       + `    impiProfilesProcessed: ${Number(result.impiProfilesProcessed)},\n`
       + `    impiRawExpedientCount: ${Number(result.impiRawExpedientCount).toLocaleString('en-US').replace(/,/g, '_')},\n`
       + `    impiUniqueExpedientCount: ${Number(result.impiUniqueExpedientCount).toLocaleString('en-US').replace(/,/g, '_')},\n`
+      + sourceFields
       + `    representativeActivityVerifiedAt: new Date(${quote(verifiedAt)}),\n`
       + '  },';
   }).join('\n');
@@ -95,11 +104,14 @@ export interface RepresentativeActivityOverride {
   representativeActivityLevel: RepresentativeActivityLevel;
   representativeActivityVerificationStatus: RepresentativeActivityVerificationStatus;
   representativeActivityCount: number;
-  activityClassificationBasis: 'verified_unique_expedients';
+  activityClassificationBasis: 'verified_unique_expedients' | 'verified_marcia_exact_agent_records';
   impiProfileCount: number;
   impiProfilesProcessed: number;
   impiRawExpedientCount: number;
   impiUniqueExpedientCount: number;
+  impiVerificationSource?: string;
+  impiSourceIndexedAt?: string;
+  impiExactAgentQuery?: string;
   representativeActivityVerifiedAt: Date;
 }
 

@@ -53,6 +53,19 @@ El checkpoint y los resultados JSONL se guardan en
 guarda el avance, espera 600 segundos, crea una sesión nueva y continúa sin
 intervención.
 
+## Verificación rápida con MARCia
+
+La cola continua usa MARCia para los representantes pendientes. El nombre se
+normaliza en mayúsculas, sin acentos y como frase entre comillas; sin las
+comillas, MARCia separa las palabras y devuelve conteos inflados.
+
+MARCia declara actualmente un corte de indexación del 2 de febrero de 2020.
+Por eso estos registros se guardan con la base
+`verified_marcia_exact_agent_records`, la fuente
+`marcia_exact_agent_phrase` y el campo `impiSourceIndexedAt`. Son una
+comprobación histórica exacta y rápida, no sustituyen una auditoría reciente
+ficha por ficha en Marcanet.
+
 ## Sincronización con Firestore
 
 La sincronización usa la sesión de Firebase CLI y siempre permite una vista

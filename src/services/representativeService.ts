@@ -18,11 +18,14 @@ export interface Representative {
   representativeActivityLevel: RepresentativeActivityLevel;
   representativeActivityVerificationStatus: RepresentativeActivityVerificationStatus;
   representativeActivityCount: number;
-  activityClassificationBasis?: 'verified_unique_expedients' | 'historical_brand_count';
+  activityClassificationBasis?: 'verified_unique_expedients' | 'verified_marcia_exact_agent_records' | 'historical_brand_count';
   impiProfileCount?: number;
   impiProfilesProcessed?: number;
   impiRawExpedientCount?: number;
   impiUniqueExpedientCount?: number;
+  impiVerificationSource?: string;
+  impiSourceIndexedAt?: string;
+  impiExactAgentQuery?: string;
   representativeActivityVerifiedAt?: Date;
   impiCooldownUntil?: Date;
   createdAt?: Date;
@@ -59,6 +62,9 @@ export const subscribeToRepresentatives = (callback: (reps: Representative[]) =>
           impiProfilesProcessed: override?.impiProfilesProcessed ?? data.impiProfilesProcessed,
           impiRawExpedientCount: override?.impiRawExpedientCount ?? data.impiRawExpedientCount,
           impiUniqueExpedientCount: override?.impiUniqueExpedientCount ?? data.impiUniqueExpedientCount,
+          impiVerificationSource: override?.impiVerificationSource ?? data.impiVerificationSource,
+          impiSourceIndexedAt: override?.impiSourceIndexedAt ?? data.impiSourceIndexedAt,
+          impiExactAgentQuery: override?.impiExactAgentQuery ?? data.impiExactAgentQuery,
           representativeActivityVerifiedAt: override?.representativeActivityVerifiedAt || data.representativeActivityVerifiedAt?.toDate(),
           impiCooldownUntil: data.impiCooldownUntil?.toDate(),
           createdAt: data.createdAt?.toDate()
