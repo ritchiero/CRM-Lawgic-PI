@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:representatives": "python3 -u src/app/target/scripts/representative_activity_scraper.py --all --resume",
+    "sync:representative-activity": "node scripts/sync-representative-activity.cjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

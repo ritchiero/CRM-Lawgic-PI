@@ -46,3 +46,11 @@ yarn-error.log*
 next-env.d.ts
 .env*
 !.env.example
+
+# IMPI scraper runtime state and local credentials
+/src/app/target/scripts/runtime/
+/src/app/target/scripts/logs/
+/src/app/target/scripts/results/
+/src/app/target/scripts/service-account.json
+__pycache__/
+*.pyc

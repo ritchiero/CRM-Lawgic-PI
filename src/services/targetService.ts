@@ -1,5 +1,6 @@
 import { collection, addDoc, updateDoc, deleteDoc, deleteField, doc, query, where, orderBy, onSnapshot, Timestamp, serverTimestamp, getDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { getDbInstance, getAuthInstance } from '@/lib/firebase';
+import type { RepresentativeActivityLevel, RepresentativeActivityVerificationStatus } from '@/lib/representativeActivity';
 
 // Re-use the same Prospect interface
 export interface Target {
@@ -20,6 +21,17 @@ export interface Target {
     movedBy?: string;
   }>;
   brandCount?: number;
+  representativeActivityVerified?: boolean;
+  representativeActivityLevel?: RepresentativeActivityLevel;
+  representativeActivityVerificationStatus?: RepresentativeActivityVerificationStatus;
+  representativeActivityCount?: number;
+  activityClassificationBasis?: 'verified_unique_expedients' | 'historical_brand_count';
+  impiProfileCount?: number;
+  impiProfilesProcessed?: number;
+  impiRawExpedientCount?: number;
+  impiUniqueExpedientCount?: number;
+  representativeActivityVerifiedAt?: Date;
+  impiCooldownUntil?: Date;
   subscriptionStartDate?: Date;
   accountValue?: number;
   potentialValue?: number;
@@ -177,7 +189,9 @@ export const subscribeToTargets = (callback: (targets: Target[]) => void) => {
           })) || [],
           subscriptionStartDate: data.subscriptionStartDate?.toDate(),
           nextContactDate: data.nextContactDate?.toDate(),
-          scheduledDemoDate: data.scheduledDemoDate?.toDate()
+          scheduledDemoDate: data.scheduledDemoDate?.toDate(),
+          representativeActivityVerifiedAt: data.representativeActivityVerifiedAt?.toDate(),
+          impiCooldownUntil: data.impiCooldownUntil?.toDate()
         } as Target;
       });
       callback(targets);

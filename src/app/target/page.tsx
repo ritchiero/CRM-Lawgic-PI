@@ -32,6 +32,11 @@ import {
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ScrapeIMPIButton from '@/components/ScrapeIMPIButton';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  getRepresentativeActivityColor,
+  getRepresentativeActivityLevel,
+  getRepresentativeVerificationLabel,
+} from '@/lib/representativeActivity';
 import { subscribeToDespachos, updateDespacho, Despacho } from '@/services/despachoService';
 import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
 import { createTarget, subscribeToTargets, Target, updateTarget } from '@/services/targetService';
@@ -236,6 +241,17 @@ export default function TargetPage() {
         byName.set(key, {
           ...existing,
           brandCount: existing.brandCount !== undefined ? existing.brandCount : representative.brandCount,
+          representativeActivityVerified: representative.representativeActivityVerified,
+          representativeActivityLevel: representative.representativeActivityLevel,
+          representativeActivityVerificationStatus: representative.representativeActivityVerificationStatus,
+          representativeActivityCount: representative.representativeActivityCount,
+          activityClassificationBasis: representative.activityClassificationBasis,
+          impiProfileCount: representative.impiProfileCount,
+          impiProfilesProcessed: representative.impiProfilesProcessed,
+          impiRawExpedientCount: representative.impiRawExpedientCount,
+          impiUniqueExpedientCount: representative.impiUniqueExpedientCount,
+          representativeActivityVerifiedAt: representative.representativeActivityVerifiedAt,
+          impiCooldownUntil: representative.impiCooldownUntil,
         });
       } else {
         byName.set(key, {
@@ -250,6 +266,17 @@ export default function TargetPage() {
           createdBy: 'representative',
           history: [],
           brandCount: representative.brandCount,
+          representativeActivityVerified: representative.representativeActivityVerified,
+          representativeActivityLevel: representative.representativeActivityLevel,
+          representativeActivityVerificationStatus: representative.representativeActivityVerificationStatus,
+          representativeActivityCount: representative.representativeActivityCount,
+          activityClassificationBasis: representative.activityClassificationBasis,
+          impiProfileCount: representative.impiProfileCount,
+          impiProfilesProcessed: representative.impiProfilesProcessed,
+          impiRawExpedientCount: representative.impiRawExpedientCount,
+          impiUniqueExpedientCount: representative.impiUniqueExpedientCount,
+          representativeActivityVerifiedAt: representative.representativeActivityVerifiedAt,
+          impiCooldownUntil: representative.impiCooldownUntil,
         });
       }
     });
@@ -377,6 +404,17 @@ export default function TargetPage() {
       phone: selectedTarget.phone || '',
       notes: selectedTarget.notes || '',
       brandCount: selectedTarget.brandCount,
+      representativeActivityVerified: selectedTarget.representativeActivityVerified,
+      representativeActivityLevel: selectedTarget.representativeActivityLevel,
+      representativeActivityVerificationStatus: selectedTarget.representativeActivityVerificationStatus,
+      representativeActivityCount: selectedTarget.representativeActivityCount,
+      activityClassificationBasis: selectedTarget.activityClassificationBasis,
+      impiProfileCount: selectedTarget.impiProfileCount,
+      impiProfilesProcessed: selectedTarget.impiProfilesProcessed,
+      impiRawExpedientCount: selectedTarget.impiRawExpedientCount,
+      impiUniqueExpedientCount: selectedTarget.impiUniqueExpedientCount,
+      representativeActivityVerifiedAt: selectedTarget.representativeActivityVerifiedAt,
+      impiCooldownUntil: selectedTarget.impiCooldownUntil,
       ...updates,
     });
   };
@@ -444,6 +482,12 @@ export default function TargetPage() {
 
   const selectedDespacho = selectedTarget ? getDespachoInfo(selectedTarget.accountName || selectedTarget.company, selectedTarget.logoUrl, selectedTarget.despachoId) : null;
   const selectedStage = selectedTarget?.accountStage || selectedTarget?.stage || '';
+  const selectedActivityCount = selectedTarget?.representativeActivityVerified
+    ? selectedTarget.impiUniqueExpedientCount || 0
+    : selectedTarget?.representativeActivityCount ?? selectedTarget?.brandCount ?? 0;
+  const selectedActivityLevel = selectedTarget?.representativeActivityLevel || getRepresentativeActivityLevel(selectedActivityCount);
+  const selectedActivityColor = getRepresentativeActivityColor(selectedActivityLevel);
+  const selectedVerificationLabel = getRepresentativeVerificationLabel(selectedTarget?.representativeActivityVerificationStatus);
   const pipelineIndex = selectedTarget ? getPipelineIndex(selectedStage) : -1;
   const nextAction = selectedTarget?.scheduledDemoDate
     ? { title: 'Realizar demo programada', date: formatDate(selectedTarget.scheduledDemoDate) }
@@ -537,7 +581,7 @@ export default function TargetPage() {
                   <button onClick={() => handleSort('name')}>Nombre del cliente <SortIcon field="name" /></button>
                   <span>Despacho / Empresa</span>
                   <span>Etapa cuenta</span>
-                  <button className={styles.alignRight} onClick={() => handleSort('brandCount')}>Marcas <SortIcon field="brandCount" /></button>
+                  <button className={styles.alignRight} onClick={() => handleSort('brandCount')}>Actividad IMPI <SortIcon field="brandCount" /></button>
                 </div>
 
                 {loading && <div className={styles.emptyState}>Cargando clientes…</div>}
@@ -547,6 +591,11 @@ export default function TargetPage() {
                 {!loading && visibleTargets.map((target) => {
                   const despacho = getDespachoInfo(target.accountName || target.company, target.logoUrl, target.despachoId);
                   const effectiveStage = target.accountStage || target.stage;
+                  const activityCount = target.representativeActivityVerified
+                    ? target.impiUniqueExpedientCount || 0
+                    : target.representativeActivityCount ?? target.brandCount ?? 0;
+                  const activityLevel = target.representativeActivityLevel || getRepresentativeActivityLevel(activityCount);
+                  const activityColor = getRepresentativeActivityColor(activityLevel);
                   const selected = target.id === selectedId;
                   return (
                     <button
@@ -569,8 +618,9 @@ export default function TargetPage() {
                       <span className={styles.stageCell}>
                         {effectiveStage ? <span className={styles.stageBadge} title={target.accountStage && target.stage !== target.accountStage ? `Seguimiento personal: ${target.stage}` : undefined} style={{ color: getStageColor(effectiveStage), backgroundColor: `${getStageColor(effectiveStage)}10`, borderColor: `${getStageColor(effectiveStage)}33` }}>{effectiveStage}</span> : <span className={styles.muted}>—</span>}
                       </span>
-                      <span className={`${styles.brandCell} ${(target.brandCount || 0) > 0 ? styles.brandCellPopulated : ''}`}>
-                        {(target.brandCount || 0).toLocaleString('es-MX')}{(target.brandCount || 0) > 0 ? ' marcas' : ''}
+                      <span className={`${styles.brandCell} ${activityCount > 0 ? styles.brandCellPopulated : ''}`}>
+                        <strong style={{ color: activityColor }}>{activityLevel}</strong>
+                        <small>{activityCount.toLocaleString('es-MX')} exp.</small>
                       </span>
                     </button>
                   );
@@ -635,7 +685,7 @@ export default function TargetPage() {
                       </div>
                       <div className={styles.identityBadges}>
                         <span className={styles.stageBadge} style={{ color: getStageColor(selectedStage), backgroundColor: `${getStageColor(selectedStage)}10`, borderColor: `${getStageColor(selectedStage)}33` }}>{selectedStage || 'Sin etapa'}</span>
-                        <span className={styles.portfolioBadge}>{(selectedTarget.brandCount || 0).toLocaleString('es-MX')} marcas</span>
+                        <span className={styles.portfolioBadge} style={{ color: selectedActivityColor }}>{selectedActivityLevel} · {selectedActivityCount.toLocaleString('es-MX')} expedientes</span>
                       </div>
                       {selectedTarget.accountStage && selectedTarget.accountStage !== selectedTarget.stage && (
                         <p className={styles.accountContext}>Cuenta del despacho · cierre vía {selectedTarget.accountPrimaryContactName || 'otro contacto'}</p>
@@ -650,6 +700,33 @@ export default function TargetPage() {
                       <div><PhoneIcon /><span>{selectedTarget.phone || 'Sin teléfono registrado'}</span></div>
                       <div><MapPinIcon /><span>{selectedTarget.city || selectedTarget.state ? [selectedTarget.city, selectedTarget.state].filter(Boolean).join(', ') : 'Ubicación no registrada'}</span></div>
                       <div><CalendarIcon /><span>{selectedTarget.subscriptionStartDate ? `Cliente desde ${formatDate(selectedTarget.subscriptionStartDate)}` : `Registrado el ${formatDate(selectedTarget.createdAt) || '—'}`}</span></div>
+                    </div>
+                  </section>
+
+                  <section className={styles.detailSection}>
+                    <h3>Actividad como representante</h3>
+                    <div className={styles.impiActivityCard}>
+                      <div className={styles.impiActivityTopline}>
+                        <span
+                          className={styles.verificationBadge}
+                          data-status={selectedTarget.representativeActivityVerificationStatus || 'pending'}
+                        >
+                          {selectedVerificationLabel}
+                        </span>
+                        <strong style={{ color: selectedActivityColor }}>{selectedActivityLevel}</strong>
+                      </div>
+                      <div className={styles.impiActivityMetrics}>
+                        <div><span>Expedientes</span><strong>{selectedActivityCount.toLocaleString('es-MX')}</strong></div>
+                        <div><span>Fichas IMPI</span><strong>{selectedTarget.impiProfileCount?.toLocaleString('es-MX') || '—'}</strong></div>
+                        <div><span>Revisadas</span><strong>{selectedTarget.impiProfilesProcessed !== undefined && selectedTarget.impiProfileCount ? `${selectedTarget.impiProfilesProcessed}/${selectedTarget.impiProfileCount}` : '—'}</strong></div>
+                      </div>
+                      <p>
+                        {selectedTarget.representativeActivityVerified
+                          ? `Comprobación completa en Marcanet${selectedTarget.representativeActivityVerifiedAt ? ` · ${formatDate(selectedTarget.representativeActivityVerifiedAt)}` : ''}.`
+                          : selectedTarget.representativeActivityVerificationStatus === 'cooldown'
+                            ? `IMPI solicitó una pausa. El proceso continuará automáticamente${selectedTarget.impiCooldownUntil ? ` después de ${formatDate(selectedTarget.impiCooldownUntil)}` : ''}.`
+                            : 'Nivel calculado con el conteo histórico; la comprobación ficha por ficha está pendiente.'}
+                      </p>
                     </div>
                   </section>
 
@@ -684,7 +761,8 @@ export default function TargetPage() {
                   {showFullProfile && (
                     <section className={styles.expandedProfile}>
                       <div className={styles.commercialGrid}>
-                        <div><span>Cartera</span><strong>{(selectedTarget.brandCount || 0).toLocaleString('es-MX')}</strong></div>
+                        <div><span>Actividad IMPI</span><strong>{selectedActivityLevel}</strong></div>
+                        <div><span>Expedientes</span><strong>{selectedActivityCount.toLocaleString('es-MX')}</strong></div>
                         <div><span>Valor potencial</span><strong>${(selectedTarget.potentialValue || 0).toLocaleString('en-US')}</strong></div>
                         <div><span>Valor de cuenta</span><strong>${(selectedTarget.accountValue || 0).toLocaleString('en-US')}</strong></div>
                       </div>

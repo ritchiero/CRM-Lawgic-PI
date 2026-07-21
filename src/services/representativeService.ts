@@ -1,5 +1,11 @@
-import { collection, addDoc, getDocs, query, orderBy, onSnapshot, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, doc, getDocs, query, orderBy, onSnapshot, Timestamp, writeBatch } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
+import { getRepresentativeActivityOverride } from '@/data/representativeActivityOverrides';
+import {
+  getRepresentativeActivityLevel,
+  RepresentativeActivityLevel,
+  RepresentativeActivityVerificationStatus,
+} from '@/lib/representativeActivity';
 
 const COLLECTION_NAME = 'representatives';
 
@@ -8,6 +14,17 @@ export interface Representative {
   name: string;
   brandCount: number;
   rank: number;
+  representativeActivityVerified: boolean;
+  representativeActivityLevel: RepresentativeActivityLevel;
+  representativeActivityVerificationStatus: RepresentativeActivityVerificationStatus;
+  representativeActivityCount: number;
+  activityClassificationBasis?: 'verified_unique_expedients' | 'historical_brand_count';
+  impiProfileCount?: number;
+  impiProfilesProcessed?: number;
+  impiRawExpedientCount?: number;
+  impiUniqueExpedientCount?: number;
+  representativeActivityVerifiedAt?: Date;
+  impiCooldownUntil?: Date;
   createdAt?: Date;
 }
 
@@ -23,11 +40,27 @@ export const subscribeToRepresentatives = (callback: (reps: Representative[]) =>
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const reps: Representative[] = snapshot.docs.map(doc => {
         const data = doc.data();
+        const override = getRepresentativeActivityOverride(data.name);
+        const verified = override?.representativeActivityVerified ?? (data.representativeActivityVerified === true);
+        const activityCount = verified
+          ? Number(override?.impiUniqueExpedientCount ?? data.impiUniqueExpedientCount ?? 0)
+          : Number(data.representativeActivityCount ?? data.brandCount ?? 0);
         return {
           id: doc.id,
           name: data.name,
-          brandCount: data.brandCount,
+          brandCount: override?.representativeActivityCount ?? data.brandCount,
           rank: data.rank,
+          representativeActivityVerified: verified,
+          representativeActivityLevel: override?.representativeActivityLevel || data.representativeActivityLevel || getRepresentativeActivityLevel(activityCount),
+          representativeActivityVerificationStatus: override?.representativeActivityVerificationStatus || data.representativeActivityVerificationStatus || 'pending',
+          representativeActivityCount: override?.representativeActivityCount ?? activityCount,
+          activityClassificationBasis: override?.activityClassificationBasis || data.activityClassificationBasis || (verified ? 'verified_unique_expedients' : 'historical_brand_count'),
+          impiProfileCount: override?.impiProfileCount ?? data.impiProfileCount,
+          impiProfilesProcessed: override?.impiProfilesProcessed ?? data.impiProfilesProcessed,
+          impiRawExpedientCount: override?.impiRawExpedientCount ?? data.impiRawExpedientCount,
+          impiUniqueExpedientCount: override?.impiUniqueExpedientCount ?? data.impiUniqueExpedientCount,
+          representativeActivityVerifiedAt: override?.representativeActivityVerifiedAt || data.representativeActivityVerifiedAt?.toDate(),
+          impiCooldownUntil: data.impiCooldownUntil?.toDate(),
           createdAt: data.createdAt?.toDate()
         } as Representative;
       });
@@ -68,15 +101,20 @@ export const seedRepresentatives = async (data: { name: string; brandCount: numb
       const chunk = data.slice(i, i + batchSize);
       
       for (const item of chunk) {
-        const docRef = collection(db, COLLECTION_NAME);
-        const newDocRef = addDoc(docRef, {
+        const newDocRef = doc(collection(db, COLLECTION_NAME));
+        batch.set(newDocRef, {
           name: item.name,
           brandCount: item.brandCount,
           rank: item.rank,
+          representativeActivityVerified: false,
+          representativeActivityLevel: getRepresentativeActivityLevel(item.brandCount),
+          representativeActivityVerificationStatus: 'pending',
+          representativeActivityCount: item.brandCount,
+          activityClassificationBasis: 'historical_brand_count',
           createdAt: now
         });
-        // We use addDoc directly since writeBatch.set needs a doc ref
       }
+      await batch.commit();
     }
   } catch (error) {
     console.error('Error seeding representatives:', error);
@@ -96,6 +134,11 @@ export const seedRepresentativesOneByOne = async (data: { name: string; brandCou
         name: item.name,
         brandCount: item.brandCount,
         rank: item.rank,
+        representativeActivityVerified: false,
+        representativeActivityLevel: getRepresentativeActivityLevel(item.brandCount),
+        representativeActivityVerificationStatus: 'pending',
+        representativeActivityCount: item.brandCount,
+        activityClassificationBasis: 'historical_brand_count',
         createdAt: now
       });
       count++;

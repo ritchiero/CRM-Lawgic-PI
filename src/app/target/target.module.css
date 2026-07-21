@@ -468,8 +468,22 @@
 .brandCell {
   justify-self: end;
   color: #78869e;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
   font-size: 0.72rem;
   white-space: nowrap;
+}
+
+.brandCell strong {
+  font-size: 0.69rem;
+}
+
+.brandCell small {
+  color: #718198;
+  font-size: 0.61rem;
+  font-weight: 600;
 }
 
 .brandCellPopulated {
@@ -773,6 +787,101 @@
   background: #eff8ff;
 }
 
+.impiActivityCard {
+  padding: 13px;
+  border: 1px solid #dfe7f1;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #fbfdff, #f6f9fd);
+}
+
+.impiActivityTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.impiActivityTopline > strong {
+  font-size: 0.78rem;
+}
+
+.verificationBadge {
+  width: max-content;
+  max-width: 100%;
+  padding: 0.24rem 0.55rem;
+  border: 1px solid #d8e1ee;
+  border-radius: 999px;
+  color: #55657d;
+  background: #fff;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.verificationBadge[data-status='verified'] {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.verificationBadge[data-status='in_progress'] {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.verificationBadge[data-status='cooldown'] {
+  color: #9a3412;
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.verificationBadge[data-status='failed'] {
+  color: #991b1b;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.impiActivityMetrics {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.impiActivityMetrics > div {
+  min-width: 0;
+  padding: 9px 8px;
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.impiActivityMetrics span,
+.impiActivityMetrics strong {
+  display: block;
+}
+
+.impiActivityMetrics span {
+  overflow: hidden;
+  color: #77859a;
+  font-size: 0.58rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impiActivityMetrics strong {
+  margin-top: 3px;
+  color: #1e293b;
+  font-size: 0.79rem;
+}
+
+.impiActivityCard > p {
+  margin: 10px 0 0;
+  color: #66758c;
+  font-size: 0.64rem;
+  line-height: 1.5;
+}
+
 .dropdown {
   top: calc(100% + 8px);
   left: 0;
@@ -1061,7 +1170,7 @@
 
 .commercialGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
