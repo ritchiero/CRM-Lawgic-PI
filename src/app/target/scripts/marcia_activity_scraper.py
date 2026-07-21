@@ -9,16 +9,20 @@ la búsqueda amplia por palabras que infla los resultados.
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import logging
 import os
+import random
 import re
+import subprocess
 import sys
 import time
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -27,6 +31,15 @@ QUICK_URL = BASE_URL + "/search/quick"
 COUNT_URL = BASE_URL + "/search/internal/result/count"
 DEFAULT_TIMEOUT_SECONDS = 45
 MAX_REQUEST_RETRIES = 3
+MAX_PROXY_ATTEMPTS = 8
+WEBSHARE_API_URL = (
+    "https://proxy.webshare.io/api/v2/proxy/list/"
+    "?mode=direct&page=1&page_size=100"
+)
+WEBSHARE_KEYCHAIN_SERVICES = (
+    "lawgic.webshare.api1",
+    "lawgic.webshare.api2",
+)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[3]
@@ -37,6 +50,128 @@ RESULTS_FILE = RUNTIME_DIR / "representative_activity_results.jsonl"
 
 class MarciaError(RuntimeError):
     pass
+
+
+def _keychain_secret(service: str) -> str | None:
+    """Obtiene una llave local sin escribirla en el repositorio ni en logs."""
+    try:
+        result = subprocess.run(
+            [
+                "/usr/bin/security",
+                "find-generic-password",
+                "-a",
+                getpass.getuser(),
+                "-s",
+                service,
+                "-w",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    secret = result.stdout.strip()
+    return secret or None
+
+
+def webshare_api_tokens() -> list[str]:
+    """Carga llaves desde entorno (servidor) o Keychain (worker local)."""
+    candidates: list[str] = []
+    combined = os.environ.get("WEBSHARE_API_TOKENS", "")
+    candidates.extend(part.strip() for part in combined.split(","))
+    candidates.extend(
+        os.environ.get(variable, "").strip()
+        for variable in ("WEBSHARE_API_TOKEN_1", "WEBSHARE_API_TOKEN_2")
+    )
+    candidates.extend(
+        secret
+        for service in WEBSHARE_KEYCHAIN_SERVICES
+        if (secret := _keychain_secret(service))
+    )
+
+    unique: list[str] = []
+    for token in candidates:
+        if token and token not in unique:
+            unique.append(token)
+    return unique
+
+
+def _proxy_url(item: dict[str, Any]) -> str | None:
+    address = item.get("proxy_address")
+    port = item.get("port")
+    username = item.get("username")
+    password = item.get("password")
+    if (
+        item.get("valid") is False
+        or not isinstance(address, str)
+        or not isinstance(port, int)
+        or not isinstance(username, str)
+        or not isinstance(password, str)
+    ):
+        return None
+    credentials = f"{quote(username, safe='')}:{quote(password, safe='')}"
+    return f"http://{credentials}@{address}:{port}"
+
+
+def load_webshare_proxies() -> list[str]:
+    proxies: list[str] = []
+    for account_number, token in enumerate(webshare_api_tokens(), start=1):
+        next_url: str | None = WEBSHARE_API_URL
+        account_proxies: list[str] = []
+        try:
+            while next_url:
+                response = requests.get(
+                    next_url,
+                    headers={"Authorization": f"Token {token}"},
+                    timeout=DEFAULT_TIMEOUT_SECONDS,
+                )
+                response.raise_for_status()
+                body = response.json()
+                results = body.get("results", [])
+                if not isinstance(results, list):
+                    raise MarciaError("Webshare devolvió una lista inválida")
+                account_proxies.extend(
+                    proxy
+                    for item in results
+                    if isinstance(item, dict) and (proxy := _proxy_url(item))
+                )
+                candidate_next = body.get("next")
+                next_url = candidate_next if isinstance(candidate_next, str) else None
+        except (requests.RequestException, ValueError, MarciaError) as error:
+            logging.warning(
+                "Webshare API %s no pudo actualizarse (%s).",
+                account_number,
+                type(error).__name__,
+            )
+            continue
+        proxies.extend(account_proxies)
+        logging.info(
+            "Webshare API %s disponible: %s proxies válidos.",
+            account_number,
+            len(account_proxies),
+        )
+
+    unique = list(dict.fromkeys(proxies))
+    random.SystemRandom().shuffle(unique)
+    return unique
+
+
+class ProxyPool:
+    def __init__(self) -> None:
+        self.proxies = load_webshare_proxies()
+        self.position = 0
+
+    def next(self) -> str | None:
+        if not self.proxies:
+            return None
+        proxy = self.proxies[self.position % len(self.proxies)]
+        self.position += 1
+        return proxy
+
+    def attempts(self) -> int:
+        return min(MAX_PROXY_ATTEMPTS, len(self.proxies)) if self.proxies else 1
 
 
 def iso_now() -> str:
@@ -152,7 +287,7 @@ def build_payload(query: str) -> dict[str, Any]:
 
 
 class MarciaClient:
-    def __init__(self, delay_seconds: float) -> None:
+    def __init__(self, delay_seconds: float, proxy_url: str | None = None) -> None:
         self.delay_seconds = delay_seconds
         self.last_request_at = 0.0
         self.session = requests.Session()
@@ -163,6 +298,8 @@ class MarciaClient:
             ),
             "Accept-Language": "es-MX,es;q=0.9",
         })
+        if proxy_url:
+            self.session.proxies.update({"http": proxy_url, "https": proxy_url})
         self.csrf_token = ""
         self.source_indexed_at: str | None = None
 
@@ -226,6 +363,47 @@ class MarciaClient:
         return best_count, best_query
 
 
+def count_agent_records_resilient(
+    name: str,
+    delay_seconds: float,
+    proxy_pool: ProxyPool,
+) -> tuple[int, str, str | None]:
+    """Consulta con otro proxy si una salida está bloqueada o devuelve cero."""
+    best_result: tuple[int, str, str | None] | None = None
+    last_error: Exception | None = None
+    attempts = proxy_pool.attempts()
+
+    for attempt in range(attempts):
+        proxy_url = proxy_pool.next()
+        client = MarciaClient(delay_seconds, proxy_url)
+        try:
+            client.initialize()
+            count, query = client.count_agent_records(name)
+            result = (count, query, client.source_indexed_at)
+            if best_result is None or count > best_result[0]:
+                best_result = result
+
+            # Un resultado positivo ya fue validado por una sesión completa.
+            # Un cero se vuelve a consultar una vez para evitar falsos ceros de
+            # una IP degradada, tal como ocurre en los portales de IMPI.
+            if count > 0 or attempt >= 1 or attempts == 1:
+                return best_result
+        except (requests.RequestException, MarciaError, ValueError) as error:
+            last_error = error
+            logging.warning(
+                "Salida %s/%s no disponible para %s; rotando proxy.",
+                attempt + 1,
+                attempts,
+                name,
+            )
+
+    if best_result is not None:
+        return best_result
+    raise MarciaError(
+        f"Ninguna salida respondió para {name} después de {attempts} intentos: {last_error}"
+    )
+
+
 def append_result(result: dict[str, Any]) -> None:
     RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
     with RESULTS_FILE.open("a", encoding="utf-8") as output:
@@ -270,15 +448,18 @@ def main() -> int:
         logging.info("No hay representantes pendientes.")
         return 0
 
-    client = MarciaClient(args.delay)
-    client.initialize()
-    logging.info(
-        "Fuente MARCia inicializada; corte declarado: %s.",
-        client.source_indexed_at or "no informado",
-    )
+    proxy_pool = ProxyPool()
+    if proxy_pool.proxies:
+        logging.info("Rotación Webshare activa con %s proxies.", len(proxy_pool.proxies))
+    else:
+        logging.warning("Sin proxies Webshare; se usará la conexión directa.")
 
     for representative in selected:
-        count, query = client.count_agent_records(representative["name"])
+        count, query, source_indexed_at = count_agent_records_resilient(
+            representative["name"],
+            args.delay,
+            proxy_pool,
+        )
         result = {
             "rank": representative["rank"],
             "name": representative["name"],
@@ -293,7 +474,7 @@ def main() -> int:
             "impiRawExpedientCount": count,
             "impiUniqueExpedientCount": count,
             "representativeActivityVerifiedAt": iso_now(),
-            "impiSourceIndexedAt": client.source_indexed_at,
+            "impiSourceIndexedAt": source_indexed_at,
             "exactAgentQuery": query,
             "profiles": [],
             "source": "marcia_exact_agent_phrase",

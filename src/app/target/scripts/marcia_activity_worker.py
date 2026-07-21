@@ -77,6 +77,7 @@ def publish(minimum_new: int, force: bool = False) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Procesa MARCia sin intervención")
     parser.add_argument("--publish-every", type=int, default=10)
+    parser.add_argument("--batch-size", type=int, default=10)
     parser.add_argument("--delay", type=float, default=0.5)
     parser.add_argument("--cooldown", type=int, default=600)
     parser.add_argument("--no-publish", action="store_true")
@@ -86,7 +87,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [MARCIA-WORKER] %(message)s")
-    if args.publish_every < 1 or args.cooldown < 1:
+    if args.publish_every < 1 or args.batch_size < 1 or args.cooldown < 1:
         raise ValueError("Los intervalos deben ser positivos")
 
     while not is_complete():
@@ -96,7 +97,7 @@ def main() -> int:
                 "-u",
                 str(SCRAPER),
                 "--limit",
-                "1",
+                str(args.batch_size),
                 "--delay",
                 str(args.delay),
             ],
