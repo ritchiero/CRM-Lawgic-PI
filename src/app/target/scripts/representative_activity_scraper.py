@@ -30,6 +30,8 @@ import requests
 import urllib3
 from PyPDF2 import PdfReader
 
+from webshare_proxy_pool import ProxyPool
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 BASE_URL = "https://acervomarcas.impi.gob.mx:8181"
@@ -181,11 +183,13 @@ class ImpiClient:
         cooldown_seconds: int,
         no_wait: bool,
         on_cooldown: Callable[[str, datetime], None],
+        proxy_url: str | None = None,
     ) -> None:
         self.delay_seconds = delay_seconds
         self.cooldown_seconds = cooldown_seconds
         self.no_wait = no_wait
         self.on_cooldown = on_cooldown
+        self.proxy_url = proxy_url
         self.last_request_at = 0.0
         self.session = requests.Session()
         self.session.headers.update({
@@ -196,6 +200,8 @@ class ImpiClient:
             "Accept-Language": "es-MX,es;q=0.9",
             "Connection": "keep-alive",
         })
+        if proxy_url:
+            self.session.proxies.update({"http": proxy_url, "https": proxy_url})
 
     def _pace(self) -> None:
         remaining = self.delay_seconds - (time.monotonic() - self.last_request_at)
@@ -212,6 +218,10 @@ class ImpiClient:
         return any(marker in sample for marker in BLOCK_MARKERS)
 
     def _cooldown(self, reason: str) -> None:
+        if self.proxy_url:
+            logging.warning("Salida de proxy bloqueada (%s); rotación inmediata.", reason)
+            raise RestartRepresentative("proxy_blocked")
+
         until = utc_now() + timedelta(seconds=self.cooldown_seconds)
         self.on_cooldown(reason, until)
         logging.warning(
@@ -253,9 +263,17 @@ class ImpiClient:
             except requests.RequestException as error:
                 last_error = error
                 wait = 2 ** attempt
-                logging.warning("Error de red (%s/%s): %s", attempt + 1, MAX_REQUEST_RETRIES, error)
+                logging.warning(
+                    "Error de red (%s/%s): %s",
+                    attempt + 1,
+                    MAX_REQUEST_RETRIES,
+                    type(error).__name__,
+                )
                 time.sleep(wait)
-        raise VerificationError(f"IMPI no respondió después de varios intentos: {last_error}")
+        error_type = type(last_error).__name__ if last_error else "desconocido"
+        raise VerificationError(
+            f"IMPI no respondió después de varios intentos ({error_type})"
+        )
 
     def search(self, name: str) -> SearchState:
         initial = self.request("GET", SEARCH_URL)
@@ -658,6 +676,14 @@ class ActivityRunner:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+        self.proxy_pool = ProxyPool()
+        if len(self.proxy_pool):
+            logging.info(
+                "Rotación Webshare activa para Marcanet con %s proxies.",
+                len(self.proxy_pool),
+            )
+        else:
+            logging.warning("Sin proxies Webshare; Marcanet usará conexión directa.")
         self.checkpoint = self.load_checkpoint() if args.resume else {
             "version": 1,
             "next_representative_index": 0,
@@ -714,6 +740,7 @@ class ActivityRunner:
                 cooldown_seconds=self.args.cooldown,
                 no_wait=self.args.no_wait,
                 on_cooldown=self.on_cooldown,
+                proxy_url=self.proxy_pool.next(),
             )
             try:
                 state = client.search(representative["name"])
@@ -782,11 +809,13 @@ class ActivityRunner:
                 continue
             except VerificationError as error:
                 verification_restarts += 1
-                if verification_restarts <= 2:
+                maximum_restarts = min(8, len(self.proxy_pool)) if len(self.proxy_pool) else 2
+                if verification_restarts <= maximum_restarts:
                     logging.warning(
-                        "Reintentando la ficha actual con una sesión nueva (%s/2): %s",
+                        "Reintentando la ficha actual con una sesión nueva (%s/%s): %s",
                         verification_restarts,
-                        error,
+                        maximum_restarts,
+                        type(error).__name__,
                     )
                     time.sleep(3)
                     continue

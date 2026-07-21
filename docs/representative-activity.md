@@ -42,9 +42,9 @@ representantes verificados:
 npm run verify:representatives:continuous
 ```
 
-El supervisor procesa un representante por ciclo, conserva el checkpoint de
-cada ficha y ejecuta la publicación sin detener el siguiente ciclo. Si ocurre
-un error no recuperable, espera diez minutos y reintenta el mismo nombre. La
+El supervisor termina primero el conteo histórico rápido de MARCia y después
+continúa automáticamente la auditoría reciente ficha por ficha en Marcanet.
+Conserva el checkpoint de cada ficha y publica cada diez representantes. La
 publicación valida TypeScript, crea un commit limitado a los dos archivos de
 actividad, actualiza `main` y deja que Vercel despliegue producción.
 
@@ -52,6 +52,13 @@ El checkpoint y los resultados JSONL se guardan en
 `src/app/target/scripts/runtime/`. Cuando IMPI limita las consultas, el proceso
 guarda el avance, espera 600 segundos, crea una sesión nueva y continúa sin
 intervención.
+
+Las cuentas Webshare pueden configurarse con `WEBSHARE_API_TOKENS` (separadas
+por coma) o `WEBSHARE_API_TOKEN_1` / `WEBSHARE_API_TOKEN_2`. En el worker local
+se leen del Keychain bajo `lawgic.webshare.api1` y
+`lawgic.webshare.api2`; las llaves y contraseñas de proxy nunca se escriben en
+el repositorio. Si una IP es limitada, Marcanet cambia de proxy de inmediato;
+la espera de diez minutos queda como respaldo para una conexión directa.
 
 ## Verificación rápida con MARCia
 
