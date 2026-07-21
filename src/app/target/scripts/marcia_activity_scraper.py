@@ -53,6 +53,31 @@ def exact_query(value: str) -> str:
     return f'"{normalize_key(value).upper()}"'
 
 
+def exact_query_variants(value: str) -> list[str]:
+    collapsed = " ".join(value.split())
+    ascii_query = exact_query(collapsed)
+
+    # MARCia normalmente exige vocales sin acento, pero su índice sí distingue
+    # la Ñ. Se conserva con marcadores antes de retirar las demás diacríticas.
+    preserve_enye = collapsed.replace("Ñ", "__ENYE_UPPER__").replace("ñ", "__ENYE_LOWER__")
+    decomposed = unicodedata.normalize("NFD", preserve_enye)
+    preserve_enye = "".join(
+        char for char in decomposed if unicodedata.category(char) != "Mn"
+    )
+    preserve_enye = (
+        preserve_enye
+        .replace("__ENYE_UPPER__", "Ñ")
+        .replace("__ENYE_LOWER__", "ñ")
+    )
+    enya_query = f'"{preserve_enye.upper()}"'
+
+    variants: list[str] = []
+    for query in (ascii_query, enya_query):
+        if query not in variants:
+            variants.append(query)
+    return variants
+
+
 def activity_level(count: int) -> str:
     if count >= 200:
         return "Alta"
@@ -179,21 +204,26 @@ class MarciaClient:
     def count_agent_records(self, name: str) -> tuple[int, str]:
         if not self.csrf_token:
             self.initialize()
-        query = exact_query(name)
-        response = self._request(
-            "POST",
-            COUNT_URL,
-            headers={
-                "X-XSRF-TOKEN": self.csrf_token,
-                "Content-Type": "application/json;charset=UTF-8",
-            },
-            json=build_payload(query),
-        )
-        body = response.json()
-        count = body.get("count")
-        if not isinstance(count, int) or count < 0:
-            raise MarciaError(f"MARCia devolvió un conteo inválido para {name}: {body}")
-        return count, query
+        best_count = -1
+        best_query = ""
+        for query in exact_query_variants(name):
+            response = self._request(
+                "POST",
+                COUNT_URL,
+                headers={
+                    "X-XSRF-TOKEN": self.csrf_token,
+                    "Content-Type": "application/json;charset=UTF-8",
+                },
+                json=build_payload(query),
+            )
+            body = response.json()
+            count = body.get("count")
+            if not isinstance(count, int) or count < 0:
+                raise MarciaError(f"MARCia devolvió un conteo inválido para {name}: {body}")
+            if count > best_count:
+                best_count = count
+                best_query = query
+        return best_count, best_query
 
 
 def append_result(result: dict[str, Any]) -> None:
