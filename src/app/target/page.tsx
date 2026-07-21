@@ -179,7 +179,7 @@ export default function TargetPage() {
     }
 
     // Then, for each representative:
-    // - If a target with the same name exists, merge brandCount into it
+    // - If a target with the same name exists, use the representative count only as a fallback
     // - If not, add as a virtual target entry
     for (const rep of representatives) {
       const key = rep.name.toLowerCase().trim();
@@ -187,7 +187,9 @@ export default function TargetPage() {
       if (existingTarget) {
         targetsByName.set(key, {
           ...existingTarget,
-          brandCount: rep.brandCount || existingTarget.brandCount,
+          brandCount: existingTarget.brandCount !== undefined
+            ? existingTarget.brandCount
+            : rep.brandCount,
         });
       } else {
         targetsByName.set(key, {
@@ -503,13 +505,13 @@ export default function TargetPage() {
 
           {/* Client List Table */}
           <div style={{ backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.75fr 0.75fr', padding: '0.75rem 1.5rem', backgroundColor: 'var(--surface)', borderBottom: '2px solid var(--border)', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 0.75fr', padding: '0.75rem 1.5rem', backgroundColor: 'var(--surface)', borderBottom: '2px solid var(--border)', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
               <button onClick={() => handleSort('name')} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem', color: sortField === 'name' ? '#6366f1' : 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'inherit' }}>
                 Nombre del Cliente
                 <SortIcon field="name" />
               </button>
               <span style={{ display: 'flex', alignItems: 'center' }}>Despacho / Empresa</span>
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Estatus</span>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Etapa CRM</span>
               <button onClick={() => handleSort('brandCount')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem', color: sortField === 'brandCount' ? '#6366f1' : 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'inherit' }}>
                 Marcas
                 <SortIcon field="brandCount" />
@@ -520,7 +522,7 @@ export default function TargetPage() {
             {!loading && filteredProspects.map((prospect) => {
               const despacho = getDespachoForProspect(prospect);
               return (
-              <div key={prospect.id} onClick={() => setSelectedProspect(prospect)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.75fr 0.75fr', padding: '0.875rem 1.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.9375rem', color: 'var(--foreground)', cursor: 'pointer', transition: 'background-color 0.15s ease', alignItems: 'center' }}
+              <div key={prospect.id} onClick={() => setSelectedProspect(prospect)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 0.75fr', padding: '0.875rem 1.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.9375rem', color: 'var(--foreground)', cursor: 'pointer', transition: 'background-color 0.15s ease', alignItems: 'center' }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
@@ -545,21 +547,16 @@ export default function TargetPage() {
                   )}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  {(() => {
-                    const statusInfo = getClientStatusInfo(prospect.clientStatus);
-                    if (!statusInfo) return <span style={{ fontSize: '0.7rem', color: 'var(--secondary)' }}>—</span>;
-                    return (
-                      <span style={{
-                        padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.7rem', fontWeight: '600',
-                        color: statusInfo.color, backgroundColor: statusInfo.color + '12',
-                        border: '1px solid ' + statusInfo.color + '30',
-                        display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap'
-                      }}>
-                        <span style={{ fontSize: '0.65rem' }}>{statusInfo.emoji}</span>
-                        {statusInfo.label}
-                      </span>
-                    );
-                  })()}
+                  {prospect.stage ? (
+                    <span style={{
+                      padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.7rem', fontWeight: '600',
+                      color: getStageColor(prospect.stage), backgroundColor: getStageColor(prospect.stage) + '12',
+                      border: '1px solid ' + getStageColor(prospect.stage) + '30',
+                      display: 'flex', alignItems: 'center', whiteSpace: 'nowrap'
+                    }}>
+                      {prospect.stage}
+                    </span>
+                  ) : <span style={{ fontSize: '0.7rem', color: 'var(--secondary)' }}>—</span>}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   {prospect.brandCount !== undefined && prospect.brandCount > 0 ? (

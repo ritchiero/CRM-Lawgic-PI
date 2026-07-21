@@ -1,7 +1,6 @@
 import {
     collection,
     addDoc,
-    updateDoc,
     deleteDoc,
     deleteField,
     doc,
@@ -10,7 +9,9 @@ import {
     orderBy,
     onSnapshot,
     Timestamp,
-    serverTimestamp
+    serverTimestamp,
+    getDocs,
+    writeBatch
 } from 'firebase/firestore';
 import { getDbInstance, getAuthInstance } from '@/lib/firebase';
 
@@ -44,6 +45,25 @@ export interface Prospect {
     // Social media
     linkedinUrl?: string;
 }
+
+type FirestoreHistoryEntry = Record<string, unknown> & {
+    date?: { toDate?: () => Date };
+};
+
+const TARGET_MIRRORED_FIELDS = new Set<keyof Prospect>([
+    'company',
+    'email',
+    'phone',
+    'stage',
+    'leadSource',
+    'brandCount',
+    'subscriptionStartDate',
+    'accountValue',
+    'potentialValue',
+    'nextContactDate',
+    'scheduledDemoDate',
+    'linkedinUrl'
+]);
 
 // Create a new prospect
 export const createProspect = async (prospectData: Omit<Prospect, 'id' | 'createdAt' | 'stage' | 'history' | 'createdBy' | 'updatedAt'>) => {
@@ -83,8 +103,14 @@ export const createProspect = async (prospectData: Omit<Prospect, 'id' | 'create
 // Update a prospect
 export const updateProspect = async (id: string, updates: Partial<Prospect>) => {
     try {
+        const auth = getAuthInstance();
         const db = getDbInstance();
+        const userId = auth.currentUser?.uid || 'anonymous';
         const prospectRef = doc(db, 'prospects', id);
+        const linkedTargets = await getDocs(query(
+            collection(db, 'targets'),
+            where('copiedFromProspectId', '==', id)
+        ));
         
         // Convert undefined values to deleteField() for Firestore
         const processedUpdates: Record<string, unknown> = {};
@@ -96,10 +122,37 @@ export const updateProspect = async (id: string, updates: Partial<Prospect>) => 
             }
         }
         
-        await updateDoc(prospectRef, {
+        const mirroredUpdates = Object.fromEntries(
+            Object.entries(updates).filter(([key, value]) =>
+                TARGET_MIRRORED_FIELDS.has(key as keyof Prospect) && value !== undefined
+            )
+        );
+        const batch = writeBatch(db);
+        batch.update(prospectRef, {
             ...processedUpdates,
             updatedAt: serverTimestamp()
         });
+        for (const targetDoc of linkedTargets.docs) {
+            if (Object.keys(mirroredUpdates).length === 0) break;
+            const targetData = targetDoc.data();
+            const syncHistory = Array.isArray(targetData.crmSyncHistory) ? targetData.crmSyncHistory : [];
+            batch.update(targetDoc.ref, {
+                ...mirroredUpdates,
+                crmSyncHistory: [...syncHistory, {
+                    date: Timestamp.fromDate(new Date()),
+                    actor: userId,
+                    sourceProspectId: id,
+                    changes: Object.entries(mirroredUpdates).map(([field, value]) => ({
+                        field,
+                        before: targetData[field] ?? null,
+                        after: value
+                    }))
+                }],
+                crmSyncedAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+        }
+        await batch.commit();
     } catch (error) {
         console.error('Error updating prospect:', error);
         throw error;
@@ -127,14 +180,20 @@ export const moveProspectToStage = async (id: string, newStage: string, currentH
         const userId = user?.uid || 'anonymous';
 
         const prospectRef = doc(db, 'prospects', id);
+        const linkedTargets = await getDocs(query(
+            collection(db, 'targets'),
+            where('copiedFromProspectId', '==', id)
+        ));
 
+        const now = new Date();
         const newHistoryEntry = {
             stage: newStage,
-            date: Timestamp.fromDate(new Date()),
+            date: Timestamp.fromDate(now),
             movedBy: userId
         };
 
-        await updateDoc(prospectRef, {
+        const batch = writeBatch(db);
+        batch.update(prospectRef, {
             stage: newStage,
             history: [...currentHistory.map(h => ({
                 ...h,
@@ -142,6 +201,24 @@ export const moveProspectToStage = async (id: string, newStage: string, currentH
             })), newHistoryEntry],
             updatedAt: serverTimestamp()
         });
+        for (const targetDoc of linkedTargets.docs) {
+            const targetData = targetDoc.data();
+            const targetHistory = Array.isArray(targetData.history) ? targetData.history : [];
+            const syncHistory = Array.isArray(targetData.crmSyncHistory) ? targetData.crmSyncHistory : [];
+            batch.update(targetDoc.ref, {
+                stage: newStage,
+                history: [...targetHistory, newHistoryEntry],
+                crmSyncHistory: [...syncHistory, {
+                    date: Timestamp.fromDate(now),
+                    actor: userId,
+                    sourceProspectId: id,
+                    changes: [{ field: 'stage', before: targetData.stage ?? null, after: newStage }]
+                }],
+                crmSyncedAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+        }
+        await batch.commit();
     } catch (error) {
         console.error('Error moving prospect:', error);
         throw error;
@@ -165,9 +242,9 @@ export const subscribeToProspects = (callback: (prospects: Prospect[]) => void) 
                     ...data,
                     createdAt: data.createdAt?.toDate() || new Date(),
                     updatedAt: data.updatedAt?.toDate(),
-                    history: data.history?.map((h: any) => ({
+                    history: data.history?.map((h: FirestoreHistoryEntry) => ({
                         ...h,
-                        date: h.date?.toDate() || new Date()
+                        date: h.date?.toDate?.() || new Date()
                     })) || [],
                     subscriptionStartDate: data.subscriptionStartDate?.toDate(),
                     nextContactDate: data.nextContactDate?.toDate(),
@@ -204,9 +281,9 @@ export const subscribeToProspectsByStage = (stage: string, callback: (prospects:
                     ...data,
                     createdAt: data.createdAt?.toDate() || new Date(),
                     updatedAt: data.updatedAt?.toDate(),
-                    history: data.history?.map((h: any) => ({
+                    history: data.history?.map((h: FirestoreHistoryEntry) => ({
                         ...h,
-                        date: h.date?.toDate() || new Date()
+                        date: h.date?.toDate?.() || new Date()
                     })) || []
                 } as Prospect;
             });

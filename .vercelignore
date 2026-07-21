@@ -1,0 +1,6 @@
+.env*
+.vercel
+audit-*.cjs
+sheet-contacts.json
+sync-*.cjs
+.env*
