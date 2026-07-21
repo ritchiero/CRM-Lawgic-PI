@@ -1,7 +1,7 @@
 export const representativesData: { name: string; brandCount: number; rank: number }[] = [
   { rank: 1, name: "Eduardo Kleinberg Druker", brandCount: 20479 },
   { rank: 2, name: "Luis Guillermo Corona Ortiz", brandCount: 6841 },
-  { rank: 3, name: "Roberto Arochi Escalante", brandCount: 1705 },
+  { rank: 3, name: "Roberto Arochi Escalante", brandCount: 39043 },
   { rank: 4, name: "Georgina Esteva Wurts", brandCount: 1523 },
   { rank: 5, name: "Enrique Alberto Diaz Mucharraz", brandCount: 1373 },
   { rank: 6, name: "Alonso Camargo Sordo", brandCount: 1115 },

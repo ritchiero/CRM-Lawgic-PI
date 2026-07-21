@@ -38,6 +38,18 @@ const overrides: Record<string, RepresentativeActivityOverride> = {
     impiUniqueExpedientCount: 6_841,
     representativeActivityVerifiedAt: new Date('2026-07-21T14:16:40.859Z'),
   },
+  'roberto arochi escalante': {
+    representativeActivityVerified: true,
+    representativeActivityLevel: 'Alta',
+    representativeActivityVerificationStatus: 'verified',
+    representativeActivityCount: 39_043,
+    activityClassificationBasis: 'verified_unique_expedients',
+    impiProfileCount: 31,
+    impiProfilesProcessed: 31,
+    impiRawExpedientCount: 39_089,
+    impiUniqueExpedientCount: 39_043,
+    representativeActivityVerifiedAt: new Date('2026-07-21T14:59:55.897Z'),
+  },
 };
 
 function normalizeName(value: string) {
