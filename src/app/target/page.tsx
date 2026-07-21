@@ -14,8 +14,6 @@ import {
   ChartBarIcon,
   CheckIcon,
   ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   ChevronUpIcon,
   ClipboardDocumentListIcon,
   Cog6ToothIcon,
@@ -39,7 +37,8 @@ import { subscribeToRepresentatives, Representative } from '@/services/represent
 import { createTarget, subscribeToTargets, Target, updateTarget } from '@/services/targetService';
 import styles from './target.module.css';
 
-const PAGE_SIZE = 20;
+const INITIAL_VISIBLE_TARGETS = 40;
+const LOAD_MORE_TARGETS = 40;
 
 const DESPACHOS = [
   { name: 'Tópica Media, S.A. de C.V', color: '#6366f1', initials: 'TM', logo: '/logos/topica-media.png' },
@@ -129,7 +128,7 @@ export default function TargetPage() {
   const [hideDiscarded, setHideDiscarded] = useState(true);
   const [sortField, setSortField] = useState<SortField>('none');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_TARGETS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showFullProfile, setShowFullProfile] = useState(false);
   const [editingContact, setEditingContact] = useState(false);
@@ -142,6 +141,7 @@ export default function TargetPage() {
   const [photoUrlInput, setPhotoUrlInput] = useState('');
   const despachoRef = useRef<HTMLDivElement>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -234,30 +234,38 @@ export default function TargetPage() {
     return items;
   }, [allTargets, searchTerm, statusFilter, hideDiscarded, sortField, sortDirection]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredTargets.length / PAGE_SIZE));
-  const pageTargets = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredTargets.slice(start, start + PAGE_SIZE);
-  }, [filteredTargets, currentPage]);
+  const visibleTargets = useMemo(
+    () => filteredTargets.slice(0, visibleCount),
+    [filteredTargets, visibleCount]
+  );
+  const hasMoreTargets = visibleCount < filteredTargets.length;
   const selectedTarget = useMemo(
     () => allTargets.find((target) => target.id === selectedId) || null,
     [allTargets, selectedId]
   );
 
-  useEffect(() => setCurrentPage(1), [searchTerm, statusFilter, hideDiscarded]);
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_TARGETS);
+  }, [searchTerm, statusFilter, hideDiscarded, sortField, sortDirection]);
 
   useEffect(() => {
-    setCurrentPage((page) => Math.min(page, totalPages));
-  }, [totalPages]);
+    if (!hasMoreTargets || !loadMoreRef.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries[0]?.isIntersecting) return;
+      setVisibleCount((count) => Math.min(count + LOAD_MORE_TARGETS, filteredTargets.length));
+    }, { rootMargin: '280px 0px' });
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [filteredTargets.length, hasMoreTargets]);
 
   useEffect(() => {
     if (loadingTargets || loadingRepresentatives) return;
-    if (pageTargets.length === 0) {
+    if (visibleTargets.length === 0) {
       setSelectedId(null);
       return;
     }
-    if (!pageTargets.some((target) => target.id === selectedId)) setSelectedId(pageTargets[0].id);
-  }, [loadingTargets, loadingRepresentatives, pageTargets, selectedId]);
+    if (!visibleTargets.some((target) => target.id === selectedId)) setSelectedId(visibleTargets[0].id);
+  }, [loadingTargets, loadingRepresentatives, visibleTargets, selectedId]);
 
   useEffect(() => {
     setShowFullProfile(false);
@@ -393,13 +401,6 @@ export default function TargetPage() {
         ? { title: 'Dar seguimiento al cliente', date: 'Sin fecha asignada' }
         : { title: 'Continuar seguimiento comercial', date: 'Sin fecha asignada' };
   const loading = loadingTargets || loadingRepresentatives;
-  const firstResult = filteredTargets.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const lastResult = Math.min(currentPage * PAGE_SIZE, filteredTargets.length);
-  const visiblePages = Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
-    if (totalPages <= 5) return index + 1;
-    const start = Math.min(Math.max(currentPage - 2, 1), totalPages - 4);
-    return start + index;
-  });
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return <ChevronUpIcon className={styles.sortIconMuted} aria-hidden="true" />;
@@ -488,10 +489,10 @@ export default function TargetPage() {
                 </div>
 
                 {loading && <div className={styles.emptyState}>Cargando clientes…</div>}
-                {!loading && pageTargets.length === 0 && (
+                {!loading && visibleTargets.length === 0 && (
                   <div className={styles.emptyState}>{searchTerm ? 'No encontramos targets con esa búsqueda.' : 'No hay targets para este filtro.'}</div>
                 )}
-                {!loading && pageTargets.map((target) => {
+                {!loading && visibleTargets.map((target) => {
                   const despacho = getDespachoInfo(target.company, target.logoUrl);
                   const selected = target.id === selectedId;
                   return (
@@ -523,12 +524,10 @@ export default function TargetPage() {
                 })}
               </div>
 
-              <footer className={styles.pagination}>
-                <span>Mostrando {firstResult}–{lastResult} de {filteredTargets.length.toLocaleString('es-MX')} clientes</span>
-                <div className={styles.pageControls}>
-                  <button disabled={currentPage === 1} onClick={() => setCurrentPage((page) => page - 1)} aria-label="Página anterior"><ChevronLeftIcon /></button>
-                  {visiblePages.map((page) => <button key={page} className={page === currentPage ? styles.pageActive : ''} onClick={() => setCurrentPage(page)}>{page}</button>)}
-                  <button disabled={currentPage === totalPages} onClick={() => setCurrentPage((page) => page + 1)} aria-label="Página siguiente"><ChevronRightIcon /></button>
+              <footer className={styles.listFooter} aria-live="polite">
+                <span>Mostrando {visibleTargets.length.toLocaleString('es-MX')} de {filteredTargets.length.toLocaleString('es-MX')} clientes</span>
+                <div ref={loadMoreRef} className={styles.loadStatus}>
+                  {hasMoreTargets ? <><i aria-hidden="true" /> Sigue bajando para ver más</> : filteredTargets.length > 0 ? 'Todos los targets están visibles' : null}
                 </div>
               </footer>
             </section>
