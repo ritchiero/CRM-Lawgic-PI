@@ -35,6 +35,19 @@ Procesa o retoma los 1,000 representantes:
 npm run verify:representatives
 ```
 
+Para el proceso autónomo, con reinicios y publicación a producción cada diez
+representantes verificados:
+
+```bash
+npm run verify:representatives:continuous
+```
+
+El supervisor procesa un representante por ciclo, conserva el checkpoint de
+cada ficha y ejecuta la publicación sin detener el siguiente ciclo. Si ocurre
+un error no recuperable, espera diez minutos y reintenta el mismo nombre. La
+publicación valida TypeScript, crea un commit limitado a los dos archivos de
+actividad, actualiza `main` y deja que Vercel despliegue producción.
+
 El checkpoint y los resultados JSONL se guardan en
 `src/app/target/scripts/runtime/`. Cuando IMPI limita las consultas, el proceso
 guarda el avance, espera 600 segundos, crea una sesión nueva y continúa sin

@@ -373,10 +373,10 @@ class ImpiClient:
     def extract_pdf_expedients(
         self,
         pdf: bytes,
-    ) -> tuple[set[str], set[int], int, list[int]]:
+    ) -> tuple[set[str], list[int], int, list[int]]:
         reader = PdfReader(io.BytesIO(pdf))
         expedients: set[str] = set()
-        row_indexes: set[int] = set()
+        row_indexes: list[int] = []
         match_count = 0
         page_match_counts: list[int] = []
         for page in reader.pages[1:]:
@@ -392,7 +392,7 @@ class ImpiClient:
                 row_tail = text[match.end():line_end]
                 numbers = re.findall(r"\b(\d+)\b", row_tail)
                 if numbers:
-                    row_indexes.add(int(numbers[-1]))
+                    row_indexes.append(int(numbers[-1]))
         return expedients, row_indexes, match_count, page_match_counts
 
     def recover_small_pdf_gap(
@@ -400,6 +400,7 @@ class ImpiClient:
         url: str,
         body: str,
         view_state: str,
+        displayed_row_indexes: list[int],
         page_match_counts: list[int],
         expected: int,
     ) -> tuple[set[str], str, int]:
@@ -411,24 +412,64 @@ class ImpiClient:
         delata la zona afectada. Se consulta una ventana de diez filas a cada
         lado para absorber el pequeño desfase acumulado.
         """
-        page_starts = {0, PAGE_SIZE}
-        cumulative_rows = 0
-        for page_index, page_count in enumerate(page_match_counts):
-            nearby = page_match_counts[
-                max(0, page_index - 4):min(len(page_match_counts), page_index + 5)
-            ]
-            nearby_max = max(nearby, default=page_count)
-            if nearby_max - page_count == 1:
-                window_start = max(0, cumulative_rows - PAGE_SIZE)
-                window_end = min(expected, cumulative_rows + page_count + PAGE_SIZE)
-                page_starts.update(
-                    range(
-                        (window_start // PAGE_SIZE) * PAGE_SIZE,
-                        window_end,
-                        PAGE_SIZE,
+        page_starts = {0}
+
+        # Jasper recorta la columna del índice a tres caracteres: 1000 se ve
+        # como 100 y 10000 también como 100. Los dos reinicios 999 -> 100
+        # separan los rangos; dentro de cada rango se cuentan los grupos que
+        # deberían contener 1, 10 o 100 filas respectivamente.
+        index_segments: list[list[int]] = [[]]
+        for displayed in displayed_row_indexes:
+            current = index_segments[-1]
+            if current and current[-1] >= 900 and 90 <= displayed <= 150:
+                index_segments.append([])
+                current = index_segments[-1]
+            current.append(displayed)
+
+        expected_segments = 1 + int(expected >= 1_000) + int(expected >= 10_000)
+        if len(index_segments) == expected_segments:
+            ranges = [(1, min(expected, 999), 1)]
+            if expected >= 1_000:
+                ranges.append((1_000, min(expected, 9_999), 10))
+            if expected >= 10_000:
+                ranges.append((10_000, expected, 100))
+
+            for segment, (start_row, end_row, group_size) in zip(index_segments, ranges):
+                observed: dict[int, int] = {}
+                for displayed in segment:
+                    observed[displayed] = observed.get(displayed, 0) + 1
+                for group_start in range(start_row, end_row + 1, group_size):
+                    group_end = min(end_row, group_start + group_size - 1)
+                    key = group_start if group_size == 1 else group_start // group_size
+                    expected_in_group = group_end - group_start + 1
+                    if observed.get(key, 0) < expected_in_group:
+                        page_starts.update(
+                            range(
+                                ((group_start - 1) // PAGE_SIZE) * PAGE_SIZE,
+                                group_end,
+                                PAGE_SIZE,
+                            )
+                        )
+        else:
+            # Respaldo para un PDF cuyo índice no pueda segmentarse: consulta
+            # ventanas alrededor de páginas con una fila menos que sus vecinas.
+            cumulative_rows = 0
+            for page_index, page_count in enumerate(page_match_counts):
+                nearby = page_match_counts[
+                    max(0, page_index - 4):min(len(page_match_counts), page_index + 5)
+                ]
+                nearby_max = max(nearby, default=page_count)
+                if nearby_max - page_count == 1:
+                    window_start = max(0, cumulative_rows - PAGE_SIZE)
+                    window_end = min(expected, cumulative_rows + page_count + PAGE_SIZE)
+                    page_starts.update(
+                        range(
+                            (window_start // PAGE_SIZE) * PAGE_SIZE,
+                            window_end,
+                            PAGE_SIZE,
+                        )
                     )
-                )
-            cumulative_rows += page_count
+                cumulative_rows += page_count
 
         expedients = extract_visible_expedients(body)
         latest_view_state = view_state
@@ -537,14 +578,16 @@ class ImpiClient:
         latest_view_state = view_state
         if pdf_match_count != raw_count:
             pdf_gap = raw_count - pdf_match_count
-            missing_rows = set(range(1, raw_count + 1)) - pdf_row_indexes
-            if 0 < pdf_gap <= 25 and raw_count > 1_000:
+            targeted_gap_limit = min(500, max(100, round(raw_count * 0.02)))
+            missing_rows = set(range(1, raw_count + 1)) - set(pdf_row_indexes)
+            if 0 < pdf_gap <= targeted_gap_limit and raw_count > 1_000:
                 parser = "pdf_with_targeted_html_recovery"
                 original_unique_count = len(expedients)
                 recovered, latest_view_state, page_count = self.recover_small_pdf_gap(
                     state.url,
                     body,
                     view_state,
+                    pdf_row_indexes,
                     page_match_counts,
                     raw_count,
                 )
@@ -557,7 +600,11 @@ class ImpiClient:
                     page_count,
                     len(expedients) - original_unique_count,
                 )
-            elif missing_rows and len(missing_rows) <= max(25, round(raw_count * 0.02)):
+            elif (
+                raw_count <= 1_000
+                and missing_rows
+                and len(missing_rows) <= max(25, round(raw_count * 0.02))
+            ):
                 logging.warning(
                     "Ficha %s: el PDF produjo %s/%s; recuperando %s filas desde %s páginas HTML.",
                     index + 1,
@@ -579,7 +626,7 @@ class ImpiClient:
                     f"Ficha {index + 1}: el PDF omitió temporalmente "
                     f"{pdf_gap} fila(s); se requiere otra sesión"
                 )
-            else:
+            elif raw_count <= 1_000:
                 logging.warning(
                     "Ficha %s: el PDF produjo %s/%s expedientes; usando paginación HTML completa.",
                     index + 1,
@@ -592,6 +639,11 @@ class ImpiClient:
                     body,
                     view_state,
                     raw_count,
+                )
+            else:
+                raise VerificationError(
+                    f"Ficha {index + 1}: el PDF difiere por {pdf_gap} filas en una "
+                    "cartera grande; se reintentará con una sesión nueva"
                 )
         if not expedients and raw_count:
             raise VerificationError(
