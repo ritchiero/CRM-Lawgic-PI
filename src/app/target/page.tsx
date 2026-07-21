@@ -32,7 +32,7 @@ import {
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ScrapeIMPIButton from '@/components/ScrapeIMPIButton';
 import { useAuth } from '@/contexts/AuthContext';
-import { subscribeToDespachos, Despacho } from '@/services/despachoService';
+import { subscribeToDespachos, updateDespacho, Despacho } from '@/services/despachoService';
 import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
 import { createTarget, subscribeToTargets, Target, updateTarget } from '@/services/targetService';
 import styles from './target.module.css';
@@ -77,6 +77,37 @@ const PIPELINE_STEPS = [
 
 type SortField = 'name' | 'brandCount' | 'none';
 type SortDirection = 'asc' | 'desc';
+type TargetWithAccount = Target & {
+  accountName?: string;
+  accountStage?: string;
+  accountClientStatus?: string;
+  accountClosedAt?: Date;
+  accountPrimaryContactName?: string;
+};
+type DespachoOption = {
+  id?: string;
+  name: string;
+  color: string;
+  initials: string;
+  logo: string;
+  aliases: string[];
+};
+
+function normalizeCompany(value?: string) {
+  return (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('es');
+}
+
+function findAccount(target: Target, despachos: Despacho[]) {
+  if (target.despachoId) {
+    const byId = despachos.find((despacho) => despacho.id === target.despachoId);
+    if (byId) return byId;
+  }
+  const company = normalizeCompany(target.company);
+  if (!company) return null;
+  return despachos.find((despacho) =>
+    [despacho.nombre, ...(despacho.aliases || [])].some((name) => normalizeCompany(name) === company)
+  ) || null;
+}
 
 function getInitials(name: string) {
   return name
@@ -168,24 +199,36 @@ export default function TargetPage() {
   }, []);
 
   const availableDespachos = useMemo(() => {
-    const byName = new Map<string, { name: string; color: string; initials: string; logo: string }>();
-    DESPACHOS.forEach((despacho) => byName.set(despacho.name.toLocaleLowerCase('es'), { ...despacho }));
+    const byName = new Map<string, DespachoOption>();
+    DESPACHOS.forEach((despacho) => byName.set(despacho.name.toLocaleLowerCase('es'), { ...despacho, aliases: [] }));
     firestoreDespachos.forEach((despacho) => {
       const key = despacho.nombre.toLocaleLowerCase('es');
       const existing = byName.get(key);
       byName.set(key, {
+        id: despacho.id,
         name: despacho.nombre,
         color: despacho.color || existing?.color || '#64748b',
         initials: despacho.initials || existing?.initials || getInitials(despacho.nombre),
         logo: despacho.logoUrl || existing?.logo || '',
+        aliases: despacho.aliases || [],
       });
     });
     return Array.from(byName.values());
   }, [firestoreDespachos]);
 
-  const allTargets = useMemo(() => {
-    const byName = new Map<string, Target>();
-    targets.forEach((target) => byName.set(target.name.toLocaleLowerCase('es').trim(), target));
+  const allTargets = useMemo<TargetWithAccount[]>(() => {
+    const byName = new Map<string, TargetWithAccount>();
+    targets.forEach((target) => {
+      const account = findAccount(target, firestoreDespachos);
+      byName.set(target.name.toLocaleLowerCase('es').trim(), {
+        ...target,
+        accountName: account?.nombre,
+        accountStage: account?.accountStage,
+        accountClientStatus: account?.clientStatus,
+        accountClosedAt: account?.closedAt,
+        accountPrimaryContactName: account?.primaryContactName,
+      });
+    });
     representatives.forEach((representative) => {
       const key = representative.name.toLocaleLowerCase('es').trim();
       const existing = byName.get(key);
@@ -211,7 +254,7 @@ export default function TargetPage() {
       }
     });
     return Array.from(byName.values());
-  }, [targets, representatives]);
+  }, [targets, representatives, firestoreDespachos]);
 
   const filteredTargets = useMemo(() => {
     let items = [...allTargets];
@@ -220,11 +263,12 @@ export default function TargetPage() {
       items = items.filter((target) =>
         target.name.toLocaleLowerCase('es').includes(term)
         || target.company?.toLocaleLowerCase('es').includes(term)
+        || target.accountName?.toLocaleLowerCase('es').includes(term)
         || target.email?.toLocaleLowerCase('es').includes(term)
       );
     }
-    if (statusFilter !== 'all') items = items.filter((target) => target.clientStatus === statusFilter);
-    if (hideDiscarded) items = items.filter((target) => !HIDDEN_STATUSES.includes(target.clientStatus || ''));
+    if (statusFilter !== 'all') items = items.filter((target) => (target.accountClientStatus || target.clientStatus) === statusFilter);
+    if (hideDiscarded) items = items.filter((target) => !HIDDEN_STATUSES.includes(target.accountClientStatus || target.clientStatus || ''));
     if (sortField === 'name') {
       items.sort((a, b) => a.name.localeCompare(b.name, 'es') * (sortDirection === 'asc' ? 1 : -1));
     }
@@ -282,9 +326,13 @@ export default function TargetPage() {
     }
   }, [selectedTarget]);
 
-  const getDespachoInfo = (companyName?: string, ownLogoUrl?: string) => {
-    if (!companyName?.trim() && !ownLogoUrl) return null;
-    const found = availableDespachos.find((despacho) => despacho.name.toLocaleLowerCase('es') === companyName?.toLocaleLowerCase('es'));
+  const getDespachoInfo = (companyName?: string, ownLogoUrl?: string, despachoId?: string) => {
+    if (!companyName?.trim() && !ownLogoUrl && !despachoId) return null;
+    const company = normalizeCompany(companyName);
+    const found = availableDespachos.find((despacho) =>
+      (despachoId && despacho.id === despachoId)
+      || [despacho.name, ...despacho.aliases].some((name) => normalizeCompany(name) === company)
+    );
     if (found) return { ...found, logo: found.logo || ownLogoUrl || '' };
     const name = companyName || '';
     return { name, color: '#64748b', initials: getInitials(name), logo: ownLogoUrl || '' };
@@ -333,11 +381,13 @@ export default function TargetPage() {
     });
   };
 
-  const handleDespachoSelect = async (company: string) => {
-    if (!selectedTarget || !company.trim()) return;
+  const handleDespachoSelect = async (despacho: DespachoOption) => {
+    if (!selectedTarget || !despacho.name.trim()) return;
+    const updates: Partial<Target> = { company: despacho.name };
+    if (despacho.id) updates.despachoId = despacho.id;
     try {
-      if (selectedTarget.createdBy === 'representative') setSelectedId(await createFromRepresentative({ company }));
-      else await updateTarget(selectedTarget.id, { company });
+      if (selectedTarget.createdBy === 'representative') setSelectedId(await createFromRepresentative(updates));
+      else await updateTarget(selectedTarget.id, updates);
       setDespachoDropdownOpen(false);
       setCustomDespacho('');
     } catch (error) {
@@ -349,7 +399,8 @@ export default function TargetPage() {
   const handleStatusChange = async (clientStatus: string) => {
     if (!selectedTarget) return;
     try {
-      if (selectedTarget.createdBy === 'representative') setSelectedId(await createFromRepresentative({ clientStatus }));
+      if (selectedTarget.despachoId) await updateDespacho(selectedTarget.despachoId, { clientStatus });
+      else if (selectedTarget.createdBy === 'representative') setSelectedId(await createFromRepresentative({ clientStatus }));
       else await updateTarget(selectedTarget.id, { clientStatus });
       setStatusDropdownOpen(false);
     } catch (error) {
@@ -391,13 +442,14 @@ export default function TargetPage() {
     }
   };
 
-  const selectedDespacho = selectedTarget ? getDespachoInfo(selectedTarget.company, selectedTarget.logoUrl) : null;
-  const pipelineIndex = selectedTarget ? getPipelineIndex(selectedTarget.stage) : -1;
+  const selectedDespacho = selectedTarget ? getDespachoInfo(selectedTarget.accountName || selectedTarget.company, selectedTarget.logoUrl, selectedTarget.despachoId) : null;
+  const selectedStage = selectedTarget?.accountStage || selectedTarget?.stage || '';
+  const pipelineIndex = selectedTarget ? getPipelineIndex(selectedStage) : -1;
   const nextAction = selectedTarget?.scheduledDemoDate
     ? { title: 'Realizar demo programada', date: formatDate(selectedTarget.scheduledDemoDate) }
     : selectedTarget?.nextContactDate
       ? { title: 'Dar seguimiento al contacto', date: formatDate(selectedTarget.nextContactDate) }
-      : selectedTarget?.stage === 'Venta'
+      : selectedStage === 'Venta'
         ? { title: 'Dar seguimiento al cliente', date: 'Sin fecha asignada' }
         : { title: 'Continuar seguimiento comercial', date: 'Sin fecha asignada' };
   const loading = loadingTargets || loadingRepresentatives;
@@ -484,7 +536,7 @@ export default function TargetPage() {
                 <div className={styles.tableHeader}>
                   <button onClick={() => handleSort('name')}>Nombre del cliente <SortIcon field="name" /></button>
                   <span>Despacho / Empresa</span>
-                  <span>Etapa CRM</span>
+                  <span>Etapa cuenta</span>
                   <button className={styles.alignRight} onClick={() => handleSort('brandCount')}>Marcas <SortIcon field="brandCount" /></button>
                 </div>
 
@@ -493,7 +545,8 @@ export default function TargetPage() {
                   <div className={styles.emptyState}>{searchTerm ? 'No encontramos targets con esa búsqueda.' : 'No hay targets para este filtro.'}</div>
                 )}
                 {!loading && visibleTargets.map((target) => {
-                  const despacho = getDespachoInfo(target.company, target.logoUrl);
+                  const despacho = getDespachoInfo(target.accountName || target.company, target.logoUrl, target.despachoId);
+                  const effectiveStage = target.accountStage || target.stage;
                   const selected = target.id === selectedId;
                   return (
                     <button
@@ -514,7 +567,7 @@ export default function TargetPage() {
                         {despacho ? <><span className={styles.companyMark}>{despacho.initials}</span><span>{despacho.name}</span></> : <span className={styles.muted}>—</span>}
                       </span>
                       <span className={styles.stageCell}>
-                        {target.stage ? <span className={styles.stageBadge} style={{ color: getStageColor(target.stage), backgroundColor: `${getStageColor(target.stage)}10`, borderColor: `${getStageColor(target.stage)}33` }}>{target.stage}</span> : <span className={styles.muted}>—</span>}
+                        {effectiveStage ? <span className={styles.stageBadge} title={target.accountStage && target.stage !== target.accountStage ? `Seguimiento personal: ${target.stage}` : undefined} style={{ color: getStageColor(effectiveStage), backgroundColor: `${getStageColor(effectiveStage)}10`, borderColor: `${getStageColor(effectiveStage)}33` }}>{effectiveStage}</span> : <span className={styles.muted}>—</span>}
                       </span>
                       <span className={`${styles.brandCell} ${(target.brandCount || 0) > 0 ? styles.brandCellPopulated : ''}`}>
                         {(target.brandCount || 0).toLocaleString('es-MX')}{(target.brandCount || 0) > 0 ? ' marcas' : ''}
@@ -571,19 +624,22 @@ export default function TargetPage() {
                             <div className={styles.dropdownSearch}><MagnifyingGlassIcon /><input autoFocus value={customDespacho} onChange={(event) => setCustomDespacho(event.target.value)} placeholder="Buscar o crear despacho…" /></div>
                             <div className={styles.dropdownList}>
                               {availableDespachos.filter((item) => !customDespacho.trim() || item.name.toLocaleLowerCase('es').includes(customDespacho.toLocaleLowerCase('es'))).map((item) => (
-                                <button key={item.name} onClick={() => handleDespachoSelect(item.name)}><span className={styles.companyMark}>{item.initials}</span><span>{item.name}</span>{selectedTarget.company === item.name && <CheckIcon />}</button>
+                                <button key={item.name} onClick={() => handleDespachoSelect(item)}><span className={styles.companyMark}>{item.initials}</span><span>{item.name}</span>{selectedTarget.despachoId === item.id || selectedTarget.company === item.name ? <CheckIcon /> : null}</button>
                               ))}
                               {customDespacho.trim() && !availableDespachos.some((item) => item.name.toLocaleLowerCase('es') === customDespacho.trim().toLocaleLowerCase('es')) && (
-                                <button onClick={() => handleDespachoSelect(customDespacho.trim())}><PlusCircleIcon /><span>Crear “{customDespacho.trim()}”</span></button>
+                                <button onClick={() => handleDespachoSelect({ name: customDespacho.trim(), color: '#64748b', initials: getInitials(customDespacho.trim()), logo: '', aliases: [] })}><PlusCircleIcon /><span>Crear “{customDespacho.trim()}”</span></button>
                               )}
                             </div>
                           </div>
                         )}
                       </div>
                       <div className={styles.identityBadges}>
-                        <span className={styles.stageBadge} style={{ color: getStageColor(selectedTarget.stage), backgroundColor: `${getStageColor(selectedTarget.stage)}10`, borderColor: `${getStageColor(selectedTarget.stage)}33` }}>{selectedTarget.stage || 'Sin etapa'}</span>
+                        <span className={styles.stageBadge} style={{ color: getStageColor(selectedStage), backgroundColor: `${getStageColor(selectedStage)}10`, borderColor: `${getStageColor(selectedStage)}33` }}>{selectedStage || 'Sin etapa'}</span>
                         <span className={styles.portfolioBadge}>{(selectedTarget.brandCount || 0).toLocaleString('es-MX')} marcas</span>
                       </div>
+                      {selectedTarget.accountStage && selectedTarget.accountStage !== selectedTarget.stage && (
+                        <p className={styles.accountContext}>Cuenta del despacho · cierre vía {selectedTarget.accountPrimaryContactName || 'otro contacto'}</p>
+                      )}
                     </div>
                   </div>
 
@@ -604,11 +660,12 @@ export default function TargetPage() {
                         const completed = pipelineIndex > index;
                         const active = pipelineIndex === index;
                         const historyEntry = [...(selectedTarget.history || [])].reverse().find((entry) => step.stages.some((stage) => stage === entry.stage));
+                        const accountDate = step.label === 'Cierre' && selectedTarget.accountStage === 'Venta' ? selectedTarget.accountClosedAt : undefined;
                         return (
                           <div key={step.label} className={`${styles.pipelineStep} ${completed ? styles.pipelineDone : ''} ${active ? styles.pipelineActive : ''}`}>
                             <div className={styles.pipelineMarker}>{completed ? <CheckIcon /> : active ? <span /> : index + 1}</div>
                             <strong>{step.label}</strong>
-                            <small>{formatDate(historyEntry?.date) || '—'}</small>
+                            <small>{formatDate(accountDate || historyEntry?.date) || '—'}</small>
                           </div>
                         );
                       })}
@@ -633,9 +690,10 @@ export default function TargetPage() {
                       </div>
                       <div ref={statusDropdownRef} className={styles.statusPicker}>
                         <span>Estatus del cliente</span>
-                        <button onClick={() => setStatusDropdownOpen((open) => !open)}>{getClientStatusInfo(selectedTarget.clientStatus)?.emoji || '○'} {getClientStatusInfo(selectedTarget.clientStatus)?.label || 'Asignar estatus'} <ChevronDownIcon /></button>
-                        {statusDropdownOpen && <div className={styles.statusMenu}>{CLIENT_STATUSES.map((status) => <button key={status.value} onClick={() => handleStatusChange(status.value)}><span>{status.emoji}</span><div><strong>{status.label}</strong><small>{status.description}</small></div>{selectedTarget.clientStatus === status.value && <CheckIcon />}</button>)}</div>}
+                        <button onClick={() => setStatusDropdownOpen((open) => !open)}>{getClientStatusInfo(selectedTarget.accountClientStatus || selectedTarget.clientStatus)?.emoji || '○'} {getClientStatusInfo(selectedTarget.accountClientStatus || selectedTarget.clientStatus)?.label || 'Asignar estatus'} <ChevronDownIcon /></button>
+                        {statusDropdownOpen && <div className={styles.statusMenu}>{CLIENT_STATUSES.map((status) => <button key={status.value} onClick={() => handleStatusChange(status.value)}><span>{status.emoji}</span><div><strong>{status.label}</strong><small>{status.description}</small></div>{(selectedTarget.accountClientStatus || selectedTarget.clientStatus) === status.value && <CheckIcon />}</button>)}</div>}
                       </div>
+                      {selectedTarget.accountStage && selectedTarget.accountStage !== selectedTarget.stage && <div className={styles.profileBlock}><span>Seguimiento personal</span><p>{selectedTarget.stage || 'Sin etapa personal'}</p></div>}
                       {selectedTarget.leadSource && <div className={styles.profileBlock}><span>Origen del lead</span><p>{selectedTarget.leadSource}</p></div>}
                       {selectedTarget.notes && <div className={styles.profileBlock}><span>Notas</span><p>{selectedTarget.notes}</p></div>}
                       {selectedTarget.linkedinUrl && <a className={styles.linkedinLink} href={selectedTarget.linkedinUrl} target="_blank" rel="noreferrer">Abrir LinkedIn <ArrowTopRightOnSquareIcon /></a>}

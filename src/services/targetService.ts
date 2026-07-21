@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, deleteField, doc, query, where, orderBy, onSnapshot, Timestamp, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, deleteField, doc, query, where, orderBy, onSnapshot, Timestamp, serverTimestamp, getDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { getDbInstance, getAuthInstance } from '@/lib/firebase';
 
 // Re-use the same Prospect interface
@@ -34,6 +34,7 @@ export interface Target {
   // Field to track origin
   clientStatus?: string;
   copiedFromProspectId?: string;
+  despachoId?: string;
 }
 
 const COLLECTION_NAME = 'targets';
@@ -118,13 +119,15 @@ export const moveTargetToStage = async (id: string, newStage: string, currentHis
     const userId = user?.uid || 'anonymous';
 
     const targetRef = doc(db, COLLECTION_NAME, id);
+    const targetSnapshot = await getDoc(targetRef);
     const newHistoryEntry = {
       stage: newStage,
       date: Timestamp.fromDate(new Date()),
       movedBy: userId
     };
 
-    await updateDoc(targetRef, {
+    const batch = writeBatch(db);
+    batch.update(targetRef, {
       stage: newStage,
       history: [...currentHistory.map(h => ({
         ...h,
@@ -132,6 +135,19 @@ export const moveTargetToStage = async (id: string, newStage: string, currentHis
       })), newHistoryEntry],
       updatedAt: serverTimestamp()
     });
+    const targetData = targetSnapshot.data();
+    if (newStage === 'Venta' && targetData?.despachoId) {
+      batch.update(doc(db, 'despachos', targetData.despachoId), {
+        accountStage: 'Venta',
+        clientStatus: 'Cliente activo',
+        closedAt: serverTimestamp(),
+        primaryContactName: targetData.name || '',
+        primaryContactTargetId: id,
+        primaryContactProspectId: targetData.copiedFromProspectId || '',
+        updatedAt: serverTimestamp()
+      });
+    }
+    await batch.commit();
   } catch (error) {
     console.error('Error moving target:', error);
     throw error;
@@ -155,7 +171,7 @@ export const subscribeToTargets = (callback: (targets: Target[]) => void) => {
           ...data,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate(),
-          history: data.history?.map((h: any) => ({
+          history: data.history?.map((h: Record<string, unknown> & { date?: Timestamp }) => ({
             ...h,
             date: h.date?.toDate() || new Date()
           })) || [],
@@ -194,7 +210,7 @@ export const subscribeToTargetsByStage = (stage: string, callback: (targets: Tar
           ...data,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate(),
-          history: data.history?.map((h: any) => ({
+          history: data.history?.map((h: Record<string, unknown> & { date?: Timestamp }) => ({
             ...h,
             date: h.date?.toDate() || new Date()
           })) || []

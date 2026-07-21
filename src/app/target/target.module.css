@@ -759,6 +759,14 @@
   flex-wrap: wrap;
 }
 
+.accountContext {
+  margin: 8px 0 0;
+  color: #2563eb;
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
 .portfolioBadge {
   color: #075da8;
   border-color: #d7edff;

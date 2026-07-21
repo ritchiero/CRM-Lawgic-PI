@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, Timestamp, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp, getDocs } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
 
 export interface Colaborador {
@@ -23,6 +23,13 @@ export interface Despacho {
   sitioWeb: string;
   notas: string;
   colaboradores: Colaborador[];
+  aliases?: string[];
+  accountStage?: string;
+  clientStatus?: string;
+  closedAt?: Date;
+  primaryContactName?: string;
+  primaryContactTargetId?: string;
+  primaryContactProspectId?: string;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -50,7 +57,9 @@ export const updateDespacho = async (id: string, updates: Partial<Despacho>) => 
   try {
     const db = getDbInstance();
     const ref = doc(db, COLLECTION_NAME, id);
-    const { id: _, createdAt, ...rest } = updates as any;
+    const rest = Object.fromEntries(
+      Object.entries(updates).filter(([key]) => key !== 'id' && key !== 'createdAt')
+    );
     await updateDoc(ref, {
       ...rest,
       updatedAt: serverTimestamp(),
@@ -98,6 +107,13 @@ export const subscribeToDespachos = (callback: (despachos: Despacho[]) => void) 
           sitioWeb: data.sitioWeb || '',
           notas: data.notas || '',
           colaboradores: data.colaboradores || [],
+          aliases: data.aliases || [],
+          accountStage: data.accountStage,
+          clientStatus: data.clientStatus,
+          closedAt: data.closedAt?.toDate(),
+          primaryContactName: data.primaryContactName,
+          primaryContactTargetId: data.primaryContactTargetId,
+          primaryContactProspectId: data.primaryContactProspectId,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate(),
         } as Despacho;

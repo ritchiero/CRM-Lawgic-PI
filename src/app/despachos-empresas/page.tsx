@@ -46,7 +46,18 @@ type PersonItem = {
   brandCount?: number;
   source: 'target' | 'representative';
   stage?: string;
+  despachoId?: string;
 };
+
+function normalizeCompany(value?: string) {
+  return (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('es');
+}
+
+function isLinkedToDespacho(target: Target, despacho: Despacho) {
+  if (target.despachoId) return target.despachoId === despacho.id;
+  const company = normalizeCompany(target.company);
+  return [despacho.nombre, ...(despacho.aliases || [])].some((name) => normalizeCompany(name) === company);
+}
 
 export default function DespachosEmpresasPage() {
   const router = useRouter();
@@ -105,21 +116,20 @@ export default function DespachosEmpresasPage() {
     }
   }, [selectedDespacho]);
 
-  // People linked to the current despacho (by company field matching despacho name)
+  // People linked by account ID, with aliases as a fallback for legacy records.
   const linkedTargets = useMemo(() => {
-    const name = selectedDespacho?.nombre || editForm.nombre;
-    if (!name) return [];
-    return targets.filter(t => t.company?.toLowerCase() === name.toLowerCase());
-  }, [targets, selectedDespacho, editForm.nombre]);
+    if (!selectedDespacho) return [];
+    return targets.filter((target) => isLinkedToDespacho(target, selectedDespacho));
+  }, [targets, selectedDespacho]);
 
   // People available to add (not yet linked)
   const availablePeople = useMemo(() => {
     const name = selectedDespacho?.nombre || editForm.nombre;
     if (!name) return [];
     const all: PersonItem[] = [
-      ...targets.filter(t => t.company?.toLowerCase() !== name.toLowerCase()).map(t => ({
+      ...targets.filter(t => !selectedDespacho || !isLinkedToDespacho(t, selectedDespacho)).map(t => ({
         id: t.id, name: t.name, email: t.email, phone: t.phone,
-        company: t.company, brandCount: t.brandCount, source: 'target' as const, stage: t.stage,
+        company: t.company, brandCount: t.brandCount, source: 'target' as const, stage: t.stage, despachoId: t.despachoId,
       })),
       ...representatives.map(r => ({
         id: r.id, name: r.name, brandCount: r.brandCount, source: 'representative' as const,
@@ -184,13 +194,13 @@ export default function DespachosEmpresasPage() {
     setEditForm({ nombre: '', color: '#6366f1', initials: '', logo: '', logoUrl: '', direccion: '', telefono: '', email: '', sitioWeb: '', notas: '' });
   };
 
-  // Link a target to this despacho by setting its company field
+  // Link a target to this despacho by storing both its display name and account ID.
   const linkPerson = async (person: PersonItem) => {
     if (person.source !== 'target') return;
     const despachoName = selectedDespacho?.nombre || editForm.nombre;
     if (!despachoName) return;
     try {
-      await updateTarget(person.id, { company: despachoName });
+      await updateTarget(person.id, { company: despachoName, despachoId: selectedDespacho?.id });
       setShowPersonDropdown(false);
       setPersonSearch('');
     } catch { alert('Error al vincular persona.'); }
@@ -199,7 +209,7 @@ export default function DespachosEmpresasPage() {
   // Unlink a target from this despacho
   const unlinkPerson = async (targetId: string) => {
     try {
-      await updateTarget(targetId, { company: '' });
+      await updateTarget(targetId, { company: '', despachoId: undefined });
     } catch { alert('Error al desvincular persona.'); }
   };
 

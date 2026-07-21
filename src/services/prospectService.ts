@@ -10,6 +10,7 @@ import {
     onSnapshot,
     Timestamp,
     serverTimestamp,
+    getDoc,
     getDocs,
     writeBatch
 } from 'firebase/firestore';
@@ -44,6 +45,7 @@ export interface Prospect {
     scheduledDemoDate?: Date;
     // Social media
     linkedinUrl?: string;
+    despachoId?: string;
 }
 
 type FirestoreHistoryEntry = Record<string, unknown> & {
@@ -62,7 +64,8 @@ const TARGET_MIRRORED_FIELDS = new Set<keyof Prospect>([
     'potentialValue',
     'nextContactDate',
     'scheduledDemoDate',
-    'linkedinUrl'
+    'linkedinUrl',
+    'despachoId'
 ]);
 
 // Create a new prospect
@@ -180,10 +183,10 @@ export const moveProspectToStage = async (id: string, newStage: string, currentH
         const userId = user?.uid || 'anonymous';
 
         const prospectRef = doc(db, 'prospects', id);
-        const linkedTargets = await getDocs(query(
-            collection(db, 'targets'),
-            where('copiedFromProspectId', '==', id)
-        ));
+        const [prospectSnapshot, linkedTargets] = await Promise.all([
+            getDoc(prospectRef),
+            getDocs(query(collection(db, 'targets'), where('copiedFromProspectId', '==', id)))
+        ]);
 
         const now = new Date();
         const newHistoryEntry = {
@@ -215,6 +218,17 @@ export const moveProspectToStage = async (id: string, newStage: string, currentH
                     changes: [{ field: 'stage', before: targetData.stage ?? null, after: newStage }]
                 }],
                 crmSyncedAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+        }
+        const prospectData = prospectSnapshot.data();
+        if (newStage === 'Venta' && prospectData?.despachoId) {
+            batch.update(doc(db, 'despachos', prospectData.despachoId), {
+                accountStage: 'Venta',
+                clientStatus: 'Cliente activo',
+                closedAt: serverTimestamp(),
+                primaryContactName: prospectData.name || '',
+                primaryContactProspectId: id,
                 updatedAt: serverTimestamp()
             });
         }
