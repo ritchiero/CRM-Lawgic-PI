@@ -1,13 +1,45 @@
 "use client";
+
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo, useRef } from 'react';
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArrowTopRightOnSquareIcon,
+  BellIcon,
+  BriefcaseIcon,
+  BuildingOfficeIcon,
+  CalendarIcon,
+  CameraIcon,
+  ChartBarIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
+  ClipboardDocumentListIcon,
+  Cog6ToothIcon,
+  DocumentArrowDownIcon,
+  EllipsisVerticalIcon,
+  EnvelopeIcon,
+  HomeIcon,
+  MagnifyingGlassIcon,
+  MapPinIcon,
+  PencilIcon,
+  PhoneIcon,
+  PlusCircleIcon,
+  UserIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useAuth } from '@/contexts/AuthContext';
-import { subscribeToTargets, Target, updateTarget, createTarget } from '@/services/targetService';
-import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
 import ScrapeIMPIButton from '@/components/ScrapeIMPIButton';
+import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToDespachos, Despacho } from '@/services/despachoService';
-import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, TagIcon, CalendarIcon, ChatBubbleLeftIcon, CameraIcon, DocumentTextIcon, InformationCircleIcon, FlagIcon, StarIcon, DocumentArrowDownIcon, PencilIcon, CheckIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
+import { createTarget, subscribeToTargets, Target, updateTarget } from '@/services/targetService';
+import styles from './target.module.css';
+
+const PAGE_SIZE = 20;
 
 const DESPACHOS = [
   { name: 'Tópica Media, S.A. de C.V', color: '#6366f1', initials: 'TM', logo: '/logos/topica-media.png' },
@@ -20,1099 +52,621 @@ const DESPACHOS = [
   { name: 'Goodrich Riquelme', color: '#14b8a6', initials: 'GR', logo: '/logos/goodrich.png' },
   { name: 'Becerril, Coca & Becerril', color: '#f97316', initials: 'BC', logo: '/logos/becerril.png' },
   { name: 'Dumont Bergman Bider', color: '#06b6d4', initials: 'DB', logo: '/logos/dumont.png' },
-];
+] as const;
 
 const CLIENT_STATUSES = [
-  { value: 'Potencial', label: 'Potencial', color: '#6366f1', emoji: '🟣', description: 'Prospecto nuevo, sin contacto aún' },
-  { value: 'Contactado', label: 'Contactado', color: '#8b5cf6', emoji: '📞', description: 'Ya se hizo primer contacto' },
-  { value: 'Interesado', label: 'Interesado', color: '#3b82f6', emoji: '👍', description: 'Mostró interés en el servicio' },
-  { value: 'En negociación', label: 'En negociación', color: '#f59e0b', emoji: '🤝', description: 'Negociación activa, cerca de cerrar' },
-  { value: 'Cliente activo', label: 'Cliente activo', color: '#22c55e', emoji: '✅', description: 'Cliente que ya contrató' },
+  { value: 'Potencial', label: 'Potencial', color: '#7c3aed', emoji: '🟣', description: 'Prospecto nuevo, sin contacto aún' },
+  { value: 'Contactado', label: 'Contactado', color: '#475569', emoji: '📞', description: 'Ya se hizo primer contacto' },
+  { value: 'Interesado', label: 'Interesado', color: '#2563eb', emoji: '👍', description: 'Mostró interés en el servicio' },
+  { value: 'En negociación', label: 'En negociación', color: '#d97706', emoji: '🤝', description: 'Negociación activa, cerca de cerrar' },
+  { value: 'Cliente activo', label: 'Cliente activo', color: '#16a34a', emoji: '✅', description: 'Cliente que ya contrató' },
   { value: 'No interesado', label: 'No interesado', color: '#6b7280', emoji: '🚫', description: 'Dijo que no, pero sin mala actitud' },
-  { value: 'Grosero/Hostil', label: 'Grosero/Hostil', color: '#ef4444', emoji: '⚠️', description: 'Mala experiencia, evitar contacto' },
-  { value: 'Ex-cliente', label: 'Ex-cliente', color: '#f97316', emoji: '🔄', description: 'Fue cliente pero se bajó' },
+  { value: 'Grosero/Hostil', label: 'Grosero/Hostil', color: '#dc2626', emoji: '⚠️', description: 'Mala experiencia, evitar contacto' },
+  { value: 'Ex-cliente', label: 'Ex-cliente', color: '#ea580c', emoji: '🔄', description: 'Fue cliente pero se bajó' },
   { value: 'Descartado', label: 'Descartado', color: '#94a3b8', emoji: '❌', description: 'No vale la pena seguir' },
-];
+] as const;
 
 const HIDDEN_STATUSES = ['No interesado', 'Grosero/Hostil', 'Descartado'];
 
-const getClientStatusInfo = (status: string | undefined) => {
-  return CLIENT_STATUSES.find(s => s.value === status) || null;
-};
+const PIPELINE_STEPS = [
+  { label: 'Contactado', stages: ['1er Contacto', 'Contacto efectivo'] },
+  { label: 'Interesado', stages: ['Muestra de interés'] },
+  { label: 'Demo', stages: ['Cita para demo', 'Demo realizada'] },
+  { label: 'Propuesta', stages: ['Propuesta'] },
+  { label: 'Cierre', stages: ['Venta'] },
+] as const;
 
 type SortField = 'name' | 'brandCount' | 'none';
 type SortDirection = 'asc' | 'desc';
 
+function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
+
+function getStageColor(stage: string) {
+  const colors: Record<string, string> = {
+    'Detección de prospecto': '#6366f1',
+    '1er Contacto': '#8b5cf6',
+    'Contacto efectivo': '#a855f7',
+    'Muestra de interés': '#ec4899',
+    'Cita para demo': '#3b82f6',
+    'Demo realizada': '#0ea5e9',
+    'Venta': '#16a34a',
+    'En Pausa': '#f59e0b',
+    'Basura': '#6b7280',
+    'Cliente Perdido': '#ef4444',
+  };
+  return colors[stage] || '#64748b';
+}
+
+function getPipelineIndex(stage: string) {
+  const stepIndex = PIPELINE_STEPS.findIndex((step) => step.stages.some((item) => item === stage));
+  if (stage === 'Detección de prospecto') return -1;
+  return stepIndex;
+}
+
+function formatDate(date?: Date) {
+  if (!date) return null;
+  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+}
+
 export default function TargetPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [prospects, setProspects] = useState<Target[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [targets, setTargets] = useState<Target[]>([]);
   const [representatives, setRepresentatives] = useState<Representative[]>([]);
-  const [loadingReps, setLoadingReps] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProspect, setSelectedProspect] = useState<Target | null>(null);
-  const [activeTab, setActiveTab] = useState('infos');
-  const [despachoDropdownOpen, setDespachoDropdownOpen] = useState(false);
-  const [customDespacho, setCustomDespacho] = useState('');
-  const despachoRef = useRef<HTMLDivElement>(null);
   const [firestoreDespachos, setFirestoreDespachos] = useState<Despacho[]>([]);
+  const [loadingTargets, setLoadingTargets] = useState(true);
+  const [loadingRepresentatives, setLoadingRepresentatives] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [hideDiscarded, setHideDiscarded] = useState(true);
   const [sortField, setSortField] = useState<SortField>('none');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showFullProfile, setShowFullProfile] = useState(false);
   const [editingContact, setEditingContact] = useState(false);
-  const [editContactForm, setEditContactForm] = useState({ email: '', phone: '', linkedinUrl: '', leadSource: '' });
   const [savingContact, setSavingContact] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [hideDiscarded, setHideDiscarded] = useState(true);
+  const [editContactForm, setEditContactForm] = useState({ email: '', phone: '', linkedinUrl: '', leadSource: '' });
+  const [despachoDropdownOpen, setDespachoDropdownOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-  const [photoLoaded, setPhotoLoaded] = useState(false);
-  const [photoUrlInput, setPhotoUrlInput] = useState('');
+  const [customDespacho, setCustomDespacho] = useState('');
   const [showPhotoInput, setShowPhotoInput] = useState(false);
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
+  const despachoRef = useRef<HTMLDivElement>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else {
-        setSortField('none');
-        setSortDirection('asc');
-      }
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
 
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = subscribeToTargets((data) => {
-      setProspects(data);
-      setLoading(false);
+    return subscribeToTargets((data) => {
+      setTargets(data);
+      setLoadingTargets(false);
     });
-    return () => unsubscribe();
   }, [user]);
 
-  useEffect(() => {
-    const unsubReps = subscribeToRepresentatives((data) => {
-      setRepresentatives(data);
-      setLoadingReps(false);
-    });
-    return () => unsubReps();
-  }, []);
+  useEffect(() => subscribeToRepresentatives((data) => {
+    setRepresentatives(data);
+    setLoadingRepresentatives(false);
+  }), []);
+
+  useEffect(() => subscribeToDespachos(setFirestoreDespachos), []);
 
   useEffect(() => {
-    const unsubDespachos = subscribeToDespachos((data) => {
-      setFirestoreDespachos(data);
-    });
-    return () => unsubDespachos();
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (despachoRef.current && !despachoRef.current.contains(event.target as Node)) setDespachoDropdownOpen(false);
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) setStatusDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  useEffect(() => {
-    if (selectedProspect) {
-      setActiveTab('infos');
-      setDespachoDropdownOpen(false);
-      setStatusDropdownOpen(false);
-      setEditingContact(false);
-      setEditContactForm({
-        email: selectedProspect.email || '',
-        phone: selectedProspect.phone || '',
-        linkedinUrl: selectedProspect.linkedinUrl || '',
-        leadSource: selectedProspect.leadSource || ''
+  const availableDespachos = useMemo(() => {
+    const byName = new Map<string, { name: string; color: string; initials: string; logo: string }>();
+    DESPACHOS.forEach((despacho) => byName.set(despacho.name.toLocaleLowerCase('es'), { ...despacho }));
+    firestoreDespachos.forEach((despacho) => {
+      const key = despacho.nombre.toLocaleLowerCase('es');
+      const existing = byName.get(key);
+      byName.set(key, {
+        name: despacho.nombre,
+        color: despacho.color || existing?.color || '#64748b',
+        initials: despacho.initials || existing?.initials || getInitials(despacho.nombre),
+        logo: despacho.logoUrl || existing?.logo || '',
       });
-    }
-  }, [selectedProspect]);
+    });
+    return Array.from(byName.values());
+  }, [firestoreDespachos]);
 
-  // Close despacho dropdown on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (despachoRef.current && !despachoRef.current.contains(event.target as Node)) {
-        setDespachoDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Close status dropdown on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
-        setStatusDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    setPhotoLoaded(false);
-    setShowPhotoInput(false);
-  }, [selectedProspect?.id]);
-
-  const getDespachoForProspect = (prospect: Target) => {
-    const despachoName = prospect.company;
-    if (!despachoName || !despachoName.trim()) return null;
-    const found = DESPACHOS.find(d => d.name.toLowerCase() === despachoName.toLowerCase());
-    const fsDespacho = firestoreDespachos.find(d => d.nombre.toLowerCase() === despachoName.toLowerCase());
-    if (found) {
-      return { ...found, logo: fsDespacho?.logoUrl || found.logo || prospect.logoUrl || '' };
-    }
-    if (fsDespacho) {
-      return { name: fsDespacho.nombre, color: fsDespacho.color, initials: fsDespacho.initials, logo: fsDespacho.logoUrl || prospect.logoUrl || '' };
-    }
-    const words = despachoName.trim().split(' ').filter(Boolean);
-    const initials = words.length >= 2
-      ? (words[0][0] + words[1][0]).toUpperCase()
-      : despachoName.trim().substring(0, 2).toUpperCase();
-    return { name: despachoName, color: '#6b7280', initials, logo: prospect.logoUrl || '' };
-  };
-
-  const filteredProspects = useMemo(() => {
-    // Merge representatives into targets, deduplicating by name
-    const targetsByName = new Map<string, Target>();
-
-    // First, add all real targets
-    for (const target of prospects) {
-      const key = target.name.toLowerCase().trim();
-      targetsByName.set(key, target);
-    }
-
-    // Then, for each representative:
-    // - If a target with the same name exists, use the representative count only as a fallback
-    // - If not, add as a virtual target entry
-    for (const rep of representatives) {
-      const key = rep.name.toLowerCase().trim();
-      const existingTarget = targetsByName.get(key);
-      if (existingTarget) {
-        targetsByName.set(key, {
-          ...existingTarget,
-          brandCount: existingTarget.brandCount !== undefined
-            ? existingTarget.brandCount
-            : rep.brandCount,
+  const allTargets = useMemo(() => {
+    const byName = new Map<string, Target>();
+    targets.forEach((target) => byName.set(target.name.toLocaleLowerCase('es').trim(), target));
+    representatives.forEach((representative) => {
+      const key = representative.name.toLocaleLowerCase('es').trim();
+      const existing = byName.get(key);
+      if (existing) {
+        byName.set(key, {
+          ...existing,
+          brandCount: existing.brandCount !== undefined ? existing.brandCount : representative.brandCount,
         });
       } else {
-        targetsByName.set(key, {
-          id: rep.id,
-          name: rep.name,
+        byName.set(key, {
+          id: representative.id,
+          name: representative.name,
           company: '',
           email: '',
           phone: '',
           notes: '',
           stage: '',
-          createdAt: rep.createdAt || new Date(),
+          createdAt: representative.createdAt || new Date(),
           createdBy: 'representative',
           history: [],
-          brandCount: rep.brandCount,
+          brandCount: representative.brandCount,
         });
       }
-    }
+    });
+    return Array.from(byName.values());
+  }, [targets, representatives]);
 
-    let allItems = Array.from(targetsByName.values());
-
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      allItems = allItems.filter((p) =>
-        p.name.toLowerCase().includes(term)
+  const filteredTargets = useMemo(() => {
+    let items = [...allTargets];
+    const term = searchTerm.trim().toLocaleLowerCase('es');
+    if (term) {
+      items = items.filter((target) =>
+        target.name.toLocaleLowerCase('es').includes(term)
+        || target.company?.toLocaleLowerCase('es').includes(term)
+        || target.email?.toLocaleLowerCase('es').includes(term)
       );
     }
-
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      allItems = allItems.filter(p => (p.clientStatus || '') === statusFilter);
+    if (statusFilter !== 'all') items = items.filter((target) => target.clientStatus === statusFilter);
+    if (hideDiscarded) items = items.filter((target) => !HIDDEN_STATUSES.includes(target.clientStatus || ''));
+    if (sortField === 'name') {
+      items.sort((a, b) => a.name.localeCompare(b.name, 'es') * (sortDirection === 'asc' ? 1 : -1));
     }
-
-    // Hide discarded/unwanted statuses
-    if (hideDiscarded) {
-      allItems = allItems.filter(p => !HIDDEN_STATUSES.includes(p.clientStatus || ''));
-    
+    if (sortField === 'brandCount') {
+      items.sort((a, b) => ((a.brandCount || 0) - (b.brandCount || 0)) * (sortDirection === 'asc' ? 1 : -1));
     }
+    return items;
+  }, [allTargets, searchTerm, statusFilter, hideDiscarded, sortField, sortDirection]);
 
-    // Apply sorting
-    if (sortField !== 'none') {
-      allItems.sort((a, b) => {
-        if (sortField === 'name') {
-          const nameA = a.name.toLowerCase();
-          const nameB = b.name.toLowerCase();
-          if (nameA < nameB) return sortDirection === 'asc' ? -1 : 1;
-          if (nameA > nameB) return sortDirection === 'asc' ? 1 : -1;
-          return 0;
-        }
-        if (sortField === 'brandCount') {
-          const countA = a.brandCount || 0;
-          const countB = b.brandCount || 0;
-          return sortDirection === 'asc' ? countA - countB : countB - countA;
-        }
-        return 0;
+  const totalPages = Math.max(1, Math.ceil(filteredTargets.length / PAGE_SIZE));
+  const pageTargets = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredTargets.slice(start, start + PAGE_SIZE);
+  }, [filteredTargets, currentPage]);
+  const selectedTarget = useMemo(
+    () => allTargets.find((target) => target.id === selectedId) || null,
+    [allTargets, selectedId]
+  );
+
+  useEffect(() => setCurrentPage(1), [searchTerm, statusFilter, hideDiscarded]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
+  useEffect(() => {
+    if (loadingTargets || loadingRepresentatives) return;
+    if (pageTargets.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (!pageTargets.some((target) => target.id === selectedId)) setSelectedId(pageTargets[0].id);
+  }, [loadingTargets, loadingRepresentatives, pageTargets, selectedId]);
+
+  useEffect(() => {
+    setShowFullProfile(false);
+    setDespachoDropdownOpen(false);
+    setStatusDropdownOpen(false);
+    setShowPhotoInput(false);
+    if (selectedTarget) {
+      setEditContactForm({
+        email: selectedTarget.email || '',
+        phone: selectedTarget.phone || '',
+        linkedinUrl: selectedTarget.linkedinUrl || '',
+        leadSource: selectedTarget.leadSource || '',
       });
     }
+  }, [selectedTarget]);
 
-    return allItems;
-  }, [prospects, representatives, searchTerm, sortField, sortDirection, statusFilter, hideDiscarded]);
+  const getDespachoInfo = (companyName?: string, ownLogoUrl?: string) => {
+    if (!companyName?.trim() && !ownLogoUrl) return null;
+    const found = availableDespachos.find((despacho) => despacho.name.toLocaleLowerCase('es') === companyName?.toLocaleLowerCase('es'));
+    if (found) return { ...found, logo: found.logo || ownLogoUrl || '' };
+    const name = companyName || '';
+    return { name, color: '#64748b', initials: getInitials(name), logo: ownLogoUrl || '' };
+  };
+
+  const getClientStatusInfo = (status?: string) => CLIENT_STATUSES.find((item) => item.value === status) || null;
+
+  const handleSort = (field: SortField) => {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortDirection('asc');
+      return;
+    }
+    if (sortDirection === 'asc') setSortDirection('desc');
+    else {
+      setSortField('none');
+      setSortDirection('asc');
+    }
+  };
 
   const handleExportCSV = () => {
-    const withEmail = filteredProspects.filter(p => p.email && p.email.trim() !== '');
-    if (withEmail.length === 0) {
+    const rows = filteredTargets.filter((target) => target.email?.trim());
+    if (rows.length === 0) {
       alert('No hay contactos con correo disponible.');
       return;
     }
-    const header = 'Nombre,Correo';
-    const rows = withEmail.map(p => {
-      const name = p.name.replace(/,/g, ' ');
-      const email = p.email.replace(/,/g, ' ');
-      return name + ',' + email;
-    });
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'contactos_target.csv';
-    a.click();
+    const csv = ['Nombre,Correo', ...rows.map((target) => `${target.name.replace(/,/g, ' ')},${target.email.replace(/,/g, ' ')}`)].join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'contactos_target.csv';
+    link.click();
     URL.revokeObjectURL(url);
   };
 
-  const getDespachoInfo = (companyName: string, ownLogoUrl?: string) => {
-    const found = DESPACHOS.find(d => d.name.toLowerCase() === companyName?.toLowerCase());
-    const fsDespacho = firestoreDespachos.find(d => d.nombre.toLowerCase() === companyName?.toLowerCase());
-    if (found) {
-      return { ...found, logo: fsDespacho?.logoUrl || found.logo || ownLogoUrl || '' };
-    }
-    if (fsDespacho) {
-      return { name: fsDespacho.nombre, color: fsDespacho.color, initials: fsDespacho.initials, logo: fsDespacho.logoUrl || ownLogoUrl || '' };
-    }
-    if (companyName && companyName.trim()) {
-      const words = companyName.trim().split(' ').filter(Boolean);
-      const initials = words.length >= 2
-        ? (words[0][0] + words[1][0]).toUpperCase()
-        : companyName.trim().substring(0, 2).toUpperCase();
-      return { name: companyName, color: '#6b7280', initials, logo: ownLogoUrl || '' };
-    }
-    if (ownLogoUrl) return { name: companyName || '', color: '#6b7280', initials: '', logo: ownLogoUrl };
-    return null;
+  const createFromRepresentative = async (updates: Partial<Target>) => {
+    if (!selectedTarget) throw new Error('No target selected');
+    return createTarget({
+      name: selectedTarget.name,
+      company: selectedTarget.company || '',
+      email: selectedTarget.email || '',
+      phone: selectedTarget.phone || '',
+      notes: selectedTarget.notes || '',
+      brandCount: selectedTarget.brandCount,
+      ...updates,
+    });
   };
 
-  const handleDespachoSelect = async (despachoName: string) => {
-    if (!selectedProspect) return;
+  const handleDespachoSelect = async (company: string) => {
+    if (!selectedTarget || !company.trim()) return;
     try {
-      // Check if this is a representative entry (not a real target)
-      if (selectedProspect.createdBy === 'representative') {
-        // Create a new target from the representative data, then assign despacho
-        const newTargetId = await createTarget({
-          name: selectedProspect.name,
-          company: despachoName,
-          email: '',
-          phone: '',
-          notes: '',
-          brandCount: selectedProspect.brandCount,
-        });
-        setSelectedProspect({ ...selectedProspect, id: newTargetId, company: despachoName, createdBy: 'system' });
-      } else {
-        await updateTarget(selectedProspect.id, { company: despachoName });
-        setSelectedProspect({ ...selectedProspect, company: despachoName });
-      }
+      if (selectedTarget.createdBy === 'representative') setSelectedId(await createFromRepresentative({ company }));
+      else await updateTarget(selectedTarget.id, { company });
       setDespachoDropdownOpen(false);
       setCustomDespacho('');
     } catch (error) {
       console.error('Error updating despacho:', error);
-      alert('Error al asignar despacho. Intenta de nuevo.');
+      alert('No fue posible asignar el despacho.');
     }
   };
 
-  const handleStatusChange = async (newStatus: string) => {
-    if (!selectedProspect) return;
+  const handleStatusChange = async (clientStatus: string) => {
+    if (!selectedTarget) return;
     try {
-      if (selectedProspect.createdBy === 'representative') {
-        const newId = await createTarget({
-          name: selectedProspect.name,
-          company: selectedProspect.company || '',
-          email: selectedProspect.email || '',
-          phone: selectedProspect.phone || '',
-          notes: '',
-          brandCount: selectedProspect.brandCount,
-          clientStatus: newStatus || undefined,
-        });
-        setSelectedProspect({ ...selectedProspect, id: newId, clientStatus: newStatus, createdBy: 'system' });
-      } else {
-        await updateTarget(selectedProspect.id, { clientStatus: newStatus || undefined });
-        setSelectedProspect({ ...selectedProspect, clientStatus: newStatus });
-      }
+      if (selectedTarget.createdBy === 'representative') setSelectedId(await createFromRepresentative({ clientStatus }));
+      else await updateTarget(selectedTarget.id, { clientStatus });
       setStatusDropdownOpen(false);
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Error al cambiar estatus. Intenta de nuevo.');
+      alert('No fue posible cambiar el estatus.');
     }
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  const handlePhotoSave = async () => {
+    if (!selectedTarget || !photoUrlInput.trim()) return;
+    try {
+      if (selectedTarget.createdBy === 'representative') setSelectedId(await createFromRepresentative({ photoUrl: photoUrlInput.trim() }));
+      else await updateTarget(selectedTarget.id, { photoUrl: photoUrlInput.trim() });
+      setShowPhotoInput(false);
+    } catch (error) {
+      console.error('Error updating photo:', error);
+      alert('No fue posible guardar la foto.');
+    }
   };
 
-  const getStageColor = (stage: string) => {
-    const colors: Record<string, string> = {
-      'Detección de prospecto': '#6366f1',
-      '1er Contacto': '#8b5cf6',
-      'Contacto efectivo': '#a855f7',
-      'Muestra de interés': '#ec4899',
-      'Cita para demo': '#3b82f6',
-      'Demo realizada': '#0ea5e9',
-      'Venta': '#22c55e',
-      'En Pausa': '#f59e0b',
-      'Basura': '#6b7280',
-      'Cliente Perdido': '#ef4444',
+  const handleContactSave = async () => {
+    if (!selectedTarget) return;
+    setSavingContact(true);
+    const updates: Partial<Target> = {
+      email: editContactForm.email.trim(),
+      phone: editContactForm.phone.trim(),
+      linkedinUrl: editContactForm.linkedinUrl.trim() || undefined,
+      leadSource: editContactForm.leadSource.trim() || undefined,
     };
-    return colors[stage] || '#6366f1';
+    try {
+      if (selectedTarget.createdBy === 'representative') setSelectedId(await createFromRepresentative(updates));
+      else await updateTarget(selectedTarget.id, updates);
+      setEditingContact(false);
+    } catch (error) {
+      console.error('Error updating contact:', error);
+      alert('No fue posible guardar los cambios.');
+    } finally {
+      setSavingContact(false);
+    }
   };
 
-  const getStageProgress = (stage: string) => {
-    const stages: Record<string, number> = {
-      'Detección de prospecto': 14,
-      '1er Contacto': 28,
-      'Contacto efectivo': 42,
-      'Muestra de interés': 50,
-      'Cita para demo': 64,
-      'Demo realizada': 78,
-      'Venta': 100,
-      'En Pausa': 0,
-      'Basura': 0,
-      'Cliente Perdido': 0,
-    };
-    return stages[stage] || 0;
-  };
-
-  const getStageRisk = (stage: string) => {
-    const risk: Record<string, { label: string; color: string }> = {
-      'Detección de prospecto': { label: 'Early Stage', color: '#6366f1' },
-      '1er Contacto': { label: 'In Progress', color: '#8b5cf6' },
-      'Contacto efectivo': { label: 'In Progress', color: '#a855f7' },
-      'Muestra de interés': { label: 'Engaged', color: '#ec4899' },
-      'Cita para demo': { label: 'On Track', color: '#3b82f6' },
-      'Demo realizada': { label: 'On Track', color: '#0ea5e9' },
-      'Venta': { label: 'Won', color: '#22c55e' },
-      'En Pausa': { label: 'Paused', color: '#f59e0b' },
-      'Basura': { label: 'Discarded', color: '#6b7280' },
-      'Cliente Perdido': { label: 'Lost', color: '#ef4444' },
-    };
-    return risk[stage] || { label: 'Unknown', color: '#6b7280' };
-  };
-
-  const getStageIndex = (stage: string) => {
-    const order = ['Detección de prospecto', '1er Contacto', 'Contacto efectivo', 'Muestra de interés', 'Cita para demo', 'Demo realizada', 'Venta'];
-    const idx = order.indexOf(stage);
-    return idx >= 0 ? idx + 1 : 0;
-  };
-
-  const formatDate = (date: Date | undefined) => {
-    if (!date) return null;
-    return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
-  };
-
-  const tabs = [
-    { id: 'infos', label: 'Infos', icon: 'info' },
-    { id: 'objectives', label: 'Objectives', icon: 'flag' },
-    { id: 'documents', label: 'Documents', icon: 'doc' },
-    { id: 'reviews', label: 'Reviews', icon: 'star' },
-  ];
+  const selectedDespacho = selectedTarget ? getDespachoInfo(selectedTarget.company, selectedTarget.logoUrl) : null;
+  const pipelineIndex = selectedTarget ? getPipelineIndex(selectedTarget.stage) : -1;
+  const nextAction = selectedTarget?.scheduledDemoDate
+    ? { title: 'Realizar demo programada', date: formatDate(selectedTarget.scheduledDemoDate) }
+    : selectedTarget?.nextContactDate
+      ? { title: 'Dar seguimiento al contacto', date: formatDate(selectedTarget.nextContactDate) }
+      : selectedTarget?.stage === 'Venta'
+        ? { title: 'Dar seguimiento al cliente', date: 'Sin fecha asignada' }
+        : { title: 'Continuar seguimiento comercial', date: 'Sin fecha asignada' };
+  const loading = loadingTargets || loadingRepresentatives;
+  const firstResult = filteredTargets.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const lastResult = Math.min(currentPage * PAGE_SIZE, filteredTargets.length);
+  const visiblePages = Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+    if (totalPages <= 5) return index + 1;
+    const start = Math.min(Math.max(currentPage - 2, 1), totalPages - 4);
+    return start + index;
+  });
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    const isActive = sortField === field;
-    if (!isActive) {
-      return (
-        <span style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: '0.35rem', opacity: 0.35 }}>
-          <ChevronUpIcon style={{ width: '0.65rem', height: '0.65rem', marginBottom: '-2px' }} />
-          <ChevronDownIcon style={{ width: '0.65rem', height: '0.65rem', marginTop: '-2px' }} />
-        </span>
-      );
-    }
+    if (sortField !== field) return <ChevronUpIcon className={styles.sortIconMuted} aria-hidden="true" />;
     return sortDirection === 'asc'
-      ? <ChevronUpIcon style={{ width: '0.8rem', height: '0.8rem', marginLeft: '0.35rem', color: '#6366f1' }} />
-      : <ChevronDownIcon style={{ width: '0.8rem', height: '0.8rem', marginLeft: '0.35rem', color: '#6366f1' }} />;
+      ? <ChevronUpIcon className={styles.sortIcon} aria-hidden="true" />
+      : <ChevronDownIcon className={styles.sortIcon} aria-hidden="true" />;
   };
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)', fontFamily: 'var(--font-sans)', padding: '2rem' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          {/* Header */}
-          <div style={{ marginBottom: '2rem' }}>
-            <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', marginBottom: '1rem', fontSize: '0.875rem' }}>
-              <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} />
-              Volver
-            </button>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className={styles.shell}>
+        <aside className={styles.rail} aria-label="Navegación principal">
+          <button className={styles.brandMark} onClick={() => router.push('/dashboard')} aria-label="Ir al dashboard">C</button>
+          <nav className={styles.railNav}>
+            <button onClick={() => router.push('/dashboard')} title="Dashboard"><HomeIcon /></button>
+            <button className={styles.railActive} aria-current="page" title="Targets"><span className={styles.targetGlyph}>◎</span></button>
+            <button onClick={() => router.push('/despachos-empresas')} title="Despachos"><BriefcaseIcon /></button>
+            <button onClick={() => router.push('/seguimiento')} title="Seguimiento"><ClipboardDocumentListIcon /></button>
+            <button onClick={() => router.push('/kpis')} title="Indicadores"><ChartBarIcon /></button>
+          </nav>
+          <div className={styles.railBottom}>
+            <button title="Notificaciones"><BellIcon /></button>
+            <button onClick={() => router.push('/perfil')} title="Configuración"><Cog6ToothIcon /></button>
+            <div className={styles.userBadge}>{getInitials(user?.displayName || user?.email || 'CA')}</div>
+          </div>
+        </aside>
+
+        <main className={styles.workspace}>
+          <header className={styles.topbar}>
+            <div className={styles.titleGroup}>
+              <button className={styles.mobileBack} onClick={() => router.back()} aria-label="Volver"><ArrowLeftIcon /></button>
               <div>
-                <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>Targets</h1>
-                <p style={{ fontSize: '0.875rem', color: 'var(--secondary)', marginTop: '0.5rem' }}>Lista de clientes potenciales</p>
+                <h1>Targets</h1>
+                <p>Lista de clientes potenciales</p>
               </div>
-              <button onClick={() => router.push('/despachos-empresas')} style={{ padding: '0.6rem 1.25rem', backgroundColor: 'var(--surface)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap', fontFamily: 'inherit', transition: 'all 0.15s ease' }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary)'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface)'; e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
-                <BuildingOfficeIcon style={{ width: '1.25rem', height: '1.25rem' }} />
-                Despachos
+            </div>
+            <div className={styles.topActions}>
+              <button className={styles.secondaryAction} onClick={handleExportCSV}>
+                <DocumentArrowDownIcon /> Exportar CSV
+              </button>
+              <ScrapeIMPIButton variant="toolbar" />
+              <button className={styles.secondaryAction} onClick={() => router.push('/despachos-empresas')}>
+                <BuildingOfficeIcon /> Despachos
               </button>
             </div>
-          </div>
+          </header>
 
-          {/* Search Bar */}
-          <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <MagnifyingGlassIcon style={{ width: '1.25rem', height: '1.25rem', position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)', pointerEvents: 'none' }} />
-              <input type="text" placeholder="Buscar cliente por nombre..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 3rem', fontSize: '0.9375rem', border: '1px solid var(--border)', borderRadius: '0.75rem', backgroundColor: 'var(--surface)', color: 'var(--foreground)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-            </div>
-            <button onClick={handleExportCSV} style={{ padding: '0.65rem 1.25rem', backgroundColor: '#6C5CE7', color: 'white', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap', height: '48px' }}>
-              <DocumentArrowDownIcon style={{ width: '1.25rem', height: '1.25rem' }} />
-              Exportar CSV
-            </button>
-            <ScrapeIMPIButton />
-          </div>
-
-          {/* Status Filter Bar */}
-          <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--secondary)', marginRight: '0.25rem' }}>Estatus:</span>
-            <button
-              onClick={() => { setStatusFilter('all'); setHideDiscarded(false); }}
-              style={{
-                padding: '0.3rem 0.75rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '500',
-                border: statusFilter === 'all' && !hideDiscarded ? '1.5px solid #6366f1' : '1px solid var(--border)',
-                backgroundColor: statusFilter === 'all' && !hideDiscarded ? '#6366f110' : 'var(--surface)',
-                color: statusFilter === 'all' && !hideDiscarded ? '#6366f1' : 'var(--secondary)',
-                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease'
-              }}>Todos</button>
-            <button
-              onClick={() => { setStatusFilter('all'); setHideDiscarded(true); }}
-              style={{
-                padding: '0.3rem 0.75rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '500',
-                border: statusFilter === 'all' && hideDiscarded ? '1.5px solid #6366f1' : '1px solid var(--border)',
-                backgroundColor: statusFilter === 'all' && hideDiscarded ? '#6366f110' : 'var(--surface)',
-                color: statusFilter === 'all' && hideDiscarded ? '#6366f1' : 'var(--secondary)',
-                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease'
-              }}>Activos</button>
-            {CLIENT_STATUSES.map(s => (
-              <button key={s.value}
-                onClick={() => { setStatusFilter(s.value); setHideDiscarded(false); }}
-                style={{
-                  padding: '0.3rem 0.75rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '500',
-                  border: statusFilter === s.value ? '1.5px solid ' + s.color : '1px solid var(--border)',
-                  backgroundColor: statusFilter === s.value ? s.color + '12' : 'var(--surface)',
-                  color: statusFilter === s.value ? s.color : 'var(--secondary)',
-                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease',
-                  display: 'flex', alignItems: 'center', gap: '0.3rem'
-                }}>
-                <span style={{ fontSize: '0.7rem' }}>{s.emoji}</span> {s.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Client List Table */}
-          <div style={{ backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 0.75fr', padding: '0.75rem 1.5rem', backgroundColor: 'var(--surface)', borderBottom: '2px solid var(--border)', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-              <button onClick={() => handleSort('name')} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem', color: sortField === 'name' ? '#6366f1' : 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'inherit' }}>
-                Nombre del Cliente
-                <SortIcon field="name" />
-              </button>
-              <span style={{ display: 'flex', alignItems: 'center' }}>Despacho / Empresa</span>
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '0.75rem', color: 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Etapa CRM</span>
-              <button onClick={() => handleSort('brandCount')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem', color: sortField === 'brandCount' ? '#6366f1' : 'var(--secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'inherit' }}>
-                Marcas
-                <SortIcon field="brandCount" />
-              </button>
-            </div>
-            {(loading || loadingReps) && (<div style={{ padding: '3rem', textAlign: 'center', color: 'var(--secondary)', fontSize: '0.875rem' }}>Cargando clientes...</div>)}
-            {!(loading || loadingReps) && filteredProspects.length === 0 && (<div style={{ padding: '3rem', textAlign: 'center', color: 'var(--secondary)', fontSize: '0.875rem' }}>{searchTerm.trim() ? 'No se encontraron clientes con ese nombre' : 'No hay clientes registrados'}</div>)}
-            {!loading && filteredProspects.map((prospect) => {
-              const despacho = getDespachoForProspect(prospect);
-              return (
-              <div key={prospect.id} onClick={() => setSelectedProspect(prospect)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 0.75fr', padding: '0.875rem 1.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.9375rem', color: 'var(--foreground)', cursor: 'pointer', transition: 'background-color 0.15s ease', alignItems: 'center' }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', backgroundColor: '#fff', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: '0.75rem', fontWeight: '700', overflow: 'hidden' }}>
-                      {prospect.photoUrl ? <img src={prospect.photoUrl} alt={prospect.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { const t = e.currentTarget; t.style.display = 'none'; if (t.parentElement) t.parentElement.textContent = getInitials(prospect.name); }} /> : getInitials(prospect.name)}
-                    </div>
-                    {(() => { const d = getDespachoInfo(prospect.company, prospect.logoUrl); return d ? <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '1.1rem', height: '1.1rem', borderRadius: '50%', backgroundColor: 'white', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>{d.logo ? <img src={d.logo} alt={d.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '0.45rem', fontWeight: 600, color: d.color }}>{d.initials}</span>}</div> : null; })()}
-                  </div>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prospect.name}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-                  {despacho ? (
-                    <>
-                      <span style={{ width: '1.5rem', height: '1.5rem', borderRadius: '0.3rem', backgroundColor: despacho.logo ? 'transparent' : despacho.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.5rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>
-                        {despacho.logo ? <img src={despacho.logo} alt={despacho.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despacho.color; t.parentElement.textContent = despacho.initials; }}} /> : despacho.initials}
-                      </span>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{despacho.name}</span>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: '0.8rem', color: 'var(--secondary)', fontStyle: 'italic' }}>—</span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  {prospect.stage ? (
-                    <span style={{
-                      padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.7rem', fontWeight: '600',
-                      color: getStageColor(prospect.stage), backgroundColor: getStageColor(prospect.stage) + '12',
-                      border: '1px solid ' + getStageColor(prospect.stage) + '30',
-                      display: 'flex', alignItems: 'center', whiteSpace: 'nowrap'
-                    }}>
-                      {prospect.stage}
-                    </span>
-                  ) : <span style={{ fontSize: '0.7rem', color: 'var(--secondary)' }}>—</span>}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  {prospect.brandCount !== undefined && prospect.brandCount > 0 ? (
-                    <div style={{ padding: '0.25rem 0.75rem', backgroundColor: '#f0f9ff', borderRadius: '0.375rem', fontSize: '0.75rem', color: '#0369a1', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                      {prospect.brandCount} marcas
-                    </div>
-                  ) : (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>0</span>
-                  )}
-                </div>
+          <section className={styles.contentGrid}>
+            <section className={styles.listPane} aria-label="Lista de targets">
+              <div className={styles.searchWrap}>
+                <MagnifyingGlassIcon aria-hidden="true" />
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Buscar cliente por nombre, despacho o correo..."
+                  aria-label="Buscar targets"
+                />
+                {searchTerm && <button onClick={() => setSearchTerm('')} aria-label="Limpiar búsqueda"><XMarkIcon /></button>}
               </div>
-              );
-            })}
-          </div>
-          {!loading && (<div style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'var(--secondary)', textAlign: 'right' }}>{filteredProspects.length}{searchTerm.trim() ? ` de ${prospects.length}` : ''} cliente{filteredProspects.length !== 1 ? 's' : ''} en total</div>)}
-        </div>
-      </div>
 
-      {/* OVERLAY */}
-      {selectedProspect && (<div onClick={() => setSelectedProspect(null)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 1000, animation: 'fadeIn 0.2s ease' }} />)}
-
-      {/* SIDEBAR MODAL */}
-      <div style={{ position: 'fixed', top: 0, right: selectedProspect ? '0' : '-76vw', width: '75vw', height: '100vh', backgroundColor: 'var(--surface)', boxShadow: selectedProspect ? '-8px 0 30px rgba(0,0,0,0.15)' : 'none', zIndex: 1001, transition: 'right 0.3s cubic-bezier(0.4, 0, 0.2, 1)', overflowY: 'auto', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-sans)' }}>
-        {selectedProspect && (() => {
-          const progress = getStageProgress(selectedProspect.stage);
-          const risk = getStageRisk(selectedProspect.stage);
-          const stageIdx = getStageIndex(selectedProspect.stage);
-          const despachoInfo = getDespachoInfo(selectedProspect.company, selectedProspect.logoUrl);
-          return (
-            <>
-              {/* Top bar */}
-              <div style={{ padding: '1.25rem 2rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button onClick={() => setSelectedProspect(null)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', fontSize: '0.875rem', padding: 0 }}>
-                  <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} />
-                  Back
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', backgroundColor: 'var(--foreground)', color: 'var(--surface)', border: 'none', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <DocumentArrowDownIcon style={{ width: '1rem', height: '1rem' }} />
-                  Download PDF
-                </button>
+              <div className={styles.filterBar} aria-label="Filtros de estatus">
                 <button
-                  onClick={() => {
-                    setEditingContact(true);
-                    setEditContactForm({
-                      email: selectedProspect.email || '',
-                      phone: selectedProspect.phone || '',
-                      linkedinUrl: selectedProspect.linkedinUrl || '',
-                      leadSource: selectedProspect.leadSource || ''
-                    });
-                  }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.5rem',
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#6366f1', color: '#fff',
-                    border: 'none', borderRadius: '0.5rem',
-                    fontSize: '0.8rem', fontWeight: '600',
-                    cursor: 'pointer', fontFamily: 'inherit'
-                  }}>
-                  <PencilIcon style={{ width: '1rem', height: '1rem' }} />
-                  Editar Contacto
-                </button>
-                </div>
-              </div>
-
-              {/* Profile Header */}
-              <div style={{ padding: '1.5rem 2rem 1rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '50%', background: '#fff', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: '1.5rem', fontWeight: '700', overflow: 'hidden' }}>{selectedProspect.photoUrl ? <img src={selectedProspect.photoUrl} alt={selectedProspect.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: photoLoaded ? 'block' : 'none' }} onLoad={() => setPhotoLoaded(true)} onError={() => setPhotoLoaded(false)} /> : null}{(!selectedProspect.photoUrl || !photoLoaded) && getInitials(selectedProspect.name)}</div>
-                  <div onClick={() => { setShowPhotoInput(!showPhotoInput); setPhotoUrlInput(selectedProspect.photoUrl || ''); }} style={{ position: 'absolute', bottom: '0', left: '0', width: '1.75rem', height: '1.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
-                    <CameraIcon style={{ width: '1rem', height: '1rem', color: '#fff' }} />
-                  </div>
-                  {despachoInfo && (
-                    <div title={despachoInfo.name} style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '2rem', height: '2rem', borderRadius: '50%', backgroundColor: despachoInfo.logo ? '#fff' : despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.5rem', fontWeight: '700', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', border: '2px solid var(--surface)', overflow: 'hidden' }}>
-                      {despachoInfo.logo ? <img src={despachoInfo.logo} alt={despachoInfo.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despachoInfo.color; t.parentElement.textContent = despachoInfo.initials; }}} /> : despachoInfo.initials}
-                    </div>
-                  )}
-                </div>
-                  {showPhotoInput && (
-                    <div style={{ position: 'absolute', top: '6rem', left: '1.5rem', zIndex: 50, background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', width: '20rem' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted-foreground)' }}>URL de la foto</label>
-                        <input type="text" value={photoUrlInput} onChange={(e) => setPhotoUrlInput(e.target.value)} placeholder="https://ejemplo.com/foto.jpg" style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid var(--border)', fontSize: '0.85rem', backgroundColor: 'var(--background)', color: 'var(--foreground)' }} />
-                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                          {selectedProspect.photoUrl && <button onClick={async () => { await updateTarget(selectedProspect.id, { photoUrl: '' }); setSelectedProspect({...selectedProspect, photoUrl: ''}); setPhotoLoaded(false); setShowPhotoInput(false); }} style={{ padding: '0.4rem 0.8rem', borderRadius: '0.5rem', border: '1px solid #ef4444', background: 'transparent', color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer' }}>Quitar foto</button>}
-                          <button onClick={() => setShowPhotoInput(false)} style={{ padding: '0.4rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: 'transparent', color: 'var(--foreground)', fontSize: '0.8rem', cursor: 'pointer' }}>Cancelar</button>
-                          <button onClick={async () => { if (photoUrlInput.trim()) { await updateTarget(selectedProspect.id, { photoUrl: photoUrlInput.trim() }); setSelectedProspect({...selectedProspect, photoUrl: photoUrlInput.trim()}); setPhotoLoaded(false); } setShowPhotoInput(false); }} style={{ padding: '0.4rem 0.8rem', borderRadius: '0.5rem', border: 'none', background: '#6366f1', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}>Guardar</button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--foreground)', margin: 0, lineHeight: 1.3 }}>{selectedProspect.name}</h2>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-block', padding: '0.2rem 0.65rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '600', color: getStageColor(selectedProspect.stage), border: '1.5px solid ' + getStageColor(selectedProspect.stage), backgroundColor: getStageColor(selectedProspect.stage) + '12' }}>{selectedProspect.stage}</span>
-                {/* Client Status Badge */}
-                <div ref={statusDropdownRef} style={{ position: 'relative' }}>
+                  className={statusFilter === 'all' && !hideDiscarded ? styles.filterActive : ''}
+                  onClick={() => { setStatusFilter('all'); setHideDiscarded(false); }}
+                >Todos</button>
+                <button
+                  className={statusFilter === 'all' && hideDiscarded ? styles.filterActive : ''}
+                  onClick={() => { setStatusFilter('all'); setHideDiscarded(true); }}
+                >Activos</button>
+                {CLIENT_STATUSES.map((status) => (
                   <button
-                    onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '0.35rem',
-                      padding: '0.2rem 0.6rem', borderRadius: '0.5rem',
-                      border: '1px solid var(--border)',
-                      background: (() => { const s = getClientStatusInfo(selectedProspect.clientStatus); return s ? s.color + '12' : 'var(--background)'; })(),
-                      cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit', transition: 'all 0.15s ease'
-                    }}>
-                    {(() => {
-                      const s = getClientStatusInfo(selectedProspect.clientStatus);
-                      if (s) {
-                        return <>
-                          <span style={{ fontSize: '0.75rem' }}>{s.emoji}</span>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '600', color: s.color }}>{s.label}</span>
-                        </>;
-                      }
-                      return <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>Asignar estatus</span>;
-                    })()}
-                    <PencilIcon style={{ width: '0.65rem', height: '0.65rem', color: 'var(--secondary)', marginLeft: '0.15rem' }} />
-                  </button>
-                  {statusDropdownOpen && (
-                    <div style={{
-                      position: 'absolute', top: 'calc(100% + 0.35rem)', left: 0, minWidth: '280px',
-                      backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)',
-                      boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 1100, overflow: 'hidden'
-                    }}>
-                      <div style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--border)', fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Estatus del Cliente
-                      </div>
-                      <div style={{ maxHeight: '300px', overflowY: 'auto', padding: '0.35rem' }}>
-                        {CLIENT_STATUSES.map(s => (
-                          <button key={s.value}
-                            onClick={() => handleStatusChange(s.value)}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%',
-                              padding: '0.5rem 0.6rem', border: 'none',
-                              background: selectedProspect.clientStatus === s.value ? s.color + '15' : 'transparent',
-                              borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem',
-                              color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left',
-                              transition: 'background 0.1s'
-                            }}
-                            onMouseEnter={(e) => { if (selectedProspect.clientStatus !== s.value) e.currentTarget.style.background = 'var(--background)'; }}
-                            onMouseLeave={(e) => { if (selectedProspect.clientStatus !== s.value) e.currentTarget.style.background = 'transparent'; }}>
-                            <span style={{ fontSize: '1rem', width: '1.5rem', textAlign: 'center' }}>{s.emoji}</span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: '600', fontSize: '0.8rem' }}>{s.label}</div>
-                              <div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginTop: '0.1rem' }}>{s.description}</div>
-                            </div>
-                            {selectedProspect.clientStatus === s.value && <CheckIcon style={{ width: '0.9rem', height: '0.9rem', color: s.color, flexShrink: 0 }} />}
-                          </button>
-                        ))}
-                      </div>
-                      {selectedProspect.clientStatus && (
-                        <div style={{ borderTop: '1px solid var(--border)', padding: '0.35rem' }}>
-                          <button onClick={() => handleStatusChange('')}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%',
-                              padding: '0.5rem 0.6rem', border: 'none', background: 'transparent',
-                              borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem',
-                              color: '#ef4444', fontFamily: 'inherit', textAlign: 'left'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = '#ef444410'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                            <XMarkIcon style={{ width: '0.9rem', height: '0.9rem' }} /> Quitar estatus
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                    {/* Editable Despacho / Filiación */}
-                    <div ref={despachoRef} style={{ position: 'relative' }}>
-                      <button onClick={() => setDespachoDropdownOpen(!despachoDropdownOpen)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.2rem 0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border)', background: despachoInfo ? despachoInfo.color + '12' : 'var(--background)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--foreground)', fontFamily: 'inherit', transition: 'all 0.15s ease' }}>
-                        {despachoInfo ? (
-                          <>
-                            <span style={{ width: '1.35rem', height: '1.35rem', borderRadius: '0.3rem', backgroundColor: despachoInfo.logo ? 'transparent' : despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.55rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>{despachoInfo.logo ? <img src={despachoInfo.logo} alt={despachoInfo.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despachoInfo.color; t.parentElement.textContent = despachoInfo.initials; }}} /> : despachoInfo.initials}</span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--foreground)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{despachoInfo.name}</span>
-                          </>
-                        ) : (
-                          <>
-                            <BuildingOfficeIcon style={{ width: '0.9rem', height: '0.9rem', color: 'var(--secondary)' }} />
-                            <span style={{ fontSize: '0.8rem', color: 'var(--secondary)' }}>Asignar despacho</span>
-                          </>
-                        )}
-                        <PencilIcon style={{ width: '0.7rem', height: '0.7rem', color: 'var(--secondary)', marginLeft: '0.2rem' }} />
-                      </button>
-
-                      {/* Despacho Dropdown */}
-                      {despachoDropdownOpen && (
-                        <div style={{ position: 'absolute', top: 'calc(100% + 0.35rem)', left: 0, minWidth: '280px', backgroundColor: 'var(--surface)', borderRadius: '0.75rem', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 1100, overflow: 'hidden' }}>
-                          <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.5rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
-                              <MagnifyingGlassIcon style={{ width: '0.9rem', height: '0.9rem', color: 'var(--secondary)', flexShrink: 0 }} />
-                              <input type="text" placeholder="Buscar o crear despacho..." value={customDespacho} onChange={(e) => setCustomDespacho(e.target.value)} autoFocus style={{ border: 'none', outline: 'none', fontSize: '0.8rem', color: 'var(--foreground)', backgroundColor: 'transparent', width: '100%', fontFamily: 'inherit' }} />
-                            </div>
-                          </div>
-                          <div style={{ maxHeight: '220px', overflowY: 'auto', padding: '0.35rem' }}>
-                            {DESPACHOS.filter(d => !customDespacho.trim() || d.name.toLowerCase().includes(customDespacho.toLowerCase())).map((d) => (
-                              <button key={d.name} onClick={() => handleDespachoSelect(d.name)} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: selectedProspect.company === d.name ? d.color + '15' : 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.1s' }}
-                                onMouseEnter={(e) => { if (selectedProspect.company !== d.name) e.currentTarget.style.background = 'var(--background)'; }}
-                                onMouseLeave={(e) => { if (selectedProspect.company !== d.name) e.currentTarget.style.background = 'transparent'; }}>
-                                <span style={{ width: '1.6rem', height: '1.6rem', borderRadius: '0.35rem', backgroundColor: d.logo ? 'transparent' : d.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.6rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>{d.logo ? <img src={d.logo} alt={d.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = d.color; t.parentElement.textContent = d.initials; }}} /> : d.initials}</span>
-                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
-                                {selectedProspect.company === d.name && <CheckIcon style={{ width: '0.9rem', height: '0.9rem', color: d.color, flexShrink: 0 }} />}
-                              </button>
-                            ))}
-                            {customDespacho.trim() && !DESPACHOS.some(d => d.name.toLowerCase() === customDespacho.toLowerCase()) && (
-                              <button onClick={() => handleDespachoSelect(customDespacho.trim())} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: '#6366f1', fontFamily: 'inherit', textAlign: 'left', fontWeight: '500' }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--background)'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                                <span style={{ width: '1.6rem', height: '1.6rem', borderRadius: '0.35rem', backgroundColor: '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.6rem', fontWeight: '700', flexShrink: 0 }}>+</span>
-                                Crear &quot;{customDespacho.trim()}&quot;
-                              </button>
-                            )}
-                          </div>
-                          {selectedProspect.company && (
-                            <div style={{ borderTop: '1px solid var(--border)', padding: '0.35rem' }}>
-                              <button onClick={() => handleDespachoSelect('')} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.5rem 0.6rem', border: 'none', background: 'transparent', borderRadius: '0.4rem', cursor: 'pointer', fontSize: '0.8rem', color: '#ef4444', fontFamily: 'inherit', textAlign: 'left' }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = '#ef444410'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                                <XMarkIcon style={{ width: '0.9rem', height: '0.9rem' }} />
-                                Quitar despacho
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tabs Navigation */}
-              <div style={{ padding: '0 2rem', display: 'flex', alignItems: 'center', gap: '0.25rem', borderBottom: '1px solid var(--border)', marginTop: '0.5rem' }}>
-                {tabs.map((tab) => (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: activeTab === tab.id ? '600' : '400', color: activeTab === tab.id ? 'var(--foreground)' : 'var(--secondary)', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid var(--foreground)' : '2px solid transparent', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '-1px', transition: 'all 0.15s ease' }}>
-                    {tab.icon === 'info' && <InformationCircleIcon style={{ width: '1rem', height: '1rem' }} />}
-                    {tab.icon === 'flag' && <FlagIcon style={{ width: '1rem', height: '1rem' }} />}
-                    {tab.icon === 'doc' && <DocumentTextIcon style={{ width: '1rem', height: '1rem' }} />}
-                    {tab.icon === 'star' && <StarIcon style={{ width: '1rem', height: '1rem' }} />}
-                    {tab.label}
-                  </button>
+                    key={status.value}
+                    className={statusFilter === status.value ? styles.filterSelected : ''}
+                    style={statusFilter === status.value ? { color: status.color, borderColor: `${status.color}66`, backgroundColor: `${status.color}0d` } : undefined}
+                    onClick={() => { setStatusFilter(status.value); setHideDiscarded(false); }}
+                  ><span aria-hidden="true">{status.emoji}</span>{status.label}</button>
                 ))}
               </div>
 
-              {/* Summary Cards Row */}
-              <div style={{ padding: '1.25rem 2rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                {/* Achievement Progress Card */}
-                <div style={{ padding: '1.25rem 1.5rem', backgroundColor: 'var(--background)', borderRadius: '1rem', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)' }}>Achievement Progress</span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--foreground)' }}>{progress} %</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '1rem' }}>
-                    {(() => {
-                      const totalSegments = 10;
-                      const filledSegments = Math.round(progress / 10);
-                      const segmentColors = ['#ef4444', '#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#3b82f6', '#6366f1', '#8b5cf6', '#8b5cf6', '#22c55e'];
-                      const segments: React.ReactNode[] = [];
-                      for (let i = 0; i < totalSegments; i++) {
-                        segments.push(<div key={'s'+i} style={{ flex: 1, height: '0.4rem', borderRadius: '1rem', backgroundColor: i < filledSegments ? segmentColors[i] : 'var(--border)', transition: 'background-color 0.3s ease' }} />);
-                      }
-                      for (let i = 0; i < 5; i++) {
-                        segments.push(<div key={'d'+i} style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--border)', flexShrink: 0 }} />);
-                      }
-                      return segments;
-                    })()}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--secondary)' }}>Last update : {formatDate(selectedProspect.createdAt) || 'N/A'}</span>
-                    <span style={{ fontSize: '0.7rem', fontWeight: '600', color: risk.color, background: 'linear-gradient(135deg, ' + risk.color + '18, ' + risk.color + '08)', padding: '0.2rem 0.6rem', borderRadius: '1rem' }}>{risk.label}</span>
-                  </div>
+              <div className={styles.table}>
+                <div className={styles.tableHeader}>
+                  <button onClick={() => handleSort('name')}>Nombre del cliente <SortIcon field="name" /></button>
+                  <span>Despacho / Empresa</span>
+                  <span>Etapa CRM</span>
+                  <button className={styles.alignRight} onClick={() => handleSort('brandCount')}>Marcas <SortIcon field="brandCount" /></button>
                 </div>
 
-                {/* Bonus Earned Card */}
-                <div style={{ padding: '1.25rem 1.5rem', backgroundColor: 'var(--background)', borderRadius: '1rem', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)', marginBottom: '0.75rem' }}>Bonus Earned</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginBottom: '1rem' }}>
-                    <span style={{ fontSize: '1.65rem', fontWeight: '800', color: '#6366f1', letterSpacing: '-0.02em' }}>{'$' + (selectedProspect.potentialValue || 0).toLocaleString()}</span>
-                    {selectedProspect.accountValue != null && (<span style={{ fontSize: '0.9rem', color: 'var(--secondary)', fontWeight: '400' }}>/ {selectedProspect.accountValue.toLocaleString()}</span>)}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>Objectives</span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#6366f1', backgroundColor: '#6366f110', padding: '0.2rem 0.6rem', borderRadius: '0.375rem' }}>{stageIdx}<span style={{ fontWeight: '400', color: 'var(--secondary)' }}> /7</span></span>
-                  </div>
-                </div>
-
-                {/* Marcas como Apoderado Card */}
-                <div style={{ padding: '1.25rem 1.5rem', backgroundColor: 'var(--background)', borderRadius: '1rem', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)', marginBottom: '0.75rem' }}>Marcas como Apoderado</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginBottom: '1rem' }}>
-                    <span style={{ fontSize: '1.65rem', fontWeight: '800', color: '#8b5cf6', letterSpacing: '-0.02em' }}>{selectedProspect.brandCount || 0}</span>
-                    <span style={{ fontSize: '0.9rem', color: 'var(--secondary)', fontWeight: '400' }}>marcas</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>Número de marcas</span>
-                    <span style={{ fontSize: '0.7rem', fontWeight: '600', color: (selectedProspect.brandCount || 0) > 0 ? '#22c55e' : '#6b7280', background: (selectedProspect.brandCount || 0) > 0 ? '#22c55e18' : '#6b728018', padding: '0.2rem 0.6rem', borderRadius: '1rem' }}>{(selectedProspect.brandCount || 0) > 0 ? 'Activo' : 'Sin marcas'}</span>
-                  </div>
-                </div>
+                {loading && <div className={styles.emptyState}>Cargando clientes…</div>}
+                {!loading && pageTargets.length === 0 && (
+                  <div className={styles.emptyState}>{searchTerm ? 'No encontramos targets con esa búsqueda.' : 'No hay targets para este filtro.'}</div>
+                )}
+                {!loading && pageTargets.map((target) => {
+                  const despacho = getDespachoInfo(target.company, target.logoUrl);
+                  const selected = target.id === selectedId;
+                  return (
+                    <button
+                      key={target.id}
+                      className={`${styles.tableRow} ${selected ? styles.tableRowSelected : ''}`}
+                      onClick={() => setSelectedId(target.id)}
+                      aria-pressed={selected}
+                    >
+                      <span className={styles.clientCell}>
+                        <span
+                          className={styles.avatarSmall}
+                          style={target.photoUrl ? { backgroundImage: `url(${JSON.stringify(target.photoUrl).slice(1, -1)})` } : undefined}
+                          aria-hidden="true"
+                        >{!target.photoUrl && getInitials(target.name)}</span>
+                        <span className={styles.clientName}>{target.name}</span>
+                      </span>
+                      <span className={styles.companyCell}>
+                        {despacho ? <><span className={styles.companyMark}>{despacho.initials}</span><span>{despacho.name}</span></> : <span className={styles.muted}>—</span>}
+                      </span>
+                      <span className={styles.stageCell}>
+                        {target.stage ? <span className={styles.stageBadge} style={{ color: getStageColor(target.stage), backgroundColor: `${getStageColor(target.stage)}10`, borderColor: `${getStageColor(target.stage)}33` }}>{target.stage}</span> : <span className={styles.muted}>—</span>}
+                      </span>
+                      <span className={`${styles.brandCell} ${(target.brandCount || 0) > 0 ? styles.brandCellPopulated : ''}`}>
+                        {(target.brandCount || 0).toLocaleString('es-MX')}{(target.brandCount || 0) > 0 ? ' marcas' : ''}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Tab Content */}
-              {activeTab === 'infos' && (
-                <div style={{ padding: '0 2rem 2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                  {/* LEFT COLUMN */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-                    {/* Contact Info */}
-                    <div>
-                      <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Informacion de Contacto</h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                        {selectedProspect.email && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><EnvelopeIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} /><span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.email}</span></div>)}
-                        {selectedProspect.phone && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><PhoneIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} /><span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.phone}</span></div>)}
-                        {selectedProspect.company && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          {despachoInfo ? (
-                            <span style={{ width: '1.1rem', height: '1.1rem', borderRadius: '0.2rem', backgroundColor: despachoInfo.logo ? 'transparent' : despachoInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.45rem', fontWeight: '700', flexShrink: 0, overflow: 'hidden' }}>{despachoInfo.logo ? <img src={despachoInfo.logo} alt={despachoInfo.initials} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { const t = e.currentTarget; t.style.display='none'; if(t.parentElement) { t.parentElement.style.backgroundColor = despachoInfo.color; t.parentElement.textContent = despachoInfo.initials; }}} /> : despachoInfo.initials}</span>
-                          ) : (
-                            <BuildingOfficeIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} />
-                          )}
-                          <span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.company}</span>
-                        </div>)}
-                        {selectedProspect.linkedinUrl && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><svg style={{ width: '1.1rem', height: '1.1rem', flexShrink: 0 }} viewBox="0 0 24 24" fill="var(--secondary)"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg><a href={selectedProspect.linkedinUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: '#6366f1', textDecoration: 'none' }}>Ver perfil de LinkedIn</a></div>)}
-                        {!selectedProspect.email && !selectedProspect.phone && !selectedProspect.company && (<span style={{ fontSize: '0.85rem', color: 'var(--secondary)', fontStyle: 'italic' }}>Sin datos de contacto registrados</span>)}
-                      </div>
+              <footer className={styles.pagination}>
+                <span>Mostrando {firstResult}–{lastResult} de {filteredTargets.length.toLocaleString('es-MX')} clientes</span>
+                <div className={styles.pageControls}>
+                  <button disabled={currentPage === 1} onClick={() => setCurrentPage((page) => page - 1)} aria-label="Página anterior"><ChevronLeftIcon /></button>
+                  {visiblePages.map((page) => <button key={page} className={page === currentPage ? styles.pageActive : ''} onClick={() => setCurrentPage(page)}>{page}</button>)}
+                  <button disabled={currentPage === totalPages} onClick={() => setCurrentPage((page) => page + 1)} aria-label="Página siguiente"><ChevronRightIcon /></button>
+                </div>
+              </footer>
+            </section>
+
+            <aside className={styles.detailPane} aria-label="Detalle del target seleccionado">
+              {!selectedTarget ? (
+                <div className={styles.detailEmpty}><UserIcon /><h2>Selecciona un target</h2><p>Consulta aquí su información, cartera y avance comercial.</p></div>
+              ) : (
+                <>
+                  <div className={styles.detailHeader}>
+                    <div className={styles.avatarWrap}>
+                      <button
+                        className={styles.avatarLarge}
+                        onClick={() => { setShowPhotoInput((open) => !open); setPhotoUrlInput(selectedTarget.photoUrl || ''); }}
+                        style={selectedTarget.photoUrl ? { backgroundImage: `url(${JSON.stringify(selectedTarget.photoUrl).slice(1, -1)})` } : undefined}
+                        aria-label="Editar foto del contacto"
+                      >{!selectedTarget.photoUrl && getInitials(selectedTarget.name)}<span><CameraIcon /></span></button>
+                      <i className={styles.onlineDot} aria-hidden="true" />
+                      {showPhotoInput && (
+                        <div className={styles.photoPopover}>
+                          <label htmlFor="target-photo">URL de la foto</label>
+                          <input id="target-photo" value={photoUrlInput} onChange={(event) => setPhotoUrlInput(event.target.value)} placeholder="https://…" />
+                          <div><button onClick={() => setShowPhotoInput(false)}>Cancelar</button><button className={styles.primaryMini} onClick={handlePhotoSave}>Guardar</button></div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Lead Source */}
-                    {selectedProspect.leadSource && (
-                      <div>
-                        <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Origen del Lead</h3>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><TagIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} /><span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{selectedProspect.leadSource}</span></div>
+                    <div className={styles.identity}>
+                      <div className={styles.identityTop}>
+                        <h2>{selectedTarget.name}</h2>
+                        <button className={styles.iconButton} aria-label="Más acciones"><EllipsisVerticalIcon /></button>
                       </div>
-                    )}
-
-                    {/* Notes */}
-                    {selectedProspect.notes && (
-                      <div>
-                        <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Notas</h3>
-                        <div style={{ padding: '1rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)', fontSize: '0.875rem', color: 'var(--foreground)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                          <ChatBubbleLeftIcon style={{ width: '1rem', height: '1rem', color: 'var(--secondary)', marginBottom: '0.5rem' }} />
-                          <div>{selectedProspect.notes}</div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* RIGHT COLUMN */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-                    {/* Key Dates */}
-                    <div>
-                      <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Fechas Clave</h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: 'var(--secondary)', flexShrink: 0 }} /><span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Creado:</span><span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.createdAt) || 'N/A'}</span></div>
-                        {selectedProspect.nextContactDate && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: '#f59e0b', flexShrink: 0 }} /><span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Proximo contacto:</span><span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.nextContactDate)}</span></div>)}
-                        {selectedProspect.scheduledDemoDate && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><CalendarIcon style={{ width: '1.1rem', height: '1.1rem', color: '#3b82f6', flexShrink: 0 }} /><span style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>Demo programada:</span><span style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>{formatDate(selectedProspect.scheduledDemoDate)}</span></div>)}
-                      </div>
-                    </div>
-
-                    {/* Financial */}
-                    {(selectedProspect.potentialValue || selectedProspect.accountValue || selectedProspect.brandCount) && (
-                      <div>
-                        <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Datos Comerciales</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
-                          {selectedProspect.potentialValue != null && (<div style={{ padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}><div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>Valor Potencial</div><div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#22c55e' }}>{'$' + selectedProspect.potentialValue.toLocaleString()}</div></div>)}
-                          {selectedProspect.accountValue != null && (<div style={{ padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}><div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>Valor de Cuenta</div><div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#3b82f6' }}>{'$' + selectedProspect.accountValue.toLocaleString()}</div></div>)}
-                          {selectedProspect.brandCount != null && (<div style={{ padding: '0.75rem', backgroundColor: 'var(--background)', borderRadius: '0.5rem', border: '1px solid var(--border)' }}><div style={{ fontSize: '0.7rem', color: 'var(--secondary)', marginBottom: '0.25rem' }}>Marcas</div><div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#8b5cf6' }}>{selectedProspect.brandCount}</div></div>)}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* History Timeline */}
-                    {selectedProspect.history && selectedProspect.history.length > 0 && (
-                      <div>
-                        <h3 style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Historial de Etapas</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          {selectedProspect.history.map((entry, idx) => (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: idx === 0 ? getStageColor(entry.stage) + '10' : 'transparent', borderRadius: '0.375rem', borderLeft: '3px solid ' + getStageColor(entry.stage) }}>
-                              <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: getStageColor(entry.stage), flexShrink: 0 }} />
-                              <div style={{ flex: 1, minWidth: 0 }}><span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--foreground)' }}>{entry.stage}</span></div>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--secondary)', flexShrink: 0 }}>{formatDate(entry.date)}</span>
+                      <div ref={despachoRef} className={styles.companyPicker}>
+                        <button onClick={() => setDespachoDropdownOpen((open) => !open)}>
+                          <span className={styles.companyMark}>{selectedDespacho?.initials || '—'}</span>
+                          <span>{selectedDespacho?.name || 'Asignar despacho'}</span>
+                          <ChevronDownIcon />
+                        </button>
+                        {despachoDropdownOpen && (
+                          <div className={styles.dropdown}>
+                            <div className={styles.dropdownSearch}><MagnifyingGlassIcon /><input autoFocus value={customDespacho} onChange={(event) => setCustomDespacho(event.target.value)} placeholder="Buscar o crear despacho…" /></div>
+                            <div className={styles.dropdownList}>
+                              {availableDespachos.filter((item) => !customDespacho.trim() || item.name.toLocaleLowerCase('es').includes(customDespacho.toLocaleLowerCase('es'))).map((item) => (
+                                <button key={item.name} onClick={() => handleDespachoSelect(item.name)}><span className={styles.companyMark}>{item.initials}</span><span>{item.name}</span>{selectedTarget.company === item.name && <CheckIcon />}</button>
+                              ))}
+                              {customDespacho.trim() && !availableDespachos.some((item) => item.name.toLocaleLowerCase('es') === customDespacho.trim().toLocaleLowerCase('es')) && (
+                                <button onClick={() => handleDespachoSelect(customDespacho.trim())}><PlusCircleIcon /><span>Crear “{customDespacho.trim()}”</span></button>
+                              )}
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      <div className={styles.identityBadges}>
+                        <span className={styles.stageBadge} style={{ color: getStageColor(selectedTarget.stage), backgroundColor: `${getStageColor(selectedTarget.stage)}10`, borderColor: `${getStageColor(selectedTarget.stage)}33` }}>{selectedTarget.stage || 'Sin etapa'}</span>
+                        <span className={styles.portfolioBadge}>{(selectedTarget.brandCount || 0).toLocaleString('es-MX')} marcas</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
+
+                  <section className={styles.detailSection}>
+                    <div className={styles.sectionTitle}><h3>Información de contacto</h3><button onClick={() => setEditingContact(true)}><PencilIcon /> Editar</button></div>
+                    <div className={styles.contactList}>
+                      <div><EnvelopeIcon /><span>{selectedTarget.email || 'Sin correo registrado'}</span></div>
+                      <div><PhoneIcon /><span>{selectedTarget.phone || 'Sin teléfono registrado'}</span></div>
+                      <div><MapPinIcon /><span>{selectedTarget.city || selectedTarget.state ? [selectedTarget.city, selectedTarget.state].filter(Boolean).join(', ') : 'Ubicación no registrada'}</span></div>
+                      <div><CalendarIcon /><span>{selectedTarget.subscriptionStartDate ? `Cliente desde ${formatDate(selectedTarget.subscriptionStartDate)}` : `Registrado el ${formatDate(selectedTarget.createdAt) || '—'}`}</span></div>
+                    </div>
+                  </section>
+
+                  <section className={styles.detailSection}>
+                    <h3>Progreso en el CRM</h3>
+                    <div className={styles.pipeline}>
+                      {PIPELINE_STEPS.map((step, index) => {
+                        const completed = pipelineIndex > index;
+                        const active = pipelineIndex === index;
+                        const historyEntry = [...(selectedTarget.history || [])].reverse().find((entry) => step.stages.some((stage) => stage === entry.stage));
+                        return (
+                          <div key={step.label} className={`${styles.pipelineStep} ${completed ? styles.pipelineDone : ''} ${active ? styles.pipelineActive : ''}`}>
+                            <div className={styles.pipelineMarker}>{completed ? <CheckIcon /> : active ? <span /> : index + 1}</div>
+                            <strong>{step.label}</strong>
+                            <small>{formatDate(historyEntry?.date) || '—'}</small>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section className={styles.detailSection}>
+                    <h3>Próxima acción</h3>
+                    <div className={styles.nextAction}>
+                      <span><CalendarIcon /></span>
+                      <div><strong>{nextAction.title}</strong><small>{nextAction.date}</small></div>
+                      <button onClick={() => router.push('/seguimiento')}><ArrowRightIcon /></button>
+                    </div>
+                  </section>
+
+                  {showFullProfile && (
+                    <section className={styles.expandedProfile}>
+                      <div className={styles.commercialGrid}>
+                        <div><span>Cartera</span><strong>{(selectedTarget.brandCount || 0).toLocaleString('es-MX')}</strong></div>
+                        <div><span>Valor potencial</span><strong>${(selectedTarget.potentialValue || 0).toLocaleString('en-US')}</strong></div>
+                        <div><span>Valor de cuenta</span><strong>${(selectedTarget.accountValue || 0).toLocaleString('en-US')}</strong></div>
+                      </div>
+                      <div ref={statusDropdownRef} className={styles.statusPicker}>
+                        <span>Estatus del cliente</span>
+                        <button onClick={() => setStatusDropdownOpen((open) => !open)}>{getClientStatusInfo(selectedTarget.clientStatus)?.emoji || '○'} {getClientStatusInfo(selectedTarget.clientStatus)?.label || 'Asignar estatus'} <ChevronDownIcon /></button>
+                        {statusDropdownOpen && <div className={styles.statusMenu}>{CLIENT_STATUSES.map((status) => <button key={status.value} onClick={() => handleStatusChange(status.value)}><span>{status.emoji}</span><div><strong>{status.label}</strong><small>{status.description}</small></div>{selectedTarget.clientStatus === status.value && <CheckIcon />}</button>)}</div>}
+                      </div>
+                      {selectedTarget.leadSource && <div className={styles.profileBlock}><span>Origen del lead</span><p>{selectedTarget.leadSource}</p></div>}
+                      {selectedTarget.notes && <div className={styles.profileBlock}><span>Notas</span><p>{selectedTarget.notes}</p></div>}
+                      {selectedTarget.linkedinUrl && <a className={styles.linkedinLink} href={selectedTarget.linkedinUrl} target="_blank" rel="noreferrer">Abrir LinkedIn <ArrowTopRightOnSquareIcon /></a>}
+                    </section>
+                  )}
+
+                  <footer className={styles.detailActions}>
+                    <button className={styles.primaryAction} onClick={() => router.push('/seguimiento')}><PlusCircleIcon /> Registrar actividad</button>
+                    <button className={styles.profileAction} onClick={() => setShowFullProfile((open) => !open)}><UserIcon /> {showFullProfile ? 'Ocultar perfil' : 'Ver perfil'}</button>
+                  </footer>
+                </>
               )}
+            </aside>
+          </section>
+        </main>
 
-              {/* Objectives Tab */}
-              {activeTab === 'objectives' && (<div style={{ padding: '2rem', color: 'var(--secondary)', fontSize: '0.9rem' }}><div style={{ textAlign: 'center', padding: '3rem 0' }}><FlagIcon style={{ width: '2.5rem', height: '2.5rem', color: 'var(--border)', margin: '0 auto 1rem' }} /><p style={{ fontWeight: '500' }}>Objectives coming soon</p><p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>This section will track prospect-specific goals and milestones.</p></div></div>)}
-
-              {/* Documents Tab */}
-              {activeTab === 'documents' && (<div style={{ padding: '2rem', color: 'var(--secondary)', fontSize: '0.9rem' }}><div style={{ textAlign: 'center', padding: '3rem 0' }}><DocumentTextIcon style={{ width: '2.5rem', height: '2.5rem', color: 'var(--border)', margin: '0 auto 1rem' }} /><p style={{ fontWeight: '500' }}>Documents coming soon</p><p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Proposals, contracts and files will appear here.</p></div></div>)}
-
-              {/* Reviews Tab */}
-              {activeTab === 'reviews' && (<div style={{ padding: '2rem', color: 'var(--secondary)', fontSize: '0.9rem' }}><div style={{ textAlign: 'center', padding: '3rem 0' }}><StarIcon style={{ width: '2.5rem', height: '2.5rem', color: 'var(--border)', margin: '0 auto 1rem' }} /><p style={{ fontWeight: '500' }}>Reviews coming soon</p><p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Notes and reviews about this prospect will be shown here.</p></div></div>)}
-
-            {/* Edit Contact Modal */}
-            {editingContact && (
-              <>
-                <div onClick={() => setEditingContact(false)} style={{
-                  position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1200
-                }} />
-                <div style={{
-                  position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                  backgroundColor: 'var(--surface)', borderRadius: '1rem',
-                  border: '1px solid var(--border)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-                  zIndex: 1300, width: '480px', maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto',
-                  fontFamily: 'var(--font-sans)'
-                }}>
-                  <div style={{
-                    padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                  }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: 'var(--foreground)' }}>
-                      Editar Contacto
-                    </h3>
-                    <button onClick={() => setEditingContact(false)} style={{
-                      background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem',
-                      color: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      <XMarkIcon style={{ width: '1.25rem', height: '1.25rem' }} />
-                    </button>
-                  </div>
-                  <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    <div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
-                        <EnvelopeIcon style={{ width: '1rem', height: '1rem' }} /> Correo electrónico
-                      </label>
-                      <input type="email" value={editContactForm.email}
-                        onChange={(e) => setEditContactForm({ ...editContactForm, email: e.target.value })}
-                        placeholder="correo@ejemplo.com"
-                        style={{
-                          width: '100%', padding: '0.65rem 0.85rem', fontSize: '0.9rem',
-                          border: '1px solid var(--border)', borderRadius: '0.5rem',
-                          backgroundColor: 'var(--background)', color: 'var(--foreground)',
-                          outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'
-                        }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
-                        <PhoneIcon style={{ width: '1rem', height: '1rem' }} /> Teléfono
-                      </label>
-                      <input type="tel" value={editContactForm.phone}
-                        onChange={(e) => setEditContactForm({ ...editContactForm, phone: e.target.value })}
-                        placeholder="+52 55 1234 5678"
-                        style={{
-                          width: '100%', padding: '0.65rem 0.85rem', fontSize: '0.9rem',
-                          border: '1px solid var(--border)', borderRadius: '0.5rem',
-                          backgroundColor: 'var(--background)', color: 'var(--foreground)',
-                          outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'
-                        }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
-                        <svg style={{ width: '1rem', height: '1rem' }} viewBox="0 0 24 24" fill="var(--secondary)"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                        URL de LinkedIn
-                      </label>
-                      <input type="url" value={editContactForm.linkedinUrl}
-                        onChange={(e) => setEditContactForm({ ...editContactForm, linkedinUrl: e.target.value })}
-                        placeholder="https://linkedin.com/in/usuario"
-                        style={{
-                          width: '100%', padding: '0.65rem 0.85rem', fontSize: '0.9rem',
-                          border: '1px solid var(--border)', borderRadius: '0.5rem',
-                          backgroundColor: 'var(--background)', color: 'var(--foreground)',
-                          outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'
-                        }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '600', color: 'var(--secondary)', marginBottom: '0.5rem' }}>
-                        <TagIcon style={{ width: '1rem', height: '1rem' }} /> Origen del Lead
-                      </label>
-                      <input type="text" value={editContactForm.leadSource}
-                        onChange={(e) => setEditContactForm({ ...editContactForm, leadSource: e.target.value })}
-                        placeholder="LinkedIn, Referido, Web, etc."
-                        style={{
-                          width: '100%', padding: '0.65rem 0.85rem', fontSize: '0.9rem',
-                          border: '1px solid var(--border)', borderRadius: '0.5rem',
-                          backgroundColor: 'var(--background)', color: 'var(--foreground)',
-                          outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box'
-                        }} />
-                    </div>
-                  </div>
-                  <div style={{
-                    padding: '1rem 2rem 1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem',
-                    borderTop: '1px solid var(--border)'
-                  }}>
-                    <button onClick={() => setEditingContact(false)} style={{
-                      padding: '0.6rem 1.25rem', backgroundColor: 'transparent',
-                      color: 'var(--secondary)', border: '1px solid var(--border)',
-                      borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: '500',
-                      cursor: 'pointer', fontFamily: 'inherit'
-                    }}>Cancelar</button>
-                    <button
-                      disabled={savingContact}
-                      onClick={async () => {
-                        if (!selectedProspect) return;
-                        setSavingContact(true);
-                        try {
-                          const updates: Partial<Target> = {
-                            email: editContactForm.email.trim(),
-                            phone: editContactForm.phone.trim(),
-                            linkedinUrl: editContactForm.linkedinUrl.trim() || undefined,
-                            leadSource: editContactForm.leadSource.trim() || undefined
-                          };
-                          if (selectedProspect.createdBy === 'representative') {
-                            const newId = await createTarget({
-                              name: selectedProspect.name,
-                              company: selectedProspect.company || '',
-                              email: updates.email || '',
-                              phone: updates.phone || '',
-                              notes: '',
-                              brandCount: selectedProspect.brandCount,
-                              linkedinUrl: updates.linkedinUrl,
-                              leadSource: updates.leadSource
-                            });
-                            setSelectedProspect({
-                              ...selectedProspect,
-                              id: newId,
-                              email: updates.email || '',
-                              phone: updates.phone || '',
-                              linkedinUrl: updates.linkedinUrl,
-                              leadSource: updates.leadSource,
-                              createdBy: 'system'
-                            });
-                          } else {
-                            await updateTarget(selectedProspect.id, updates);
-                            setSelectedProspect({
-                              ...selectedProspect,
-                              email: updates.email || '',
-                              phone: updates.phone || '',
-                              linkedinUrl: updates.linkedinUrl,
-                              leadSource: updates.leadSource
-                            });
-                          }
-                          setEditingContact(false);
-                        } catch (err) {
-                          console.error('Error updating contact:', err);
-                          alert('Error al guardar. Intenta de nuevo.');
-                        } finally {
-                          setSavingContact(false);
-                        }
-                      }}
-                      style={{
-                        padding: '0.6rem 1.5rem', backgroundColor: '#6366f1',
-                        color: '#fff', border: 'none', borderRadius: '0.5rem',
-                        fontSize: '0.85rem', fontWeight: '600',
-                        cursor: savingContact ? 'not-allowed' : 'pointer',
-                        fontFamily: 'inherit', opacity: savingContact ? 0.7 : 1
-                      }}>{savingContact ? 'Guardando...' : 'Guardar Cambios'}</button>
-                  </div>
-                </div>
-              </>
-            )}
-            </>
-          );
-        })()}
+        {editingContact && selectedTarget && (
+          <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setEditingContact(false); }}>
+            <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="edit-contact-title">
+              <div className={styles.modalHeader}><div><h2 id="edit-contact-title">Editar contacto</h2><p>{selectedTarget.name}</p></div><button onClick={() => setEditingContact(false)} aria-label="Cerrar"><XMarkIcon /></button></div>
+              <div className={styles.modalBody}>
+                <label><span><EnvelopeIcon /> Correo electrónico</span><input type="email" value={editContactForm.email} onChange={(event) => setEditContactForm((form) => ({ ...form, email: event.target.value }))} placeholder="correo@ejemplo.com" /></label>
+                <label><span><PhoneIcon /> Teléfono</span><input type="tel" value={editContactForm.phone} onChange={(event) => setEditContactForm((form) => ({ ...form, phone: event.target.value }))} placeholder="+52 55 1234 5678" /></label>
+                <label><span><ArrowTopRightOnSquareIcon /> URL de LinkedIn</span><input type="url" value={editContactForm.linkedinUrl} onChange={(event) => setEditContactForm((form) => ({ ...form, linkedinUrl: event.target.value }))} placeholder="https://linkedin.com/in/usuario" /></label>
+                <label><span><BriefcaseIcon /> Origen del lead</span><input value={editContactForm.leadSource} onChange={(event) => setEditContactForm((form) => ({ ...form, leadSource: event.target.value }))} placeholder="Referido, LinkedIn, Web…" /></label>
+              </div>
+              <div className={styles.modalFooter}><button onClick={() => setEditingContact(false)}>Cancelar</button><button className={styles.primaryAction} disabled={savingContact} onClick={handleContactSave}>{savingContact ? 'Guardando…' : 'Guardar cambios'}</button></div>
+            </div>
+          </div>
+        )}
       </div>
     </ProtectedRoute>
   );

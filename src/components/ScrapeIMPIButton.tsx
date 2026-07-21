@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc, Timestamp, query, orderBy } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
 const BATCH_SIZE = 50;
 
@@ -15,7 +16,11 @@ interface ScrapeResult {
   error?: string;
 }
 
-export default function ScrapeIMPIButton() {
+interface ScrapeIMPIButtonProps {
+  variant?: 'default' | 'toolbar';
+}
+
+export default function ScrapeIMPIButton({ variant = 'default' }: ScrapeIMPIButtonProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -161,19 +166,20 @@ export default function ScrapeIMPIButton() {
   const proxyBadgeBg = proxyStatus === 'ok' ? '#dcfce7' : '#fef2f2';
   const proxyBadgeColor = proxyStatus === 'ok' ? '#166534' : '#991b1b';
   const proxyLabel = proxyStatus === 'ok' ? 'Proxy: Conectado' : 'Proxy: Desconectado';
+  const toolbar = variant === 'toolbar';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: toolbar ? '0.35rem' : '0.5rem', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: toolbar ? '0.6rem' : '0.75rem', flexWrap: toolbar ? 'wrap' : 'nowrap' }}>
         <button
           onClick={handleScrape}
           disabled={loading}
           style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: loading ? '#94a3b8' : '#3b82f6',
+            padding: toolbar ? '0.62rem 1rem' : '0.75rem 1.5rem',
+            background: loading ? '#94a3b8' : toolbar ? 'linear-gradient(135deg, #2563eb, #3155d9)' : '#3b82f6',
             color: 'white',
             border: 'none',
-            borderRadius: '0.5rem',
+            borderRadius: toolbar ? '0.65rem' : '0.5rem',
             fontWeight: '600',
             cursor: loading ? 'not-allowed' : 'pointer',
             transition: 'all 0.2s',
@@ -182,15 +188,17 @@ export default function ScrapeIMPIButton() {
             alignItems: 'center',
             gap: '0.5rem',
             whiteSpace: 'nowrap' as const,
-            height: '48px',
+            height: toolbar ? '42px' : '48px',
+            boxShadow: toolbar && !loading ? '0 8px 18px rgba(37, 99, 235, 0.18)' : 'none',
           }}
         >
-          {loading ? 'Actualizando... ' + pct + '%' : 'Actualizar Marcas IMPI'}
+          <ArrowPathIcon style={{ width: '1rem', height: '1rem' }} aria-hidden="true" />
+          {loading ? 'Actualizando... ' + pct + '%' : toolbar ? 'Actualizar marcas IMPI' : 'Actualizar Marcas IMPI'}
         </button>
         {proxyStatus && (
           <span style={{
             fontSize: '0.7rem',
-            padding: '0.25rem 0.5rem',
+            padding: toolbar ? '0.22rem 0.48rem' : '0.25rem 0.5rem',
             borderRadius: '9999px',
             backgroundColor: proxyBadgeBg,
             color: proxyBadgeColor,
