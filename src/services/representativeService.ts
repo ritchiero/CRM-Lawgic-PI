@@ -1,6 +1,7 @@
 import { collection, addDoc, doc, getDocs, query, orderBy, onSnapshot, Timestamp, writeBatch } from 'firebase/firestore';
 import { getDbInstance } from '@/lib/firebase';
 import { getRepresentativeActivityOverride } from '@/data/representativeActivityOverrides';
+import { getRepresentativeActivityCorrection } from '@/data/representativeActivityCorrections';
 import {
   getRepresentativeActivityLevel,
   RepresentativeActivityLevel,
@@ -43,7 +44,7 @@ export const subscribeToRepresentatives = (callback: (reps: Representative[]) =>
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const reps: Representative[] = snapshot.docs.map(doc => {
         const data = doc.data();
-        const override = getRepresentativeActivityOverride(data.name);
+        const override = getRepresentativeActivityCorrection(data.name) || getRepresentativeActivityOverride(data.name);
         const verified = override?.representativeActivityVerified ?? (data.representativeActivityVerified === true);
         const activityCount = verified
           ? Number(override?.impiUniqueExpedientCount ?? data.impiUniqueExpedientCount ?? 0)

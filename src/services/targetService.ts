@@ -1,6 +1,7 @@
 import { collection, addDoc, updateDoc, deleteDoc, deleteField, doc, query, where, orderBy, onSnapshot, Timestamp, serverTimestamp, getDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { getDbInstance, getAuthInstance } from '@/lib/firebase';
 import { getRepresentativeActivityOverride } from '@/data/representativeActivityOverrides';
+import { getRepresentativeActivityCorrection } from '@/data/representativeActivityCorrections';
 import type { RepresentativeActivityLevel, RepresentativeActivityVerificationStatus } from '@/lib/representativeActivity';
 
 // Re-use the same Prospect interface
@@ -182,7 +183,7 @@ export const subscribeToTargets = (callback: (targets: Target[]) => void) => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const targets: Target[] = snapshot.docs.map(doc => {
         const data = doc.data();
-        const override = getRepresentativeActivityOverride(data.name);
+        const override = getRepresentativeActivityCorrection(data.name) || getRepresentativeActivityOverride(data.name);
         return {
           id: doc.id,
           ...data,

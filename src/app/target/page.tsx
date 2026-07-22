@@ -105,6 +105,16 @@ function normalizeCompany(value?: string) {
   return (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('es');
 }
 
+function normalizePersonName(value?: string) {
+  return (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9ñÑ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('es');
+}
+
 function findAccount(target: Target, despachos: Despacho[]) {
   if (target.despachoId) {
     const byId = despachos.find((despacho) => despacho.id === target.despachoId);
@@ -228,8 +238,10 @@ export default function TargetPage() {
   const allTargets = useMemo<TargetWithAccount[]>(() => {
     const byName = new Map<string, TargetWithAccount>();
     targets.forEach((target) => {
+      const key = normalizePersonName(target.name);
+      if (byName.has(key)) return;
       const account = findAccount(target, firestoreDespachos);
-      byName.set(target.name.toLocaleLowerCase('es').trim(), {
+      byName.set(key, {
         ...target,
         accountName: account?.nombre,
         accountStage: account?.accountStage,
@@ -239,7 +251,7 @@ export default function TargetPage() {
       });
     });
     representatives.forEach((representative) => {
-      const key = representative.name.toLocaleLowerCase('es').trim();
+      const key = normalizePersonName(representative.name);
       const existing = byName.get(key);
       if (existing) {
         byName.set(key, {
