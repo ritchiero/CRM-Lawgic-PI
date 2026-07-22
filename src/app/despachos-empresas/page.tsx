@@ -5,8 +5,9 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { subscribeToDespachos, createDespacho, updateDespacho, deleteDespacho, seedDefaultDespachos, Despacho } from '@/services/despachoService';
 import { subscribeToTargets, Target, updateTarget } from '@/services/targetService';
 import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
+import { BackToTargets } from '@/components/BackToTargets';
 import {
-  ArrowLeftIcon, MagnifyingGlassIcon, PlusIcon, XMarkIcon,
+  MagnifyingGlassIcon, PlusIcon, XMarkIcon,
   BuildingOfficeIcon, PencilIcon, TrashIcon,
   EnvelopeIcon, PhoneIcon, GlobeAltIcon, MapPinIcon,
   UserGroupIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon,
@@ -234,9 +235,9 @@ export default function DespachosEmpresasPage() {
         {/* LEFT PANEL */}
         <div style={{ width: '380px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
-            <button onClick={() => router.push('/seguimiento')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', marginBottom: '0.75rem', fontSize: '0.8rem', fontFamily: 'inherit', padding: 0 }}>
-              <ArrowLeftIcon style={{ width: '0.9rem', height: '0.9rem' }} /> Volver
-            </button>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <BackToTargets />
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>Despachos</h1>

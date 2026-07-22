@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { ArrowLeftIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon } from '@heroicons/react/24/outline';
+import { BackToTargets } from '@/components/BackToTargets';
+import { ArrowTrendingUpIcon, ArrowTrendingDownIcon } from '@heroicons/react/24/outline';
 import { subscribeToProspects, Prospect } from '@/services/prospectService';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -1349,7 +1349,6 @@ export default function KPIsPage() {
 }
 
 function KPIsContent() {
-    const router = useRouter();
     const [prospects, setProspects] = useState<Prospect[]>([]);
     const [loading, setLoading] = useState(true);
     const [weeksToShow, setWeeksToShow] = useState(12);
@@ -1385,23 +1384,9 @@ function KPIsContent() {
             }}>
                 {/* Header */}
                 <div style={{ marginBottom: '2rem' }}>
-                    <button
-                        onClick={() => router.back()}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--secondary)',
-                            cursor: 'pointer',
-                            marginBottom: '1rem',
-                            fontSize: '0.875rem'
-                        }}
-                    >
-                        <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} />
-                        Volver
-                    </button>
+                    <div style={{ marginBottom: '1rem' }}>
+                        <BackToTargets />
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                         <div>
                             <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--foreground)', margin: 0 }}>

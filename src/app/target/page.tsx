@@ -528,7 +528,7 @@ export default function TargetPage() {
             <button onClick={() => router.push('/kpis')} title="Indicadores"><ChartBarIcon /></button>
           </nav>
           <div className={styles.railBottom}>
-            <button title="Notificaciones"><BellIcon /></button>
+            <button disabled aria-disabled="true" title="Notificaciones (próximamente)"><BellIcon /></button>
             <button onClick={() => router.push('/perfil')} title="Configuración"><Cog6ToothIcon /></button>
             <div className={styles.userBadge}>{getInitials(user?.displayName || user?.email || 'CA')}</div>
           </div>
@@ -537,7 +537,7 @@ export default function TargetPage() {
         <main className={styles.workspace}>
           <header className={styles.topbar}>
             <div className={styles.titleGroup}>
-              <button className={styles.mobileBack} onClick={() => router.back()} aria-label="Volver"><ArrowLeftIcon /></button>
+              <button className={styles.mobileBack} onClick={() => router.push('/dashboard')} aria-label="Ir al dashboard"><ArrowLeftIcon /></button>
               <div>
                 <h1>Targets</h1>
                 <p>Lista de clientes potenciales</p>

@@ -73,6 +73,14 @@
   transform: translateY(-1px);
 }
 
+.railBottom button:disabled {
+  color: #a7b0c0;
+  background: transparent;
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
 .railNav svg,
 .railBottom svg {
   width: 22px;

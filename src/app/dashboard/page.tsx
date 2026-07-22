@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { subscribeToProspects, Prospect } from "@/services/prospectService";
+import { BackToTargets } from "@/components/BackToTargets";
 
 export default function DashboardPage() {
     const { user, userData, loading, logout } = useAuth();
@@ -78,12 +79,15 @@ export default function DashboardPage() {
                 justifyContent: 'space-between',
                 alignItems: 'center'
             }}>
-                <div style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 'bold',
-                    color: 'var(--primary)'
-                }}>
-                    Lawgic PI <span style={{ color: 'var(--secondary)', fontSize: '0.875rem' }}>CRM</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <BackToTargets compact />
+                    <div style={{
+                        fontSize: '1.25rem',
+                        fontWeight: 'bold',
+                        color: 'var(--primary)'
+                    }}>
+                        Lawgic PI <span style={{ color: 'var(--secondary)', fontSize: '0.875rem' }}>CRM</span>
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -198,10 +202,10 @@ export default function DashboardPage() {
                             <ActionButton label="Nuevo Expediente" />
                             <ActionButton label="Búsqueda Fonética" />
                             <ActionButton label="Gestionar Timelines" />
+                            <Link href="/duplicates" style={{ textDecoration: 'none' }}>
+                                <ActionButton label="Gestión de Duplicados" />
+                            </Link>
                             <Link href="/target" style={{ textDecoration: 'none' }}>
-                                                    <Link href="/duplicates" style={{ textDecoration: 'none' }}>
-                                                                                <ActionButton label="Gestión de Duplicados" />
-                                                    </Link>
                                 <ActionButton label="Targets" />
                             </Link>
                             <Link href="/despachos-empresas" style={{ textDecoration: 'none' }}>

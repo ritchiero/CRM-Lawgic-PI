@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateUserProfile, generateColorFromUID } from '@/services/authService';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { ArrowLeftIcon, UserCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { BackToTargets } from '@/components/BackToTargets';
+import { UserCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 export default function ProfilePage() {
     return (
@@ -17,7 +17,6 @@ export default function ProfilePage() {
 
 function ProfileContent() {
     const { userData, user } = useAuth();
-    const router = useRouter();
     const [displayName, setDisplayName] = useState('');
     const [tagColor, setTagColor] = useState<string>('');
     const [loading, setLoading] = useState(false);
@@ -90,23 +89,9 @@ function ProfileContent() {
             }}>
                 {/* Header */}
                 <div style={{ marginBottom: '2rem' }}>
-                    <button
-                        onClick={() => router.back()}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--secondary)',
-                            cursor: 'pointer',
-                            marginBottom: '1rem',
-                            fontSize: '0.875rem'
-                        }}
-                    >
-                        <ArrowLeftIcon style={{ width: '1rem', height: '1rem' }} />
-                        Volver
-                    </button>
+                    <div style={{ marginBottom: '1rem' }}>
+                        <BackToTargets />
+                    </div>
                     <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--foreground)' }}>
                         Configuración de Perfil
                     </h1>

@@ -28,6 +28,7 @@ import {
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllUsers, generateColorFromUID } from '@/services/authService';
+import { BackToTargets } from '@/components/BackToTargets';
 
 export default function SeguimientoPage() {
     return (
@@ -362,15 +363,18 @@ function SeguimientoContent() {
                 justifyContent: 'space-between',
                 alignItems: 'center'
             }}>
-                <h1 style={{
-                    fontSize: '1.25rem',
-                    fontWeight: '700',
-                    color: 'var(--foreground)',
-                    margin: 0,
-                    whiteSpace: 'nowrap'
-                }}>
-                    Seguimiento Lawgic PI
-                </h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <BackToTargets compact label="Targets" />
+                    <h1 style={{
+                        fontSize: '1.25rem',
+                        fontWeight: '700',
+                        color: 'var(--foreground)',
+                        margin: 0,
+                        whiteSpace: 'nowrap'
+                    }}>
+                        Seguimiento Lawgic PI
+                    </h1>
+                </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     {/* Zoom Controls */}
