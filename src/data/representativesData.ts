@@ -24,7 +24,7 @@ export const representativesData: { name: string; brandCount: number; rank: numb
   { rank: 23, name: "Claudia Margarita Rodriguez Soto", brandCount: 3731 },
   { rank: 24, name: "Rodrigo Lanuza Acosta", brandCount: 12777 },
   { rank: 25, name: "Victor Ramirez Landeros", brandCount: 5921 },
-  { rank: 26, name: "Jose Dario Cosio Izcapa", brandCount: 1599 },
+  { rank: 26, name: "Jose Dario Cosio Izcapa", brandCount: 1602 },
   { rank: 27, name: "Paulina Barroso Avila", brandCount: 2837 },
   { rank: 28, name: "Humberto Mendoza Gonzalez", brandCount: 1233 },
   { rank: 29, name: "Angelica Lara Maldonado", brandCount: 1636 },
