@@ -361,6 +361,29 @@ export default function TargetPage() {
   }, [loadingTargets, loadingRepresentatives, visibleTargets, selectedId]);
 
   useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      if (filteredTargets.length === 0) return;
+      e.preventDefault();
+      const idx = selectedId ? filteredTargets.findIndex((t) => t.id === selectedId) : -1;
+      const nextIdx = e.key === 'ArrowDown'
+        ? Math.min(idx + 1, filteredTargets.length - 1)
+        : Math.max(idx - 1, 0);
+      const next = filteredTargets[nextIdx];
+      if (!next || next.id === selectedId) return;
+      if (nextIdx >= visibleCount) setVisibleCount((count) => Math.max(count, nextIdx + 10));
+      setSelectedId(next.id);
+      requestAnimationFrame(() => {
+        document.querySelector(`[data-target-row="${next.id}"]`)?.scrollIntoView({ block: 'nearest' });
+      });
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [filteredTargets, selectedId, visibleCount]);
+
+  useEffect(() => {
     setShowFullProfile(false);
     setDespachoDropdownOpen(false);
     setStatusDropdownOpen(false);
@@ -640,6 +663,7 @@ export default function TargetPage() {
                   return (
                     <button
                       key={target.id}
+                      data-target-row={target.id}
                       className={`${styles.tableRow} ${selected ? styles.tableRowSelected : ''}`}
                       onClick={() => setSelectedId(selected ? null : target.id)}
                       aria-expanded={selected}
