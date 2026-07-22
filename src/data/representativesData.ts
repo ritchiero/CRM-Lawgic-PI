@@ -22,7 +22,7 @@ export const representativesData: { name: string; brandCount: number; rank: numb
   { rank: 21, name: "Christian Thomae Maloney", brandCount: 8284 },
   { rank: 22, name: "Carlos Perez De La Sierra", brandCount: 19542 },
   { rank: 23, name: "Claudia Margarita Rodriguez Soto", brandCount: 3731 },
-  { rank: 24, name: "Rodrigo Lanuza Acosta", brandCount: 12782 },
+  { rank: 24, name: "Rodrigo Lanuza Acosta", brandCount: 12777 },
   { rank: 25, name: "Victor Ramirez Landeros", brandCount: 5896 },
   { rank: 26, name: "Jose Dario Cosio Izcapa", brandCount: 1599 },
   { rank: 27, name: "Paulina Barroso Avila", brandCount: 2837 },
