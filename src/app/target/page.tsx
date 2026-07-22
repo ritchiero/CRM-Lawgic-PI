@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -14,6 +15,8 @@ import {
   ChartBarIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ChevronUpIcon,
   ClipboardDocumentListIcon,
   Cog6ToothIcon,
@@ -160,6 +163,7 @@ export default function TargetPage() {
   const [loadingTargets, setLoadingTargets] = useState(true);
   const [loadingRepresentatives, setLoadingRepresentatives] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [navExpanded, setNavExpanded] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [hideDiscarded, setHideDiscarded] = useState(true);
   const [sortField, setSortField] = useState<SortField>('none');
@@ -341,7 +345,7 @@ export default function TargetPage() {
       setSelectedId(null);
       return;
     }
-    if (!visibleTargets.some((target) => target.id === selectedId)) setSelectedId(visibleTargets[0].id);
+    if (selectedId && !visibleTargets.some((target) => target.id === selectedId)) setSelectedId(null);
   }, [loadingTargets, loadingRepresentatives, visibleTargets, selectedId]);
 
   useEffect(() => {
@@ -517,20 +521,33 @@ export default function TargetPage() {
 
   return (
     <ProtectedRoute>
-      <div className={styles.shell}>
+      <div className={`${styles.shell} ${navExpanded ? styles.navExpanded : styles.navCollapsed}`}>
         <aside className={styles.rail} aria-label="Navegación principal">
-          <button className={styles.brandMark} onClick={() => router.push('/dashboard')} aria-label="Ir al dashboard">C</button>
+          <div className={styles.brandRow}>
+            <Link className={styles.brand} href="/dashboard" aria-label="Ir al dashboard">
+              <span className={styles.brandMark}>C</span>
+              <span className={styles.brandCopy}><strong>Lawgic</strong><small>CRM</small></span>
+            </Link>
+            <button className={styles.navToggle} onClick={() => setNavExpanded((expanded) => !expanded)} aria-label={navExpanded ? 'Contraer navegación' : 'Expandir navegación'}>
+              {navExpanded ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+            </button>
+          </div>
           <nav className={styles.railNav}>
-            <button onClick={() => router.push('/dashboard')} title="Dashboard"><HomeIcon /></button>
-            <button className={styles.railActive} aria-current="page" title="Targets"><span className={styles.targetGlyph}>◎</span></button>
-            <button onClick={() => router.push('/despachos-empresas')} title="Despachos"><BriefcaseIcon /></button>
-            <button onClick={() => router.push('/seguimiento')} title="Seguimiento"><ClipboardDocumentListIcon /></button>
-            <button onClick={() => router.push('/kpis')} title="Indicadores"><ChartBarIcon /></button>
+            <span className={styles.navSectionLabel}>Principal</span>
+            <Link className={styles.navItem} href="/dashboard" title="Dashboard"><HomeIcon /><span>Dashboard</span></Link>
+            <Link className={`${styles.navItem} ${styles.railActive}`} href="/target" aria-current="page" title="Targets"><span className={styles.targetGlyph}>◎</span><span>Targets</span></Link>
+            <span className={styles.navSectionLabel}>Gestión</span>
+            <Link className={styles.navItem} href="/despachos-empresas" title="Despachos"><BriefcaseIcon /><span>Despachos</span></Link>
+            <Link className={styles.navItem} href="/seguimiento" title="Seguimiento"><ClipboardDocumentListIcon /><span>Seguimiento</span></Link>
+            <Link className={styles.navItem} href="/kpis" title="Indicadores"><ChartBarIcon /><span>Indicadores</span></Link>
           </nav>
           <div className={styles.railBottom}>
-            <button disabled aria-disabled="true" title="Notificaciones (próximamente)"><BellIcon /></button>
-            <button onClick={() => router.push('/perfil')} title="Configuración"><Cog6ToothIcon /></button>
-            <div className={styles.userBadge}>{getInitials(user?.displayName || user?.email || 'CA')}</div>
+            <button className={styles.navItem} disabled aria-disabled="true" title="Notificaciones (próximamente)"><BellIcon /><span>Notificaciones</span></button>
+            <Link className={styles.navItem} href="/perfil" title="Configuración"><Cog6ToothIcon /><span>Configuración</span></Link>
+            <Link className={styles.profileCard} href="/perfil" title="Ver perfil">
+              <span className={styles.userBadge}>{getInitials(user?.displayName || user?.email || 'CA')}</span>
+              <span className={styles.profileCopy}><strong>{user?.displayName || 'Usuario Lawgic'}</strong><small>{user?.email || 'Mi perfil'}</small></span>
+            </Link>
           </div>
         </aside>
 
@@ -539,8 +556,9 @@ export default function TargetPage() {
             <div className={styles.titleGroup}>
               <button className={styles.mobileBack} onClick={() => router.push('/dashboard')} aria-label="Ir al dashboard"><ArrowLeftIcon /></button>
               <div>
-                <h1>Targets</h1>
-                <p>Lista de clientes potenciales</p>
+                <div className={styles.breadcrumb}><span>CRM</span><i>/</i><strong>Targets</strong></div>
+                <h1>Targets <span>{filteredTargets.length.toLocaleString('es-MX')}</span></h1>
+                <p>Base de clientes potenciales y representantes</p>
               </div>
             </div>
             <div className={styles.topActions}>
@@ -611,8 +629,9 @@ export default function TargetPage() {
                     <button
                       key={target.id}
                       className={`${styles.tableRow} ${selected ? styles.tableRowSelected : ''}`}
-                      onClick={() => setSelectedId(target.id)}
-                      aria-pressed={selected}
+                      onClick={() => setSelectedId(selected ? null : target.id)}
+                      aria-expanded={selected}
+                      aria-controls="target-detail"
                     >
                       <span className={styles.clientCell}>
                         <span
@@ -645,9 +664,9 @@ export default function TargetPage() {
               </footer>
             </section>
 
-            <aside className={styles.detailPane} aria-label="Detalle del target seleccionado">
+            <aside id="target-detail" className={styles.detailPane} aria-label="Detalle del target seleccionado">
               {!selectedTarget ? (
-                <div className={styles.detailEmpty}><UserIcon /><h2>Selecciona un target</h2><p>Consulta aquí su información, cartera y avance comercial.</p></div>
+                null
               ) : (
                 <>
                   <div className={styles.detailHeader}>
@@ -671,7 +690,10 @@ export default function TargetPage() {
                     <div className={styles.identity}>
                       <div className={styles.identityTop}>
                         <h2>{selectedTarget.name}</h2>
-                        <button className={styles.iconButton} aria-label="Más acciones"><EllipsisVerticalIcon /></button>
+                        <div className={styles.detailHeaderActions}>
+                          <button className={styles.iconButton} aria-label="Más acciones"><EllipsisVerticalIcon /></button>
+                          <button className={styles.iconButton} onClick={() => setSelectedId(null)} aria-label="Cerrar detalle"><XMarkIcon /></button>
+                        </div>
                       </div>
                       <div ref={despachoRef} className={styles.companyPicker}>
                         <button onClick={() => setDespachoDropdownOpen((open) => !open)}>
