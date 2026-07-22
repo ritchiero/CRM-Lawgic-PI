@@ -42,7 +42,7 @@ import {
 } from '@/lib/representativeActivity';
 import { subscribeToDespachos, updateDespacho, Despacho } from '@/services/despachoService';
 import { subscribeToRepresentatives, Representative } from '@/services/representativeService';
-import { createTarget, subscribeToTargets, Target, updateTarget } from '@/services/targetService';
+import { createTarget, deleteTarget, subscribeToTargets, Target, updateTarget } from '@/services/targetService';
 import styles from './target.module.css';
 
 const INITIAL_VISIBLE_TARGETS = 40;
@@ -186,6 +186,7 @@ export default function TargetPage() {
   const [editContactForm, setEditContactForm] = useState({ email: '', phone: '', linkedinUrl: '', leadSource: '' });
   const [despachoDropdownOpen, setDespachoDropdownOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [customDespacho, setCustomDespacho] = useState('');
   const [showPhotoInput, setShowPhotoInput] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
@@ -385,6 +386,7 @@ export default function TargetPage() {
 
   useEffect(() => {
     setShowFullProfile(false);
+    setMoreMenuOpen(false);
     setDespachoDropdownOpen(false);
     setStatusDropdownOpen(false);
     setShowPhotoInput(false);
@@ -726,9 +728,30 @@ export default function TargetPage() {
                     <div className={styles.identity}>
                       <div className={styles.identityTop}>
                         <h2>{selectedTarget.name}</h2>
-                        <div className={styles.detailHeaderActions}>
-                          <button className={styles.iconButton} aria-label="Más acciones"><EllipsisVerticalIcon /></button>
+                        <div className={styles.detailHeaderActions} style={{ position: 'relative' }}>
+                          <button className={styles.iconButton} onClick={() => setMoreMenuOpen((open) => !open)} aria-label="Más acciones" aria-expanded={moreMenuOpen}><EllipsisVerticalIcon /></button>
                           <button className={styles.iconButton} onClick={() => setSelectedId(null)} aria-label="Cerrar detalle"><XMarkIcon /></button>
+                          {moreMenuOpen && (
+                            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.35rem', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.6rem', boxShadow: '0 8px 24px rgba(15,23,42,0.12)', zIndex: 50, minWidth: '13rem', overflow: 'hidden' }}>
+                              {selectedTarget.createdBy === 'representative' ? (
+                                <p style={{ margin: 0, padding: '0.65rem 0.9rem', fontSize: '0.8rem', color: '#6b7280' }}>Esta tarjeta viene del padrón IMPI y no se puede eliminar.</p>
+                              ) : (
+                                <button
+                                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.65rem 0.9rem', background: 'none', border: 'none', color: '#dc2626', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                                  onClick={async () => {
+                                    setMoreMenuOpen(false);
+                                    if (!window.confirm(`¿Eliminar a "${selectedTarget.name}" de targets?\n\nEsta acción no se puede deshacer.`)) return;
+                                    try {
+                                      await deleteTarget(selectedTarget.id);
+                                      setSelectedId(null);
+                                    } catch {
+                                      window.alert('No se pudo eliminar el contacto. Intenta de nuevo.');
+                                    }
+                                  }}
+                                >Eliminar contacto…</button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div ref={despachoRef} className={styles.companyPicker}>
